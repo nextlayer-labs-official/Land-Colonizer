@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm init:*)",
+      "Bash(PRISMA_HIDE_UPDATE_MESSAGE=true npx prisma migrate dev --name update_roles_departments_designations)",
+      "Bash(npx create-next-app@latest frontend --javascript --tailwind --eslint --app --no-src-dir --no-turbopack --import-alias \"@/*\" --no-react-compiler --no-agents-md)",
+      "Bash(npx prisma:*)",
+      "Bash(mysql -u root ams -e \"SELECT ''roles'' as tbl, name FROM Role UNION ALL SELECT ''departments'', name FROM Department UNION ALL SELECT ''designations'', name FROM Designation;\")",
+      "Bash(node src/server.js)",
+      "Bash(npm install:*)",
+      "Bash(ls \"d:/practice/ams/frontend/app/\\(auth\\)\")",
+      "Bash(taskkill /F /IM node.exe)",
+      "Bash(taskkill //F //IM node.exe)"
+    ]
+  }
+}

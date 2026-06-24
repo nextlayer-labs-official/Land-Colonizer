@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AMS Platform — Production Deployment Guide</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      font-size: 13px;
+      color: #1e293b;
+      background: #fff;
+      line-height: 1.65;
+    }
+
+    /* ── Cover ── */
+    .cover {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #2d0f28 0%, #714B67 55%, #875A7B 100%);
+      color: #fff;
+      text-align: center;
+      page-break-after: always;
+      position: relative;
+    }
+    .cover .logo {
+      width: 80px; height: 80px;
+      background: rgba(255,255,255,0.12);
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 22px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 36px; font-weight: 900;
+      margin-bottom: 32px;
+    }
+    .cover h1 { font-size: 44px; font-weight: 800; letter-spacing: -1.5px; }
+    .cover .subtitle { font-size: 17px; margin-top: 10px; opacity: 0.8; }
+    .cover .badge-row {
+      display: flex; gap: 12px; margin-top: 36px; justify-content: center; flex-wrap: wrap;
+    }
+    .cover .cbadge {
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 999px;
+      padding: 5px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    .cover .meta {
+      position: absolute; bottom: 36px;
+      font-size: 11.5px; opacity: 0.55; letter-spacing: 0.5px;
+    }
+
+    /* ── TOC ── */
+    .toc-page {
+      max-width: 800px; margin: 0 auto;
+      padding: 56px 60px;
+      page-break-after: always;
+    }
+    .toc-title {
+      font-size: 26px; font-weight: 800; color: #0f172a;
+      border-bottom: 3px solid #875A7B;
+      padding-bottom: 10px; margin-bottom: 28px;
+    }
+    .toc-item {
+      display: flex; justify-content: space-between; align-items: baseline;
+      padding: 7px 0; border-bottom: 1px dashed #e2e8f0;
+      font-size: 13px;
+    }
+    .toc-item .toc-num { color: #875A7B; font-weight: 700; margin-right: 10px; min-width: 24px; }
+    .toc-item .toc-label { flex: 1; }
+    .toc-item .toc-tag {
+      font-size: 11px; padding: 2px 8px; border-radius: 999px;
+      font-weight: 600; margin-left: 8px;
+    }
+    .tag-req { background: #fee2e2; color: #991b1b; }
+    .tag-opt { background: #f0fdf4; color: #166534; }
+    .tag-info { background: #F5EEF3; color: #875A7B; }
+
+    /* ── Page Layout ── */
+    .page {
+      max-width: 800px; margin: 0 auto;
+      padding: 48px 60px;
+    }
+
+    /* ── Section headers ── */
+    .section-title {
+      font-size: 21px; font-weight: 800; color: #0f172a;
+      border-left: 5px solid #875A7B;
+      padding-left: 14px;
+      margin: 44px 0 18px;
+    }
+    .section-title:first-child { margin-top: 0; }
+    .section-num { color: #875A7B; margin-right: 6px; }
+
+    .sub-title {
+      font-size: 14px; font-weight: 700; color: #1e293b;
+      margin: 24px 0 10px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .sub-icon {
+      width: 26px; height: 26px;
+      background: #F5EEF3; border-radius: 6px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 13px; flex-shrink: 0;
+    }
+
+    /* ── Code blocks ── */
+    pre {
+      background: #0f172a;
+      color: #e2e8f0;
+      border-radius: 10px;
+      padding: 16px 18px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      line-height: 1.7;
+      margin: 12px 0 16px;
+      overflow: hidden;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    pre .comment { color: #64748b; }
+    pre .val { color: #60a5fa; }
+    pre .key { color: #34d399; }
+    pre .cmd { color: #fbbf24; }
+
+    code {
+      background: #f1f5f9;
+      color: #0f172a;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+    }
+
+    /* ── Tables ── */
+    table {
+      width: 100%; border-collapse: collapse;
+      margin: 14px 0 20px; font-size: 12.5px;
+    }
+    thead tr { background: #875A7B; color: #fff; }
+    thead th {
+      padding: 10px 14px; text-align: left;
+      font-weight: 600; font-size: 12px; letter-spacing: 0.3px;
+    }
+    tbody tr:nth-child(even) { background: #f8fafc; }
+    tbody td {
+      padding: 9px 14px;
+      border-bottom: 1px solid #e2e8f0;
+      vertical-align: top;
+    }
+    tbody td:first-child { font-weight: 600; color: #875A7B; white-space: nowrap; }
+
+    /* ── Info boxes ── */
+    .tip {
+      background: #F5EEF3; border-left: 4px solid #875A7B;
+      padding: 11px 14px; border-radius: 0 8px 8px 0;
+      margin: 12px 0; font-size: 12.5px; color: #714B67;
+    }
+    .warn {
+      background: #fff7ed; border-left: 4px solid #f59e0b;
+      padding: 11px 14px; border-radius: 0 8px 8px 0;
+      margin: 12px 0; font-size: 12.5px; color: #92400e;
+    }
+    .danger {
+      background: #fef2f2; border-left: 4px solid #ef4444;
+      padding: 11px 14px; border-radius: 0 8px 8px 0;
+      margin: 12px 0; font-size: 12.5px; color: #991b1b;
+    }
+    .success {
+      background: #f0fdf4; border-left: 4px solid #22c55e;
+      padding: 11px 14px; border-radius: 0 8px 8px 0;
+      margin: 12px 0; font-size: 12.5px; color: #166534;
+    }
+    .tip strong, .warn strong, .danger strong, .success strong {
+      display: block; margin-bottom: 3px;
+    }
+
+    /* ── Step list ── */
+    ol, ul { padding-left: 20px; margin: 10px 0 14px; }
+    li { margin-bottom: 6px; }
+    p { margin-bottom: 10px; }
+
+    /* ── Stack card ── */
+    .stack-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 12px; margin: 14px 0;
+    }
+    .stack-card {
+      border: 1px solid #e2e8f0; border-radius: 10px;
+      padding: 14px 16px; background: #f8fafc;
+    }
+    .stack-card h4 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 4px; }
+    .stack-card p { font-size: 13px; font-weight: 700; color: #0f172a; margin: 0; }
+    .stack-card span { font-size: 11.5px; color: #64748b; font-weight: 400; }
+
+    /* ── Checklist ── */
+    .checklist { list-style: none; padding: 0; margin: 14px 0; }
+    .checklist li {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 8px 0; border-bottom: 1px solid #f1f5f9;
+      font-size: 12.5px;
+    }
+    .checklist li .chk {
+      width: 18px; height: 18px; min-width: 18px;
+      border: 2px solid #cbd5e1; border-radius: 4px;
+      display: inline-flex; align-items: center; justify-content: center;
+      margin-top: 1px;
+    }
+
+    /* ── Page break ── */
+    .page-break { page-break-before: always; }
+
+    /* ── Footer ── */
+    .footer {
+      margin-top: 60px; padding-top: 16px;
+      border-top: 1px solid #e2e8f0;
+      font-size: 11px; color: #94a3b8; text-align: center;
+    }
+
+    @media print {
+      body { font-size: 12px; }
+      .cover { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      thead tr { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      pre { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .tip, .warn, .danger, .success { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .stack-card { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .page { padding: 36px 44px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════ COVER ══════════ -->
+<div class="cover">
+  <div class="logo">A</div>
+  <h1>AMS Platform</h1>
+  <div class="subtitle">Production Deployment Guide</div>
+  <div class="badge-row">
+    <div class="cbadge">Node.js 20</div>
+    <div class="cbadge">Next.js 15</div>
+    <div class="cbadge">MySQL 8</div>
+    <div class="cbadge">PM2</div>
+    <div class="cbadge">AWS EC2</div>
+  </div>
+  <div class="meta">Version 1.1 &nbsp;·&nbsp; May 2026 &nbsp;·&nbsp; Confidential — DevOps Reference</div>
+</div>
+
+<!-- ══════════ TABLE OF CONTENTS ══════════ -->
+<div class="toc-page">
+  <div class="toc-title">Table of Contents</div>
+
+  <div class="toc-item"><span class="toc-num">1</span><span class="toc-label">Tech Stack Overview</span><span class="toc-tag tag-info">Info</span></div>
+  <div class="toc-item"><span class="toc-num">2</span><span class="toc-label">Prerequisites</span><span class="toc-tag tag-req">Required</span></div>
+  <div class="toc-item"><span class="toc-num">3</span><span class="toc-label">Server Setup — Node.js, PM2, MySQL</span><span class="toc-tag tag-req">Required</span></div>
+  <div class="toc-item"><span class="toc-num">4</span><span class="toc-label">Upload Project Code</span><span class="toc-tag tag-req">Required</span></div>
+  <div class="toc-item"><span class="toc-num">5</span><span class="toc-label">Database Setup</span><span class="toc-tag tag-req">Required</span></div>
+  <div class="toc-item"><span class="toc-num">6</span><span class="toc-label">Backend Configuration &amp; Deployment</span><span class="toc-tag tag-req">Required</span></div>
+  <div class="toc-item"><span class="toc-num">7</span><span class="toc-label">Frontend Configuration &amp; Deployment</span><span class="toc-tag tag-req">Required</span></div>
+  <div class="toc-item"><span class="toc-num">8</span><span class="toc-label">PM2 Auto-start on Reboot</span><span class="toc-tag tag-req">Required</span></div>
+  <div class="toc-item"><span class="toc-num">9</span><span class="toc-label">AWS EC2 Security Group (Firewall)</span><span class="toc-tag tag-req">Required</span></div>
+  <div class="toc-item"><span class="toc-num">10</span><span class="toc-label">Verify Deployment</span><span class="toc-tag tag-req">Required</span></div>
+  <div class="toc-item"><span class="toc-num">11</span><span class="toc-label">Default Credentials</span><span class="toc-tag tag-info">Info</span></div>
+  <div class="toc-item"><span class="toc-num">12</span><span class="toc-label">Deploying Updates</span><span class="toc-tag tag-opt">Optional</span></div>
+  <div class="toc-item"><span class="toc-num">13</span><span class="toc-label">Useful PM2 Commands</span><span class="toc-tag tag-info">Info</span></div>
+  <div class="toc-item"><span class="toc-num">14</span><span class="toc-label">Troubleshooting</span><span class="toc-tag tag-info">Info</span></div>
+  <div class="toc-item"><span class="toc-num">15</span><span class="toc-label">Environment Variables Reference</span><span class="toc-tag tag-info">Info</span></div>
+  <div class="toc-item"><span class="toc-num">16</span><span class="toc-label">Deployment Checklist</span><span class="toc-tag tag-req">Required</span></div>
+</div>
+
+<!-- ══════════ CONTENT ══════════ -->
+<div class="page">
+
+  <!-- 1. STACK -->
+  <div class="section-title"><span class="section-num">1.</span> Tech Stack Overview</div>
+  <div class="stack-grid">
+    <div class="stack-card"><h4>Backend</h4><p>Node.js + Express 5 <span>/ Prisma ORM</span></p></div>
+    <div class="stack-card"><h4>Frontend</h4><p>Next.js 15 <span>/ App Router / Tailwind CSS</span></p></div>
+    <div class="stack-card"><h4>Database</h4><p>MySQL 8 <span>/ managed via Prisma Migrate</span></p></div>
+    <div class="stack-card"><h4>Process Manager</h4><p>PM2 <span>/ cluster/fork mode</span></p></div>
+    <div class="stack-card"><h4>Server</h4><p>AWS EC2 <span>/ Amazon Linux 2</span></p></div>
+    <div class="stack-card"><h4>Auth</h4><p>JWT <span>/ bcrypt password hashing</span></p></div>
+  </div>
+
+  <table>
+    <thead><tr><th>Service</th><th>Default Port</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td>Frontend (Next.js)</td><td>3000</td><td>User-facing web application</td></tr>
+      <tr><td>Backend (Express)</td><td>4000</td><td>REST API server</td></tr>
+      <tr><td>MySQL</td><td>3306</td><td>Database (internal only — not exposed)</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 2. PREREQUISITES -->
+  <div class="section-title"><span class="section-num">2.</span> Prerequisites</div>
+  <table>
+    <thead><tr><th>Requirement</th><th>Minimum</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>EC2 Instance</td><td>t2.micro (1GB RAM)</td><td>t2.small recommended for production</td></tr>
+      <tr><td>OS</td><td>Amazon Linux 2</td><td>Ubuntu 22.04 also works</td></tr>
+      <tr><td>Node.js</td><td>v20 LTS</td><td>Do not use v18 or below</td></tr>
+      <tr><td>MySQL</td><td>8.0</td><td>Must be running locally on the server</td></tr>
+      <tr><td>Disk</td><td>8 GB free</td><td>For code, node_modules, and logs</td></tr>
+      <tr><td>Open Ports</td><td>22, 3000, 4000</td><td>Configured in EC2 Security Group</td></tr>
+      <tr><td>SSH Key</td><td>.pem file</td><td>Used to connect to the EC2 instance</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 3. SERVER SETUP -->
+  <div class="section-title page-break"><span class="section-num">3.</span> Server Setup</div>
+
+  <div class="sub-title"><span class="sub-icon">🔌</span> Connect to EC2</div>
+  <pre><span class="cmd">ssh</span> -i your-key.pem ec2-user@<span class="val">YOUR_EC2_PUBLIC_IP</span></pre>
+
+  <div class="sub-title"><span class="sub-icon">📦</span> Install Node.js 20</div>
+  <pre><span class="comment"># Add NodeSource repo and install</span>
+curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
+sudo yum install -y nodejs
+
+<span class="comment"># Verify</span>
+node --version    <span class="comment"># should print v20.x.x</span>
+npm --version</pre>
+
+  <div class="sub-title"><span class="sub-icon">⚙️</span> Install PM2</div>
+  <pre>sudo npm install -g pm2</pre>
+
+  <div class="sub-title"><span class="sub-icon">🗄️</span> Install MySQL 8</div>
+  <pre><span class="comment"># Install MySQL 8 community server</span>
+sudo yum install -y https://dev.mysql.com/get/mysql80-community-release-el7-11.noarch.rpm
+sudo yum install -y mysql-community-server
+
+<span class="comment"># Start and enable on boot</span>
+sudo systemctl start mysqld
+sudo systemctl enable mysqld
+
+<span class="comment"># Get the temporary root password</span>
+sudo grep 'temporary password' /var/log/mysqld.log</pre>
+
+  <div class="sub-title"><span class="sub-icon">🔒</span> Secure MySQL</div>
+  <pre>sudo mysql_secure_installation
+<span class="comment"># Follow prompts:
+# - Set a strong root password
+# - Remove anonymous users: Yes
+# - Disallow root login remotely: Yes
+# - Remove test database: Yes
+# - Reload privilege tables: Yes</span></pre>
+
+  <!-- 4. UPLOAD CODE -->
+  <div class="section-title"><span class="section-num">4.</span> Upload Project Code</div>
+
+  <div class="sub-title"><span class="sub-icon">📤</span> Option A — SCP (upload from local machine)</div>
+  <pre><span class="comment"># Run these on your LOCAL machine</span>
+scp -i your-key.pem -r ./backend  ec2-user@<span class="val">YOUR_IP</span>:/home/ec2-user/myapps/
+scp -i your-key.pem -r ./frontend ec2-user@<span class="val">YOUR_IP</span>:/home/ec2-user/myapps/</pre>
+
+  <div class="sub-title"><span class="sub-icon">🐙</span> Option B — Git Clone (on server)</div>
+  <pre><span class="comment"># Run on the SERVER</span>
+mkdir -p /home/ec2-user/myapps
+cd /home/ec2-user/myapps
+git clone https://github.com/your-org/ams.git .
+
+<span class="comment"># For updates later:</span>
+git pull origin main</pre>
+
+  <div class="tip"><strong>Folder structure expected:</strong>
+    /home/ec2-user/myapps/backend/ — Express API<br/>
+    /home/ec2-user/myapps/frontend/ — Next.js app
+  </div>
+
+  <!-- 5. DATABASE -->
+  <div class="section-title page-break"><span class="section-num">5.</span> Database Setup</div>
+
+  <div class="sub-title"><span class="sub-icon">🗄️</span> Create the Database</div>
+  <pre>mysql -u root -p
+<span class="comment"># Enter your MySQL root password</span></pre>
+
+  <pre><span class="comment">-- Inside MySQL shell:</span>
+CREATE DATABASE ams CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+EXIT;</pre>
+
+  <div class="sub-title"><span class="sub-icon">🔄</span> Run Migrations</div>
+  <pre>cd /home/ec2-user/myapps/backend
+npm install
+npx prisma migrate deploy</pre>
+
+  <div class="sub-title"><span class="sub-icon">🌱</span> Seed Initial Data</div>
+  <pre>node prisma/seed.js</pre>
+
+  <div class="success"><strong>What seeding creates:</strong>
+    System roles (Super Admin) · Permission modules (Users, Roles &amp; Permissions, Settings) · Default admin user account
+  </div>
+
+  <!-- 6. BACKEND -->
+  <div class="section-title"><span class="section-num">6.</span> Backend Configuration &amp; Deployment</div>
+
+  <div class="sub-title"><span class="sub-icon">📝</span> Create .env File</div>
+  <pre>cd /home/ec2-user/myapps/backend
+nano .env</pre>
+
+  <pre><span class="comment"># Backend Environment Variables</span>
+<span class="key">PORT</span>=<span class="val">4000</span>
+<span class="key">JWT_SECRET</span>=<span class="val">your-very-long-random-secret-min-32-chars</span>
+<span class="key">JWT_EXPIRES_IN</span>=<span class="val">7d</span>
+<span class="key">DATABASE_URL</span>=<span class="val">"mysql://root:YOUR_MYSQL_PASSWORD@localhost:3306/ams"</span>
+<span class="key">ALLOWED_ORIGIN</span>=<span class="val">http://YOUR_EC2_PUBLIC_IP:3000</span></pre>
+
+  <div class="warn"><strong>Important:</strong> ALLOWED_ORIGIN must exactly match the URL you open in your browser — including protocol (http://) and port (:3000). Example: <code>http://44.203.116.252:3000</code></div>
+
+  <div class="sub-title"><span class="sub-icon">📦</span> Install Dependencies</div>
+  <pre>npm install</pre>
+
+  <div class="sub-title"><span class="sub-icon">🚀</span> Start with PM2</div>
+  <pre>pm2 start src/server.js --name backend
+pm2 save</pre>
+
+  <div class="sub-title"><span class="sub-icon">✅</span> Verify Backend</div>
+  <pre>curl http://127.0.0.1:4000/
+<span class="comment"># Expected response: {"message":"AMS API is running"}</span></pre>
+
+  <!-- 7. FRONTEND -->
+  <div class="section-title page-break"><span class="section-num">7.</span> Frontend Configuration &amp; Deployment</div>
+
+  <div class="sub-title"><span class="sub-icon">📝</span> Create .env.local File</div>
+  <pre>cd /home/ec2-user/myapps/frontend
+nano .env.local</pre>
+
+  <pre><span class="comment"># Frontend Environment Variables</span>
+<span class="key">NEXT_PUBLIC_API_URL</span>=<span class="val">http://YOUR_EC2_PUBLIC_IP:4000/api</span></pre>
+
+  <div class="sub-title"><span class="sub-icon">📦</span> Install Dependencies</div>
+  <pre>npm install</pre>
+
+  <div class="sub-title"><span class="sub-icon">🔨</span> Build for Production</div>
+  <pre>npm run build
+<span class="comment"># This compiles the Next.js app for production
+# Wait for "✓ Compiled successfully" before proceeding</span></pre>
+
+  <div class="sub-title"><span class="sub-icon">🚀</span> Start with PM2</div>
+  <pre>pm2 start npm --name frontend -- start
+pm2 save</pre>
+
+  <div class="sub-title"><span class="sub-icon">✅</span> Verify Frontend</div>
+  <pre>curl http://127.0.0.1:3000/
+<span class="comment"># Should return HTML content (Next.js rendered page)</span></pre>
+
+  <!-- 8. PM2 AUTO-START -->
+  <div class="section-title"><span class="section-num">8.</span> PM2 Auto-start on Reboot</div>
+  <p>This ensures PM2 and all processes restart automatically if the server reboots.</p>
+  <pre><span class="comment"># Generate startup script</span>
+pm2 startup
+
+<span class="comment"># PM2 will print a command — copy and run it. It looks like:</span>
+sudo env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u ec2-user --hp /home/ec2-user
+
+<span class="comment"># Save current process list</span>
+pm2 save</pre>
+
+  <div class="tip">After this, both <code>backend</code> and <code>frontend</code> will automatically restart after any server reboot — no manual intervention needed.</div>
+
+  <!-- 9. SECURITY GROUP -->
+  <div class="section-title page-break"><span class="section-num">9.</span> AWS EC2 Security Group</div>
+  <p>In the AWS Console → EC2 → Security Groups → select your instance's group → Edit Inbound Rules:</p>
+
+  <table>
+    <thead><tr><th>Type</th><th>Protocol</th><th>Port</th><th>Source</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td>SSH</td><td>TCP</td><td>22</td><td>Your IP only</td><td>Server access</td></tr>
+      <tr><td>Custom TCP</td><td>TCP</td><td>3000</td><td>0.0.0.0/0</td><td>Next.js frontend</td></tr>
+      <tr><td>Custom TCP</td><td>TCP</td><td>4000</td><td>0.0.0.0/0</td><td>Express backend API</td></tr>
+    </tbody>
+  </table>
+
+  <div class="danger"><strong>Do NOT expose port 3306 (MySQL)</strong> to the internet. It must only be accessible from localhost on the server.</div>
+
+  <!-- 10. VERIFY -->
+  <div class="section-title"><span class="section-num">10.</span> Verify Deployment</div>
+
+  <div class="sub-title"><span class="sub-icon">🔍</span> Check PM2 Status</div>
+  <pre>pm2 status
+<span class="comment"># Both "backend" and "frontend" should show: online</span></pre>
+
+  <div class="sub-title"><span class="sub-icon">🌐</span> Check from Browser</div>
+  <table>
+    <thead><tr><th>Test</th><th>URL</th><th>Expected</th></tr></thead>
+    <tbody>
+      <tr><td>Frontend</td><td>http://YOUR_EC2_IP:3000</td><td>Login page loads</td></tr>
+      <tr><td>Backend API</td><td>http://YOUR_EC2_IP:4000</td><td>{"message":"AMS API is running"}</td></tr>
+      <tr><td>Login</td><td>http://YOUR_EC2_IP:3000/login</td><td>Login with admin@admin.com / 123456</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 11. CREDENTIALS -->
+  <div class="section-title"><span class="section-num">11.</span> Default Credentials</div>
+  <table>
+    <thead><tr><th>Field</th><th>Value</th></tr></thead>
+    <tbody>
+      <tr><td>Email</td><td>admin@admin.com</td></tr>
+      <tr><td>Password</td><td>123456</td></tr>
+      <tr><td>Role</td><td>Super Admin — full system access</td></tr>
+    </tbody>
+  </table>
+  <div class="danger"><strong>Change the default password immediately after first login.</strong> Use the Users page to update the admin account password.</div>
+
+  <!-- 12. UPDATES -->
+  <div class="section-title page-break"><span class="section-num">12.</span> Deploying Updates</div>
+
+  <div class="sub-title"><span class="sub-icon">🔄</span> Backend Update</div>
+  <pre><span class="comment"># Upload new code (SCP or git pull)</span>
+cd /home/ec2-user/myapps/backend
+
+npm install                          <span class="comment"># install any new packages</span>
+npx prisma migrate deploy            <span class="comment"># only if schema changed</span>
+
+pm2 restart backend
+pm2 logs backend --lines 20 --nostream   <span class="comment"># verify no errors</span></pre>
+
+  <div class="sub-title"><span class="sub-icon">🔄</span> Frontend Update</div>
+  <pre><span class="comment"># Upload new code (SCP or git pull)</span>
+cd /home/ec2-user/myapps/frontend
+
+npm install                          <span class="comment"># install any new packages</span>
+npm run build                        <span class="comment"># rebuild for production</span>
+
+pm2 restart frontend
+pm2 logs frontend --lines 20 --nostream  <span class="comment"># verify no errors</span></pre>
+
+  <div class="tip">Always rebuild the frontend (<code>npm run build</code>) after any code change. Restarting PM2 alone does not apply frontend changes — a new build is required.</div>
+
+  <!-- 13. PM2 COMMANDS -->
+  <div class="section-title"><span class="section-num">13.</span> Useful PM2 Commands</div>
+  <table>
+    <thead><tr><th>Command</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td>pm2 status</td><td>View all running processes with uptime and CPU/mem</td></tr>
+      <tr><td>pm2 logs backend</td><td>Tail live logs for the backend</td></tr>
+      <tr><td>pm2 logs frontend</td><td>Tail live logs for the frontend</td></tr>
+      <tr><td>pm2 logs backend --lines 50 --nostream</td><td>View last 50 lines without tailing</td></tr>
+      <tr><td>pm2 restart backend</td><td>Restart the backend process</td></tr>
+      <tr><td>pm2 restart frontend</td><td>Restart the frontend process</td></tr>
+      <tr><td>pm2 stop backend</td><td>Stop the backend (without removing it)</td></tr>
+      <tr><td>pm2 delete backend</td><td>Remove the backend from PM2</td></tr>
+      <tr><td>pm2 flush</td><td>Clear all log files</td></tr>
+      <tr><td>pm2 save</td><td>Save current process list for reboot persistence</td></tr>
+      <tr><td>pm2 kill</td><td>Stop the PM2 daemon entirely</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 14. TROUBLESHOOTING -->
+  <div class="section-title page-break"><span class="section-num">14.</span> Troubleshooting</div>
+
+  <table>
+    <thead><tr><th>Problem</th><th>Likely Cause</th><th>Fix</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Backend exits immediately</td>
+        <td>Zombie node process holding port 4000</td>
+        <td>Run <code>ss -tlnp | grep 4000</code> → <code>kill -9 &lt;pid&gt;</code> → restart PM2</td>
+      </tr>
+      <tr>
+        <td>Login hangs / CORS error</td>
+        <td>ALLOWED_ORIGIN mismatch</td>
+        <td>Check <code>.env</code> — ALLOWED_ORIGIN must exactly match the browser URL</td>
+      </tr>
+      <tr>
+        <td>Frontend can't reach API</td>
+        <td>Wrong NEXT_PUBLIC_API_URL</td>
+        <td>Check <code>.env.local</code> — must point to EC2 IP port 4000, not localhost</td>
+      </tr>
+      <tr>
+        <td>Database connection error</td>
+        <td>MySQL not running or wrong credentials</td>
+        <td><code>sudo systemctl status mysqld</code> → check DATABASE_URL in .env</td>
+      </tr>
+      <tr>
+        <td>npm run build fails</td>
+        <td>Missing env vars or code error</td>
+        <td>Check <code>.env.local</code> exists and NEXT_PUBLIC_API_URL is set</td>
+      </tr>
+      <tr>
+        <td>PM2 shows "errored"</td>
+        <td>App crash on startup</td>
+        <td><code>pm2 logs backend --lines 50 --nostream</code> to see the error</td>
+      </tr>
+      <tr>
+        <td>curl hangs on localhost</td>
+        <td>IPv6 vs IPv4 resolution</td>
+        <td>Use <code>curl http://127.0.0.1:4000/</code> instead of localhost</td>
+      </tr>
+      <tr>
+        <td>Port already in use</td>
+        <td>Old process not cleaned up</td>
+        <td><code>ss -tlnp | grep PORT</code> → <code>kill -9 &lt;pid&gt;</code></td>
+      </tr>
+      <tr>
+        <td>Prisma migration error</td>
+        <td>Wrong DATABASE_URL or MySQL down</td>
+        <td>Verify MySQL is running and DATABASE_URL password is correct</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- 15. ENV REFERENCE -->
+  <div class="section-title"><span class="section-num">15.</span> Environment Variables Reference</div>
+
+  <div class="sub-title"><span class="sub-icon">⚙️</span> Backend — /myapps/backend/.env</div>
+  <table>
+    <thead><tr><th>Variable</th><th>Example Value</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td>PORT</td><td>4000</td><td>Port the Express server listens on</td></tr>
+      <tr><td>JWT_SECRET</td><td>a-long-random-string</td><td>Secret for signing JWT tokens — keep private</td></tr>
+      <tr><td>JWT_EXPIRES_IN</td><td>7d</td><td>Token expiry — 7d means 7 days</td></tr>
+      <tr><td>DATABASE_URL</td><td>mysql://root:pass@localhost:3306/ams</td><td>MySQL connection string</td></tr>
+      <tr><td>ALLOWED_ORIGIN</td><td>http://44.203.116.252:3000</td><td>Frontend URL — must match browser address exactly</td></tr>
+    </tbody>
+  </table>
+
+  <div class="sub-title"><span class="sub-icon">⚙️</span> Frontend — /myapps/frontend/.env.local</div>
+  <table>
+    <thead><tr><th>Variable</th><th>Example Value</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td>NEXT_PUBLIC_API_URL</td><td>http://44.203.116.252:4000/api</td><td>Backend API base URL — used by all frontend API calls</td></tr>
+    </tbody>
+  </table>
+
+  <div class="warn">Never use <code>localhost</code> in frontend env variables when deploying to a server. Always use the EC2 public IP or domain name.</div>
+
+  <!-- 16. CHECKLIST -->
+  <div class="section-title page-break"><span class="section-num">16.</span> Deployment Checklist</div>
+  <p>Use this checklist to confirm every step is complete before handing over to the client.</p>
+
+  <div class="sub-title"><span class="sub-icon">🖥️</span> Server</div>
+  <ul class="checklist">
+    <li><div class="chk"></div>EC2 instance is running and accessible via SSH</li>
+    <li><div class="chk"></div>Node.js v20 is installed (<code>node --version</code>)</li>
+    <li><div class="chk"></div>PM2 is installed globally (<code>pm2 --version</code>)</li>
+    <li><div class="chk"></div>MySQL 8 is installed and running (<code>sudo systemctl status mysqld</code>)</li>
+    <li><div class="chk"></div>MySQL root password is set (secure, not default)</li>
+    <li><div class="chk"></div>EC2 Security Group allows ports 22, 3000, 4000</li>
+    <li><div class="chk"></div>Port 3306 (MySQL) is NOT exposed publicly</li>
+  </ul>
+
+  <div class="sub-title"><span class="sub-icon">🗄️</span> Database</div>
+  <ul class="checklist">
+    <li><div class="chk"></div><code>ams</code> database created in MySQL</li>
+    <li><div class="chk"></div>Prisma migrations applied (<code>npx prisma migrate deploy</code>)</li>
+    <li><div class="chk"></div>Seed script run (<code>node prisma/seed.js</code>)</li>
+    <li><div class="chk"></div>Admin user exists in database</li>
+  </ul>
+
+  <div class="sub-title"><span class="sub-icon">⚙️</span> Backend</div>
+  <ul class="checklist">
+    <li><div class="chk"></div><code>.env</code> file created with all required variables</li>
+    <li><div class="chk"></div>JWT_SECRET is a strong random string (not a placeholder)</li>
+    <li><div class="chk"></div>ALLOWED_ORIGIN matches the exact frontend browser URL</li>
+    <li><div class="chk"></div>DATABASE_URL points to correct MySQL credentials</li>
+    <li><div class="chk"></div><code>npm install</code> completed without errors</li>
+    <li><div class="chk"></div>PM2 backend process is <strong>online</strong></li>
+    <li><div class="chk"></div><code>curl http://127.0.0.1:4000/</code> returns API response</li>
+  </ul>
+
+  <div class="sub-title"><span class="sub-icon">🌐</span> Frontend</div>
+  <ul class="checklist">
+    <li><div class="chk"></div><code>.env.local</code> file created with NEXT_PUBLIC_API_URL</li>
+    <li><div class="chk"></div>URL points to EC2 IP (not localhost)</li>
+    <li><div class="chk"></div><code>npm install</code> completed without errors</li>
+    <li><div class="chk"></div><code>npm run build</code> completed successfully</li>
+    <li><div class="chk"></div>PM2 frontend process is <strong>online</strong></li>
+    <li><div class="chk"></div>Login page loads in browser</li>
+  </ul>
+
+  <div class="sub-title"><span class="sub-icon">✅</span> Final Verification</div>
+  <ul class="checklist">
+    <li><div class="chk"></div>PM2 startup configured (auto-restart on reboot)</li>
+    <li><div class="chk"></div><code>pm2 save</code> run after startup configuration</li>
+    <li><div class="chk"></div>Login works with admin@admin.com / 123456</li>
+    <li><div class="chk"></div>Default admin password changed</li>
+    <li><div class="chk"></div>Dashboard loads and displays user/role counts correctly</li>
+    <li><div class="chk"></div>New user can be created and logged in successfully</li>
+    <li><div class="chk"></div>Role permissions toggled and verified on next user action</li>
+    <li><div class="chk"></div>Company name updated in Settings and reflected in the header</li>
+  </ul>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    AMS Platform &nbsp;·&nbsp; Production Deployment Guide v1.1 &nbsp;·&nbsp; May 2026 &nbsp;·&nbsp; Confidential — DevOps Reference
+  </div>
+
+</div>
+</body>
+</html>
