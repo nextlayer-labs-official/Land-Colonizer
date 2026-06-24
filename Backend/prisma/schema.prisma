@@ -1,0 +1,502 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id              Int              @id @default(autoincrement())
+  name            String           @unique
+  slug            String           @unique
+  description     String?
+  is_system       Boolean          @default(false)
+  created_at      DateTime         @default(now())
+  updated_at      DateTime         @updatedAt
+  users           User[]
+  rolePermissions RolePermission[]
+}
+
+model User {
+  id                  Int                  @id @default(autoincrement())
+  name                String
+  email               String               @unique
+  phone               String?              @unique
+  password            String
+  role                Role                 @relation(fields: [role_id], references: [id])
+  role_id             Int
+  status              UserStatus           @default(ACTIVE)
+  is_verified         Boolean              @default(false)
+  created_at          DateTime             @default(now())
+  updated_at          DateTime             @updatedAt
+  passwordResetTokens PasswordResetToken[]
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Module {
+  id          Int          @id @default(autoincrement())
+  name        String       @unique
+  slug        String       @unique
+  description String?
+  created_at  DateTime     @default(now())
+  updated_at  DateTime     @updatedAt
+  permissions Permission[]
+}
+
+model Permission {
+  id              Int              @id @default(autoincrement())
+  module          Module           @relation(fields: [module_id], references: [id])
+  module_id       Int
+  action          PermissionAction
+  code            String           @unique
+  created_at      DateTime         @default(now())
+  rolePermissions RolePermission[]
+
+  @@unique([module_id, action])
+}
+
+enum PermissionAction {
+  CREATE
+  VIEW
+  EDIT
+  DELETE
+  APPROVE
+  FINANCE
+}
+
+model RolePermission {
+  id            Int        @id @default(autoincrement())
+  role          Role       @relation(fields: [role_id], references: [id])
+  role_id       Int
+  permission    Permission @relation(fields: [permission_id], references: [id])
+  permission_id Int
+  allowed       Boolean    @default(false)
+
+  @@unique([role_id, permission_id])
+}
+
+model CompanySettings {
+  id                   Int      @id @default(autoincrement())
+  company_name         String   @default("AMS")
+  company_logo         String?
+  company_address      String?  @db.Text
+  company_phone        String?
+  company_email        String?
+  company_website      String?
+  company_gstin        String?
+  smtp_host            String?
+  smtp_port            Int      @default(587)
+  smtp_user            String?
+  smtp_pass            String?
+  smtp_from_name       String?
+  smtp_from_email      String?
+  email_notifications  Boolean  @default(false)
+  login_max_attempts   Int      @default(5)
+  login_window_minutes Int      @default(15)
+  max_upload_mb        Int      @default(5)
+  project_prefix       String   @default("PRJ")
+  purchase_prefix      String   @default("PUR")
+  inventory_prefix     String   @default("INV")
+  sale_prefix          String   @default("SAL")
+  customer_prefix      String   @default("CUS")
+  broker_prefix        String   @default("BRK")
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+}
+
+model PasswordResetToken {
+  id         Int      @id @default(autoincrement())
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user_id    Int
+  token      String   @unique
+  expires_at DateTime
+  used       Boolean  @default(false)
+  created_at DateTime @default(now())
+}
+
+model Customer {
+  id            Int            @id @default(autoincrement())
+  customer_code String?        @unique
+  name          String
+  phone         String?
+  email         String?
+  address       String?        @db.Text
+  type          CustomerType   @default(INDIVIDUAL)
+  pan           String?
+  aadhaar       String?
+  other         String?
+  status        CustomerStatus @default(ACTIVE)
+  created_at    DateTime       @default(now())
+  updated_at    DateTime       @updatedAt
+  sales         Sale[]
+}
+
+enum CustomerType {
+  INDIVIDUAL
+  COMPANY
+}
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Broker {
+  id          Int          @id @default(autoincrement())
+  broker_code String?      @unique
+  name        String
+  phone       String?
+  email       String?
+  details     String?      @db.Text
+  status      BrokerStatus @default(ACTIVE)
+  created_at  DateTime     @default(now())
+  updated_at  DateTime     @updatedAt
+  sales       Sale[]
+}
+
+enum BrokerStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Sale {
+  id                        Int              @id @default(autoincrement())
+  sale_code                 String?          @unique
+  inventory_id              Int?
+  customer_id               Int?
+  broker_id                 Int?
+  sale_date                 DateTime?
+  type                      SaleType?
+  sl_no                     String?
+  details                   String?          @db.Text
+  broker_name               String?
+  broker_details            String?          @db.Text
+  front_area                Decimal?         @db.Decimal(10, 2)
+  front_area_details        String?
+  back_area                 Decimal?         @db.Decimal(10, 2)
+  back_area_details         String?
+  total_area                Decimal?         @db.Decimal(10, 2)
+  total_area_details        String?
+  plot_rate                 Decimal?         @db.Decimal(10, 2)
+  total_value               Decimal?         @db.Decimal(10, 2)
+  selling_rate              Decimal?         @db.Decimal(10, 2)
+  actual_price              Decimal?         @db.Decimal(10, 2)
+  booking_amount            Decimal?         @db.Decimal(10, 2)
+  booking_details           String?          @db.Text
+  advance_payment           Decimal?         @db.Decimal(10, 2)
+  advance_payment_details   String?          @db.Text
+  balance_amount            Decimal?         @db.Decimal(10, 2)
+  balance_amount_details    String?
+  registration_charges      Decimal?         @db.Decimal(10, 2)
+  registration_details      String?          @db.Text
+  intkaal_charges           Decimal?         @db.Decimal(10, 2)
+  intkaal_details           String?
+  water_connection_charges  Decimal?         @db.Decimal(10, 2)
+  water_connection_details  String?
+  electricity_meter_charges Decimal?         @db.Decimal(10, 2)
+  electricity_meter_details String?
+  payment_due_date          DateTime?
+  registration_area         Decimal?         @db.Decimal(10, 2)
+  discount                  Decimal?         @db.Decimal(10, 2)
+  discount_details          String?
+  brokerage                 Decimal?         @db.Decimal(10, 2)
+  brokerage_details         String?
+  incentive                 Decimal?         @db.Decimal(10, 2)
+  incentive_details         String?
+  extra_income              Decimal?         @db.Decimal(10, 2)
+  extra_income_details      String?
+  net_amount                Decimal?         @db.Decimal(10, 2)
+  intkaal_number            String?
+  date_of_registration      DateTime?
+  vasika                    String?
+  possession                PossessionStatus @default(PENDING)
+  possession_detail         String?
+  other_details             String?          @db.Text
+  status                    SaleStatus       @default(ACTIVE)
+  created_at                DateTime         @default(now())
+  updated_at                DateTime         @updatedAt
+  inventory                 Inventory?       @relation(fields: [inventory_id], references: [id])
+  customer                  Customer?        @relation(fields: [customer_id], references: [id])
+  broker                    Broker?          @relation(fields: [broker_id], references: [id])
+  installment               Installment?
+}
+
+enum SaleType {
+  PLOT
+  SHOP
+  SHOP_WIRE
+  PLOT_WIRE
+}
+
+enum PossessionStatus {
+  PENDING
+  SYMBOLIC
+  PHYSICAL
+}
+
+enum SaleStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Installment {
+  id                  Int      @id @default(autoincrement())
+  sale_id             Int      @unique
+  sl_no               String?
+  installment_details String?  @db.Text
+
+  inst_1_amount   Decimal?  @db.Decimal(12, 2)
+  inst_1_date     DateTime?
+  inst_1_paid     Boolean   @default(false)
+  inst_2_amount   Decimal?  @db.Decimal(12, 2)
+  inst_2_date     DateTime?
+  inst_2_paid     Boolean   @default(false)
+  inst_3_amount   Decimal?  @db.Decimal(12, 2)
+  inst_3_date     DateTime?
+  inst_3_paid     Boolean   @default(false)
+  inst_4_amount   Decimal?  @db.Decimal(12, 2)
+  inst_4_date     DateTime?
+  inst_4_paid     Boolean   @default(false)
+  inst_5_amount   Decimal?  @db.Decimal(12, 2)
+  inst_5_date     DateTime?
+  inst_5_paid     Boolean   @default(false)
+  inst_6_amount   Decimal?  @db.Decimal(12, 2)
+  inst_6_date     DateTime?
+  inst_6_paid     Boolean   @default(false)
+  inst_7_amount   Decimal?  @db.Decimal(12, 2)
+  inst_7_date     DateTime?
+  inst_7_paid     Boolean   @default(false)
+  inst_8_amount   Decimal?  @db.Decimal(12, 2)
+  inst_8_date     DateTime?
+  inst_8_paid     Boolean   @default(false)
+  inst_9_amount   Decimal?  @db.Decimal(12, 2)
+  inst_9_date     DateTime?
+  inst_9_paid     Boolean   @default(false)
+  inst_10_amount  Decimal?  @db.Decimal(12, 2)
+  inst_10_date    DateTime?
+  inst_10_paid    Boolean   @default(false)
+  inst_11_amount  Decimal?  @db.Decimal(12, 2)
+  inst_11_date    DateTime?
+  inst_11_paid    Boolean   @default(false)
+  inst_12_amount  Decimal?  @db.Decimal(12, 2)
+  inst_12_date    DateTime?
+  inst_12_paid    Boolean   @default(false)
+  inst_13_amount  Decimal?  @db.Decimal(12, 2)
+  inst_13_date    DateTime?
+  inst_13_paid    Boolean   @default(false)
+  inst_14_amount  Decimal?  @db.Decimal(12, 2)
+  inst_14_date    DateTime?
+  inst_14_paid    Boolean   @default(false)
+  inst_15_amount  Decimal?  @db.Decimal(12, 2)
+  inst_15_date    DateTime?
+  inst_15_paid    Boolean   @default(false)
+  inst_16_amount  Decimal?  @db.Decimal(12, 2)
+  inst_16_date    DateTime?
+  inst_16_paid    Boolean   @default(false)
+  inst_17_amount  Decimal?  @db.Decimal(12, 2)
+  inst_17_date    DateTime?
+  inst_17_paid    Boolean   @default(false)
+  inst_18_amount  Decimal?  @db.Decimal(12, 2)
+  inst_18_date    DateTime?
+  inst_18_paid    Boolean   @default(false)
+  inst_19_amount  Decimal?  @db.Decimal(12, 2)
+  inst_19_date    DateTime?
+  inst_19_paid    Boolean   @default(false)
+  inst_20_amount  Decimal?  @db.Decimal(12, 2)
+  inst_20_date    DateTime?
+  inst_20_paid    Boolean   @default(false)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  sale       Sale     @relation(fields: [sale_id], references: [id], onDelete: Cascade)
+}
+
+model PurchaseInstallment {
+  id                  Int      @id @default(autoincrement())
+  purchase_id         Int      @unique
+  sl_no               String?
+  installment_details String?  @db.Text
+
+  inst_1_amount   Decimal?  @db.Decimal(12, 2)
+  inst_1_date     DateTime?
+  inst_1_paid     Boolean   @default(false)
+  inst_2_amount   Decimal?  @db.Decimal(12, 2)
+  inst_2_date     DateTime?
+  inst_2_paid     Boolean   @default(false)
+  inst_3_amount   Decimal?  @db.Decimal(12, 2)
+  inst_3_date     DateTime?
+  inst_3_paid     Boolean   @default(false)
+  inst_4_amount   Decimal?  @db.Decimal(12, 2)
+  inst_4_date     DateTime?
+  inst_4_paid     Boolean   @default(false)
+  inst_5_amount   Decimal?  @db.Decimal(12, 2)
+  inst_5_date     DateTime?
+  inst_5_paid     Boolean   @default(false)
+  inst_6_amount   Decimal?  @db.Decimal(12, 2)
+  inst_6_date     DateTime?
+  inst_6_paid     Boolean   @default(false)
+  inst_7_amount   Decimal?  @db.Decimal(12, 2)
+  inst_7_date     DateTime?
+  inst_7_paid     Boolean   @default(false)
+  inst_8_amount   Decimal?  @db.Decimal(12, 2)
+  inst_8_date     DateTime?
+  inst_8_paid     Boolean   @default(false)
+  inst_9_amount   Decimal?  @db.Decimal(12, 2)
+  inst_9_date     DateTime?
+  inst_9_paid     Boolean   @default(false)
+  inst_10_amount  Decimal?  @db.Decimal(12, 2)
+  inst_10_date    DateTime?
+  inst_10_paid    Boolean   @default(false)
+  inst_11_amount  Decimal?  @db.Decimal(12, 2)
+  inst_11_date    DateTime?
+  inst_11_paid    Boolean   @default(false)
+  inst_12_amount  Decimal?  @db.Decimal(12, 2)
+  inst_12_date    DateTime?
+  inst_12_paid    Boolean   @default(false)
+  inst_13_amount  Decimal?  @db.Decimal(12, 2)
+  inst_13_date    DateTime?
+  inst_13_paid    Boolean   @default(false)
+  inst_14_amount  Decimal?  @db.Decimal(12, 2)
+  inst_14_date    DateTime?
+  inst_14_paid    Boolean   @default(false)
+  inst_15_amount  Decimal?  @db.Decimal(12, 2)
+  inst_15_date    DateTime?
+  inst_15_paid    Boolean   @default(false)
+  inst_16_amount  Decimal?  @db.Decimal(12, 2)
+  inst_16_date    DateTime?
+  inst_16_paid    Boolean   @default(false)
+  inst_17_amount  Decimal?  @db.Decimal(12, 2)
+  inst_17_date    DateTime?
+  inst_17_paid    Boolean   @default(false)
+  inst_18_amount  Decimal?  @db.Decimal(12, 2)
+  inst_18_date    DateTime?
+  inst_18_paid    Boolean   @default(false)
+  inst_19_amount  Decimal?  @db.Decimal(12, 2)
+  inst_19_date    DateTime?
+  inst_19_paid    Boolean   @default(false)
+  inst_20_amount  Decimal?  @db.Decimal(12, 2)
+  inst_20_date    DateTime?
+  inst_20_paid    Boolean   @default(false)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  purchase   Purchase @relation(fields: [purchase_id], references: [id], onDelete: Cascade)
+}
+
+model Purchase {
+  id                           Int              @id @default(autoincrement())
+  purchase_code                String?          @unique
+  purchase_category            PurchaseCategory @default(SINGLE)
+  type                         PurchaseType     @default(PLOT)
+  sl_no                        String?
+  location                     String?
+  purchase_broker_name         String?
+  purchase_broker_details      String?          @db.Text
+  sell_broker_name             String?
+  sell_broker_details          String?          @db.Text
+  seller_details               String?          @db.Text
+  plot_no                      String?
+  purchased_area               Decimal?         @db.Decimal(10, 2)
+  purchased_area_details       String?
+  rate                         Decimal?         @db.Decimal(10, 2)
+  rate_details                 String?
+  total_amount_details         String?
+  advance_paid                 Decimal?         @db.Decimal(10, 2)
+  advance_payment_details      String?          @db.Text
+  instalment_details           String?          @db.Text
+  remaining_paid               Boolean          @default(false)
+  against_registration_paid    Boolean          @default(false)
+  registration_date            DateTime?
+  registration_details         String?          @db.Text
+  brokerage                    Decimal?         @db.Decimal(10, 2)
+  brokerage_details            String?
+  extra_expenses               Decimal?         @db.Decimal(10, 2)
+  extra_expenses_details       String?
+  registration_charges         Decimal?         @db.Decimal(10, 2)
+  registration_charges_details String?
+  extra_income                 Decimal?         @db.Decimal(10, 2)
+  extra_income_details         String?
+  other_details                String?          @db.Text
+  status                       PurchaseStatus   @default(ACTIVE)
+  created_at                   DateTime         @default(now())
+  updated_at                   DateTime         @updatedAt
+  inventory                    Inventory[]
+  purchaseInstallment          PurchaseInstallment?
+}
+
+model Project {
+  id           Int           @id @default(autoincrement())
+  project_code String?       @unique
+  name         String
+  location     String?
+  status       ProjectStatus @default(OPEN)
+  created_at   DateTime      @default(now())
+  updated_at   DateTime      @updatedAt
+  inventory    Inventory[]
+}
+
+enum ProjectStatus {
+  OPEN
+  ONGOING
+  CLOSED
+}
+
+model Inventory {
+  id                Int             @id @default(autoincrement())
+  inventory_code    String?         @unique
+  purchase_id       Int
+  project_id        Int?
+  type              UnitType        @default(PLOT)
+  sl_no             String?
+  location          String?
+  plot_no           String?
+  front_area        Decimal?        @db.Decimal(10, 4)
+  front_area_details String?
+  back_area         Decimal?        @db.Decimal(10, 4)
+  back_area_details  String?
+  area              Decimal?        @db.Decimal(10, 4)
+  area_unit         String?
+  rate              Decimal?        @db.Decimal(10, 2)
+  registration_date DateTime?
+  status            InventoryStatus @default(AVAILABLE)
+  created_at        DateTime        @default(now())
+  updated_at        DateTime        @updatedAt
+  purchase          Purchase        @relation(fields: [purchase_id], references: [id])
+  project           Project?        @relation(fields: [project_id], references: [id])
+  sales             Sale[]
+}
+
+enum PurchaseCategory {
+  SINGLE
+  DIVIDED
+}
+
+enum PurchaseType {
+  LAND
+  SHOP
+  PLOT
+}
+
+enum PurchaseStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum UnitType {
+  PLOT
+  SHOP
+  LAND
+}
+
+enum InventoryStatus {
+  AVAILABLE
+  RESERVED
+  SOLD
+  REGISTERED
+}
