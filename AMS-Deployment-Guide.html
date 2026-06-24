@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>AMS Platform — Production Deployment Guide</title>
+  <title>Land Colonizer AMS — Production Deployment Guide</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -238,17 +238,17 @@
 
 <!-- ══════════ COVER ══════════ -->
 <div class="cover">
-  <div class="logo">A</div>
-  <h1>AMS Platform</h1>
+  <div class="logo">LC</div>
+  <h1>Land Colonizer AMS</h1>
   <div class="subtitle">Production Deployment Guide</div>
   <div class="badge-row">
     <div class="cbadge">Node.js 20</div>
-    <div class="cbadge">Next.js 15</div>
+    <div class="cbadge">Next.js 16</div>
     <div class="cbadge">MySQL 8</div>
     <div class="cbadge">PM2</div>
     <div class="cbadge">AWS EC2</div>
   </div>
-  <div class="meta">Version 1.1 &nbsp;·&nbsp; May 2026 &nbsp;·&nbsp; Confidential — DevOps Reference</div>
+  <div class="meta">Version 1.2 &nbsp;·&nbsp; June 2026 &nbsp;·&nbsp; Confidential — DevOps Reference</div>
 </div>
 
 <!-- ══════════ TABLE OF CONTENTS ══════════ -->
@@ -279,12 +279,12 @@
   <!-- 1. STACK -->
   <div class="section-title"><span class="section-num">1.</span> Tech Stack Overview</div>
   <div class="stack-grid">
-    <div class="stack-card"><h4>Backend</h4><p>Node.js + Express 5 <span>/ Prisma ORM</span></p></div>
-    <div class="stack-card"><h4>Frontend</h4><p>Next.js 15 <span>/ App Router / Tailwind CSS</span></p></div>
-    <div class="stack-card"><h4>Database</h4><p>MySQL 8 <span>/ managed via Prisma Migrate</span></p></div>
-    <div class="stack-card"><h4>Process Manager</h4><p>PM2 <span>/ cluster/fork mode</span></p></div>
-    <div class="stack-card"><h4>Server</h4><p>AWS EC2 <span>/ Amazon Linux 2</span></p></div>
-    <div class="stack-card"><h4>Auth</h4><p>JWT <span>/ bcrypt password hashing</span></p></div>
+    <div class="stack-card"><h4>Backend</h4><p>Node.js + Express 5 <span>/ Prisma 5 ORM</span></p></div>
+    <div class="stack-card"><h4>Frontend</h4><p>Next.js 16 + React 19 <span>/ App Router / Tailwind v4</span></p></div>
+    <div class="stack-card"><h4>Database</h4><p>MySQL 8 <span>/ managed via Prisma db push</span></p></div>
+    <div class="stack-card"><h4>Process Manager</h4><p>PM2 <span>/ fork mode</span></p></div>
+    <div class="stack-card"><h4>Server</h4><p>AWS EC2 <span>/ Amazon Linux 2 / Ubuntu 22.04</span></p></div>
+    <div class="stack-card"><h4>Auth</h4><p>JWT 7d <span>/ bcrypt password hashing / RBAC</span></p></div>
   </div>
 
   <table>
@@ -355,21 +355,21 @@ sudo grep 'temporary password' /var/log/mysqld.log</pre>
 
   <div class="sub-title"><span class="sub-icon">📤</span> Option A — SCP (upload from local machine)</div>
   <pre><span class="comment"># Run these on your LOCAL machine</span>
-scp -i your-key.pem -r ./backend  ec2-user@<span class="val">YOUR_IP</span>:/home/ec2-user/myapps/
-scp -i your-key.pem -r ./frontend ec2-user@<span class="val">YOUR_IP</span>:/home/ec2-user/myapps/</pre>
+scp -i your-key.pem -r ./Backend  ec2-user@<span class="val">YOUR_IP</span>:/home/ec2-user/myapps/
+scp -i your-key.pem -r ./Frontend ec2-user@<span class="val">YOUR_IP</span>:/home/ec2-user/myapps/</pre>
 
   <div class="sub-title"><span class="sub-icon">🐙</span> Option B — Git Clone (on server)</div>
   <pre><span class="comment"># Run on the SERVER</span>
 mkdir -p /home/ec2-user/myapps
 cd /home/ec2-user/myapps
-git clone https://github.com/your-org/ams.git .
+git clone https://github.com/nextlayer-labs-official/Land-Colonizer.git .
 
 <span class="comment"># For updates later:</span>
 git pull origin main</pre>
 
   <div class="tip"><strong>Folder structure expected:</strong>
-    /home/ec2-user/myapps/backend/ — Express API<br/>
-    /home/ec2-user/myapps/frontend/ — Next.js app
+    /home/ec2-user/myapps/Backend/ — Express API<br/>
+    /home/ec2-user/myapps/Frontend/ — Next.js app
   </div>
 
   <!-- 5. DATABASE -->
@@ -383,10 +383,13 @@ git pull origin main</pre>
 CREATE DATABASE ams CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 EXIT;</pre>
 
-  <div class="sub-title"><span class="sub-icon">🔄</span> Run Migrations</div>
-  <pre>cd /home/ec2-user/myapps/backend
+  <div class="sub-title"><span class="sub-icon">🔄</span> Push Schema (Prisma db push)</div>
+  <pre>cd /home/ec2-user/myapps/Backend
 npm install
-npx prisma migrate deploy</pre>
+npx prisma generate
+npx prisma db push</pre>
+
+  <div class="warn"><strong>Note:</strong> This project uses <code>prisma db push</code> (not <code>migrate deploy</code>). The schema is in <code>Backend/prisma/schema.prisma</code>. Run <code>prisma db push</code> again whenever the schema changes.</div>
 
   <div class="sub-title"><span class="sub-icon">🌱</span> Seed Initial Data</div>
   <pre>node prisma/seed.js</pre>
@@ -399,7 +402,7 @@ npx prisma migrate deploy</pre>
   <div class="section-title"><span class="section-num">6.</span> Backend Configuration &amp; Deployment</div>
 
   <div class="sub-title"><span class="sub-icon">📝</span> Create .env File</div>
-  <pre>cd /home/ec2-user/myapps/backend
+  <pre>cd /home/ec2-user/myapps/Backend
 nano .env</pre>
 
   <pre><span class="comment"># Backend Environment Variables</span>
@@ -412,7 +415,8 @@ nano .env</pre>
   <div class="warn"><strong>Important:</strong> ALLOWED_ORIGIN must exactly match the URL you open in your browser — including protocol (http://) and port (:3000). Example: <code>http://44.203.116.252:3000</code></div>
 
   <div class="sub-title"><span class="sub-icon">📦</span> Install Dependencies</div>
-  <pre>npm install</pre>
+  <pre>npm install
+npx prisma generate</pre>
 
   <div class="sub-title"><span class="sub-icon">🚀</span> Start with PM2</div>
   <pre>pm2 start src/server.js --name backend
@@ -426,7 +430,7 @@ pm2 save</pre>
   <div class="section-title page-break"><span class="section-num">7.</span> Frontend Configuration &amp; Deployment</div>
 
   <div class="sub-title"><span class="sub-icon">📝</span> Create .env.local File</div>
-  <pre>cd /home/ec2-user/myapps/frontend
+  <pre>cd /home/ec2-user/myapps/Frontend
 nano .env.local</pre>
 
   <pre><span class="comment"># Frontend Environment Variables</span>
@@ -510,18 +514,20 @@ pm2 save</pre>
   <div class="section-title page-break"><span class="section-num">12.</span> Deploying Updates</div>
 
   <div class="sub-title"><span class="sub-icon">🔄</span> Backend Update</div>
-  <pre><span class="comment"># Upload new code (SCP or git pull)</span>
-cd /home/ec2-user/myapps/backend
+  <pre><span class="comment"># Pull latest code</span>
+cd /home/ec2-user/myapps
+git pull origin main
 
+cd Backend
 npm install                          <span class="comment"># install any new packages</span>
-npx prisma migrate deploy            <span class="comment"># only if schema changed</span>
+npx prisma generate                  <span class="comment"># always re-generate after pull</span>
+npx prisma db push                   <span class="comment"># only if schema.prisma changed</span>
 
 pm2 restart backend
 pm2 logs backend --lines 20 --nostream   <span class="comment"># verify no errors</span></pre>
 
   <div class="sub-title"><span class="sub-icon">🔄</span> Frontend Update</div>
-  <pre><span class="comment"># Upload new code (SCP or git pull)</span>
-cd /home/ec2-user/myapps/frontend
+  <pre>cd /home/ec2-user/myapps/Frontend
 
 npm install                          <span class="comment"># install any new packages</span>
 npm run build                        <span class="comment"># rebuild for production</span>
@@ -597,9 +603,9 @@ pm2 logs frontend --lines 20 --nostream  <span class="comment"># verify no error
         <td><code>ss -tlnp | grep PORT</code> → <code>kill -9 &lt;pid&gt;</code></td>
       </tr>
       <tr>
-        <td>Prisma migration error</td>
+        <td>Prisma db push error</td>
         <td>Wrong DATABASE_URL or MySQL down</td>
-        <td>Verify MySQL is running and DATABASE_URL password is correct</td>
+        <td>Verify MySQL is running and DATABASE_URL password is correct. Run <code>npx prisma generate</code> first, then <code>npx prisma db push</code></td>
       </tr>
     </tbody>
   </table>
@@ -607,7 +613,7 @@ pm2 logs frontend --lines 20 --nostream  <span class="comment"># verify no error
   <!-- 15. ENV REFERENCE -->
   <div class="section-title"><span class="section-num">15.</span> Environment Variables Reference</div>
 
-  <div class="sub-title"><span class="sub-icon">⚙️</span> Backend — /myapps/backend/.env</div>
+  <div class="sub-title"><span class="sub-icon">⚙️</span> Backend — /myapps/Backend/.env</div>
   <table>
     <thead><tr><th>Variable</th><th>Example Value</th><th>Description</th></tr></thead>
     <tbody>
@@ -619,7 +625,7 @@ pm2 logs frontend --lines 20 --nostream  <span class="comment"># verify no error
     </tbody>
   </table>
 
-  <div class="sub-title"><span class="sub-icon">⚙️</span> Frontend — /myapps/frontend/.env.local</div>
+  <div class="sub-title"><span class="sub-icon">⚙️</span> Frontend — /myapps/Frontend/.env.local</div>
   <table>
     <thead><tr><th>Variable</th><th>Example Value</th><th>Description</th></tr></thead>
     <tbody>
@@ -647,7 +653,7 @@ pm2 logs frontend --lines 20 --nostream  <span class="comment"># verify no error
   <div class="sub-title"><span class="sub-icon">🗄️</span> Database</div>
   <ul class="checklist">
     <li><div class="chk"></div><code>ams</code> database created in MySQL</li>
-    <li><div class="chk"></div>Prisma migrations applied (<code>npx prisma migrate deploy</code>)</li>
+    <li><div class="chk"></div>Schema pushed to DB (<code>npx prisma generate &amp;&amp; npx prisma db push</code>)</li>
     <li><div class="chk"></div>Seed script run (<code>node prisma/seed.js</code>)</li>
     <li><div class="chk"></div>Admin user exists in database</li>
   </ul>
@@ -687,7 +693,7 @@ pm2 logs frontend --lines 20 --nostream  <span class="comment"># verify no error
 
   <!-- FOOTER -->
   <div class="footer">
-    AMS Platform &nbsp;·&nbsp; Production Deployment Guide v1.1 &nbsp;·&nbsp; May 2026 &nbsp;·&nbsp; Confidential — DevOps Reference
+    Land Colonizer AMS &nbsp;·&nbsp; Production Deployment Guide v1.2 &nbsp;·&nbsp; June 2026 &nbsp;·&nbsp; Confidential — DevOps Reference
   </div>
 
 </div>
