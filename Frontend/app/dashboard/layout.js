@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import usePermissions from '@/lib/usePermissions';
 import { apiGet } from '@/lib/api';
+import { UPLOADS_URL } from '@/lib/config';
 
 function WaffleIcon() {
   const colors = ['#E74C3C', '#3498DB', '#F1C40F', '#2ECC71', '#9B59B6', '#1ABC9C', '#E67E22', '#34495E', '#E91E63'];
@@ -22,12 +23,17 @@ export default function DashboardLayout({ children }) {
   const router = useRouter();
   const { me, can, loading: permLoading } = usePermissions();
   const [companyName, setCompanyName] = useState('AMS');
+  const [companyLogo, setCompanyLogo] = useState(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
   useEffect(() => {
     apiGet('/settings').then((s) => {
-      if (s.company_name) setCompanyName(s.company_name);
+      if (s.company_name) {
+        setCompanyName(s.company_name);
+        document.title = s.company_name;
+      }
+      if (s.company_logo) setCompanyLogo(`${UPLOADS_URL}${s.company_logo}`);
     }).catch(() => {});
   }, []);
 
@@ -40,18 +46,17 @@ export default function DashboardLayout({ children }) {
   }, []);
 
   const navItems = [
-    { label: 'Dashboard',     href: '/dashboard',            perm: null,             exact: true },
-    // Real Estate
-    { label: 'Projects',      href: '/dashboard/projects',   perm: 'PROJECT_VIEW'   },
-    { label: 'Purchases',     href: '/dashboard/purchases',  perm: 'PURCHASE_VIEW'  },
-    { label: 'Inventory',     href: '/dashboard/inventory',  perm: 'INVENTORY_VIEW' },
-    { label: 'Customers',     href: '/dashboard/customers',  perm: 'CUSTOMER_VIEW'  },
-    { label: 'Brokers',       href: '/dashboard/brokers',    perm: null             },
-    { label: 'Sales',         href: '/dashboard/sales',      perm: 'SALE_VIEW'      },
-    // System
-    { label: 'Users',         href: '/dashboard/users',      perm: 'USER_VIEW'     },
-    { label: 'Roles',         href: '/dashboard/roles',      perm: 'ROLE_VIEW'     },
-    { label: 'Settings',      href: '/dashboard/settings',   perm: null            },
+    { label: 'Dashboard',  href: '/dashboard',           perm: null,             exact: true },
+    { label: 'Purchases',  href: '/dashboard/purchases', perm: 'PURCHASE_VIEW'  },
+    { label: 'Inventory',  href: '/dashboard/inventory', perm: 'INVENTORY_VIEW' },
+    { label: 'Sales',      href: '/dashboard/sales',     perm: 'SALE_VIEW'      },
+    { label: 'Projects',   href: '/dashboard/projects',  perm: 'PROJECT_VIEW'   },
+    { label: 'Brokers',    href: '/dashboard/brokers',   perm: 'BROKER_VIEW'    },
+    { label: 'Customers',  href: '/dashboard/customers', perm: 'CUSTOMER_VIEW'  },
+    { label: 'Reports',    href: '/dashboard/reports',   perm: 'REPORTS_VIEW'   },
+    { label: 'Users',      href: '/dashboard/users',     perm: 'USER_VIEW'      },
+    { label: 'Roles',      href: '/dashboard/roles',     perm: 'ROLE_VIEW'      },
+    { label: 'Settings',   href: '/dashboard/settings',  perm: 'SETTINGS_VIEW'  },
   ];
 
   const isVisible = (perm) => {
@@ -71,9 +76,11 @@ export default function DashboardLayout({ children }) {
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-white">
       <header className="flex items-center px-2 py-3 shrink-0 z-40 print:hidden" style={{ backgroundColor: '#1f2330' }}>
-        <button className="flex items-center justify-center w-8 h-8 rounded hover:bg-white/10 transition shrink-0" aria-label="Apps menu">
-          <WaffleIcon />
-        </button>
+        <div className="flex items-center justify-center w-8 h-8 rounded shrink-0">
+          {companyLogo
+            ? <img src={companyLogo} alt={companyName} className="w-8 h-8 object-contain rounded" />
+            : <WaffleIcon />}
+        </div>
         <div className="flex items-center gap-2 mx-2 min-w-0 shrink-0">
           <span className="text-white font-semibold text-sm truncate max-w-36">{companyName}</span>
         </div>

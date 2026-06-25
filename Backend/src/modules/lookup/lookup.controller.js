@@ -132,7 +132,7 @@ const getPurchases = async (req, res) => {
 };
 
 const getInventoryUnits = async (req, res) => {
-  const { purchase_id, search = '', limit = '3', id } = req.query;
+  const { purchase_id, search = '', limit = '3', id, no_project } = req.query;
 
   const SELECT = {
     id: true, inventory_code: true, type: true, plot_no: true, sl_no: true, location: true,
@@ -146,9 +146,9 @@ const getInventoryUnits = async (req, res) => {
     return res.json(unit ? [unit] : []);
   }
 
-  // Exclude SOLD and REGISTERED from sale picker
+  // Exclude SOLD and REGISTERED only for sale picker; show all statuses for project linking
   const where = {
-    status: { notIn: ['SOLD', 'REGISTERED'] },
+    ...(no_project ? { project_id: null } : { status: { notIn: ['SOLD', 'REGISTERED'] } }),
     ...(purchase_id ? { purchase_id: Number(purchase_id) } : {}),
     ...(search.trim() ? {
       OR: [

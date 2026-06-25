@@ -17,8 +17,8 @@ const jbMono = JetBrains_Mono({
 });
 
 export const metadata = {
-  title: "AMS — Attendance Management System",
-  description: "Attendance Management System",
+  title: "AMS",
+  description: "Real Estate Management System",
 };
 
 export default function RootLayout({ children }) {

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiGet, apiDelete } from '@/lib/api';
+import Pagination from '@/components/Pagination';
 
 const fmt    = (n) => Number(n || 0).toLocaleString('en-IN');
 const fmtCr  = (n) => {
@@ -51,26 +52,29 @@ export default function ProjectsPage() {
   const [delId,    setDelId]    = useState(null);
   const limit = 15;
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (p = page) => {
     setLoading(true);
     try {
-      const q = new URLSearchParams({ page, limit, search, status }).toString();
+      const q = new URLSearchParams({ page: p, limit, search, status }).toString();
       const d = await apiGet(`/projects?${q}`);
       setProjects(d.projects || []);
       setTotal(d.total || 0);
+      setPage(p);
     } catch { setProjects([]); }
     finally { setLoading(false); }
-  }, [page, search, status]);
+  }, [search, status]);
 
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => { setPage(1); }, [search, status]);
+  useEffect(() => { load(page); }, [load]);
+  useEffect(() => { load(1); }, [search, status]);
 
   const handleDelete = async () => {
     if (!delId) return;
-    try { await apiDelete(`/projects/${delId}`); setDelId(null); load(); } catch { setDelId(null); }
+    try { await apiDelete(`/projects/${delId}`); setDelId(null); load(page); } catch { setDelId(null); }
   };
 
-  const pages = Math.ceil(total / limit);
+  const pages     = Math.ceil(total / limit);
+  const from      = total === 0 ? 0 : (page - 1) * limit + 1;
+  const to        = Math.min(page * limit, total);
 
   return (
     <div className="p-4 pb-10 max-w-7xl space-y-4">
@@ -90,7 +94,7 @@ export default function ProjectsPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name, code, location…"
           className="h-9 px-3 text-sm border border-gray-200 rounded-xl w-64 focus:outline-none focus:border-[#875A7B] bg-white" />
         <select value={status} onChange={e => setStatus(e.target.value)}
@@ -100,6 +104,8 @@ export default function ProjectsPage() {
           <option value="ONGOING">Ongoing</option>
           <option value="CLOSED">Closed</option>
         </select>
+        <div className="w-px h-5 bg-gray-200 shrink-0" />
+        <Pagination page={page} totalPages={pages} total={total} from={from} to={to} loading={loading} onPage={load} />
       </div>
 
       {/* Grid */}
@@ -187,17 +193,6 @@ export default function ProjectsPage() {
               </div>
             );
           })}
-        </div>
-      )}
-
-      {/* Pagination */}
-      {pages > 1 && (
-        <div className="flex items-center justify-center gap-2 pt-2">
-          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-            className="h-8 px-3 text-xs border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50">← Prev</button>
-          <span className="text-xs text-gray-500">{page} / {pages}</span>
-          <button onClick={() => setPage(p => Math.min(pages, p + 1))} disabled={page === pages}
-            className="h-8 px-3 text-xs border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50">Next →</button>
         </div>
       )}
 

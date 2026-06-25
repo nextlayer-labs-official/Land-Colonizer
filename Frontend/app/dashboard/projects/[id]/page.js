@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { apiGet, apiPut, apiDelete } from '@/lib/api';
+import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const fmt    = (n) => Number(n || 0).toLocaleString('en-IN');
@@ -82,6 +82,133 @@ function DeleteModal({ name, onClose, onConfirm }) {
   );
 }
 
+// ── Inventory Unit Picker ─────────────────────────────────────────────────────
+const STATUS_CHIP = {
+  AVAILABLE:  'bg-emerald-50 text-emerald-700 ring-emerald-200',
+  RESERVED:   'bg-amber-50 text-amber-700 ring-amber-200',
+  SOLD:       'bg-blue-50 text-blue-700 ring-blue-200',
+  REGISTERED: 'bg-[#875A7B]/10 text-[#875A7B] ring-[#875A7B]/20',
+};
+
+function InventoryPicker({ onPick }) {
+  const [open,    setOpen]    = useState(false);
+  const [search,  setSearch]  = useState('');
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setLoading(true);
+    const url = search.trim()
+      ? `/lookup/inventory?no_project=1&search=${encodeURIComponent(search.trim())}&limit=20`
+      : `/lookup/inventory?no_project=1&limit=20`;
+    apiGet(url).then(d => setResults(d || [])).catch(() => setResults([])).finally(() => setLoading(false));
+  }, [open, search]);
+
+  const close = () => { setOpen(false); setSearch(''); };
+  const pick  = (unit) => { onPick(unit); close(); };
+
+  return (
+    <>
+      <button onClick={() => setOpen(true)}
+        className="h-8 px-4 text-sm rounded-lg text-white font-semibold flex items-center gap-1.5 hover:opacity-90 transition"
+        style={{ backgroundColor: '#875A7B' }}>
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+        </svg>
+        Add Unit
+      </button>
+
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={close}>
+          <div className="absolute inset-0 bg-black/40" />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden"
+            style={{ maxHeight: '80vh' }}
+            onClick={e => e.stopPropagation()}>
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div>
+                <p className="text-base font-black text-gray-900">Add Inventory Unit</p>
+                <p className="text-xs text-gray-400 mt-0.5">Select a unit to link to this project</p>
+              </div>
+              <button onClick={close} className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Search */}
+            <div className="px-5 py-3 border-b border-gray-100">
+              <div className="relative">
+                <svg className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input autoFocus value={search} onChange={e => setSearch(e.target.value)}
+                  placeholder="Search by code, plot no, location…"
+                  className="w-full h-9 pl-9 pr-3 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30" />
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-y-auto flex-1">
+              {loading ? (
+                <div className="py-10 text-center text-sm text-gray-400">Loading…</div>
+              ) : results.length === 0 ? (
+                <div className="py-10 text-center text-sm text-gray-400">No units available</div>
+              ) : (
+                <table className="w-full">
+                  <thead className="sticky top-0 bg-gray-50 z-10">
+                    <tr>
+                      {['Code', 'Plot / SL', 'Location', 'Type', 'Area', 'Rate', 'Status', ''].map(h => (
+                        <th key={h} className="text-left px-4 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {results.map(u => (
+                      <tr key={u.id} className="hover:bg-[#875A7B]/5 transition-colors">
+                        <td className="px-4 py-3">
+                          <span className="font-mono text-xs font-bold text-[#875A7B]">{u.inventory_code}</span>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-gray-700 font-medium">{u.plot_no || u.sl_no || '—'}</td>
+                        <td className="px-4 py-3 text-xs text-gray-500 max-w-[120px] truncate">{u.location || '—'}</td>
+                        <td className="px-4 py-3">
+                          <span className="text-[10px] font-bold bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{u.type}</span>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">
+                          {u.area ? `${Number(u.area).toLocaleString('en-IN')} ${u.area_unit || ''}`.trim() : '—'}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">
+                          {u.rate ? `₹${Number(u.rate).toLocaleString('en-IN')}` : '—'}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ring-1 ${STATUS_CHIP[u.status] || 'bg-gray-50 text-gray-500 ring-gray-200'}`}>
+                            {u.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <button onClick={() => pick(u)}
+                            className="h-7 px-3 text-xs font-semibold rounded-lg text-white hover:opacity-90 transition whitespace-nowrap"
+                            style={{ backgroundColor: '#875A7B' }}>
+                            Link
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ProjectDetailPage() {
   const { id } = useParams();
@@ -121,6 +248,13 @@ export default function ProjectDetailPage() {
   const handleDelete = async () => {
     try { await apiDelete(`/projects/${id}`); router.push('/dashboard/projects'); }
     catch { setDelOpen(false); }
+  };
+
+  const handleLinkUnit = async (unit) => {
+    try {
+      await apiPost(`/projects/${id}/link-inventory`, { inventory_id: unit.id });
+      load();
+    } catch { /* ignore */ }
   };
 
   if (loading) return <Skeleton />;
@@ -383,24 +517,22 @@ export default function ProjectDetailPage() {
         {/* ── Inventory ── */}
         {tab === 'inventory' && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="px-5 py-3 border-b border-gray-50 flex items-center justify-between">
+              <p className="text-xs font-bold text-gray-400">
+                {inventory.length} unit{inventory.length !== 1 ? 's' : ''} in this project
+              </p>
+              <InventoryPicker onPick={handleLinkUnit} />
+            </div>
             {inventory.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
                   <svg className="w-7 h-7 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
                 </div>
                 <p className="text-sm font-bold text-gray-500">No inventory units linked</p>
-                <p className="text-xs text-gray-400 mt-1 mb-4">Assign units to this project from the Inventory page</p>
-                <Link href="/dashboard/inventory"
-                  className="h-9 px-5 text-sm rounded-xl text-white font-semibold flex items-center hover:opacity-90 transition"
-                  style={{ backgroundColor: '#875A7B' }}>
-                  Go to Inventory →
-                </Link>
+                <p className="text-xs text-gray-400 mt-1">Click &quot;Add Unit&quot; above to link units to this project.</p>
               </div>
             ) : (
               <>
-                <div className="px-5 py-3 border-b border-gray-50 flex items-center justify-between">
-                  <p className="text-xs font-bold text-gray-400">{inventory.length} unit{inventory.length !== 1 ? 's' : ''} in this project</p>
-                </div>
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>

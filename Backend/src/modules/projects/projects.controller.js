@@ -104,4 +104,13 @@ async function deleteProject(req, res) {
   res.json({ message: 'Deleted' });
 }
 
-module.exports = { getProjects, getProjectById, createProject, updateProject, deleteProject };
+async function linkInventory(req, res) {
+  const project_id   = Number(req.params.id);
+  const inventory_id = Number(req.body.inventory_id);
+  if (!inventory_id) return res.status(400).json({ message: 'inventory_id is required' });
+  await prisma.inventory.update({ where: { id: inventory_id }, data: { project_id } });
+  const p = await prisma.project.findUnique({ where: { id: project_id }, include: INCLUDE });
+  res.json(withComputed(p));
+}
+
+module.exports = { getProjects, getProjectById, createProject, updateProject, deleteProject, linkInventory };

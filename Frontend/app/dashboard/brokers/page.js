@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import useAuth from '@/lib/useAuth';
 import usePermissions from '@/lib/usePermissions';
 import { apiGet, apiDelete } from '@/lib/api';
+import NProgress from 'nprogress';
+import Pagination from '@/components/Pagination';
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
@@ -13,6 +15,7 @@ export default function BrokersPage() {
   const router = useRouter();
   const { can, me } = usePermissions();
 
+  const [navigatingId, setNavigatingId] = useState(null);
   const [rows,    setRows]    = useState([]);
   const [total,   setTotal]   = useState(0);
   const [page,    setPage]    = useState(1);
@@ -62,6 +65,8 @@ export default function BrokersPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
         </div>
+        <div className="w-px h-5 bg-gray-200 shrink-0" />
+        <Pagination page={page} totalPages={totalPages} total={total} from={from} to={to} loading={loading} onPage={load} />
       </div>
 
       <div className="flex-1 overflow-auto bg-white">
@@ -86,8 +91,9 @@ export default function BrokersPage() {
                 </td>
               </tr>
             ) : rows.map(row => (
-              <tr key={row.id} onClick={() => router.push(`/dashboard/brokers/${row.id}`)}
-                className="border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition">
+              <tr key={row.id}
+                onClick={() => { NProgress.start(); setNavigatingId(row.id); router.push(`/dashboard/brokers/${row.id}`); }}
+                className={`border-b border-gray-100 transition-colors select-none ${navigatingId === row.id ? 'bg-[#875A7B]/8 pointer-events-none' : 'cursor-pointer hover:bg-gray-50'}`}>
                 <td className="px-3 py-2.5">
                   <span className="font-mono text-xs font-semibold text-[#875A7B] bg-[#875A7B]/8 px-1.5 py-0.5 rounded">{row.broker_code || `BRK-${String(row.id).padStart(4,'0')}`}</span>
                 </td>
@@ -106,8 +112,10 @@ export default function BrokersPage() {
                   </span>
                 </td>
                 <td className="px-3 py-2.5 text-xs text-gray-400">{fmtDate(row.created_at)}</td>
-                <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
-                  {canDelete && (
+                <td className="px-3 py-2.5 text-right" onClick={e => e.stopPropagation()}>
+                  {navigatingId === row.id ? (
+                    <svg className="w-4 h-4 animate-spin text-[#875A7B] inline-block" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z"/></svg>
+                  ) : canDelete && (
                     <button onClick={() => setDelId(row.id)} className="text-red-400 hover:text-red-600 text-xs hover:bg-red-50 px-2 py-1 rounded transition">Delete</button>
                   )}
                 </td>
@@ -115,18 +123,6 @@ export default function BrokersPage() {
             ))}
           </tbody>
         </table>
-      </div>
-
-      <div className="bg-white border-t border-gray-200 px-4 py-2 flex items-center justify-between shrink-0">
-        <span className="text-gray-500 text-xs">{total === 0 ? '0 records' : `${from}–${to} / ${total}`}</span>
-        <div className="flex items-center gap-1">
-          <button onClick={() => load(page - 1)} disabled={page === 1 || loading} className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-100 text-gray-500 disabled:opacity-30 transition">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-          </button>
-          <button onClick={() => load(page + 1)} disabled={page >= totalPages || loading} className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-100 text-gray-500 disabled:opacity-30 transition">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-          </button>
-        </div>
       </div>
 
       {delId && (
