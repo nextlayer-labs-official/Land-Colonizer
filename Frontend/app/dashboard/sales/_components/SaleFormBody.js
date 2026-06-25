@@ -9,7 +9,7 @@ import {
 
 const AREA_UNITS = ['gaj', 'sq.ft', 'sq.yd', 'sq.m', 'cents', 'acres', 'guntas', 'bigha', 'marla', 'kanal'];
 
-export default function SaleFormBody({ form, set, setForm, readOnly = false }) {
+export default function SaleFormBody({ form, set, setForm, readOnly = false, showFinancials = false }) {
   const c = computed(form);
 
   return (
@@ -93,46 +93,50 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false }) {
         <FTextarea value={form.broker_details} onChange={set('broker_details')} placeholder="Commission arrangement, notes…" readOnly={readOnly} />
       </div>
 
-      <SectionDivider title="Customer" />
+      {showFinancials && (
+        <>
+          <SectionDivider title="Customer" />
 
-      <div>
-        <FieldLabel>Customer ID</FieldLabel>
-        {readOnly ? (
-          <div className="min-h-[36px] px-3 py-[7px] bg-gray-50 rounded border border-gray-100 text-sm text-gray-700">
-            {form._customer ? `${form._customer.customer_code || ''} ${form._customer.name || ''}`.trim() : (form.customer_id ? `CUS-${String(form.customer_id).padStart(4,'0')}` : <span className="text-gray-300">—</span>)}
+          <div>
+            <FieldLabel>Customer ID</FieldLabel>
+            {readOnly ? (
+              <div className="min-h-[36px] px-3 py-[7px] bg-gray-50 rounded border border-gray-100 text-sm text-gray-700">
+                {form._customer ? `${form._customer.customer_code || ''} ${form._customer.name || ''}`.trim() : (form.customer_id ? `CUS-${String(form.customer_id).padStart(4,'0')}` : <span className="text-gray-300">—</span>)}
+              </div>
+            ) : (
+              <CustomerPicker
+                value={form._customer}
+                onPick={(c) => setForm(p => ({ ...p, customer_id: c.id, _customer: c }))}
+                onClear={() => setForm(p => ({ ...p, customer_id: '', _customer: null }))}
+              />
+            )}
           </div>
-        ) : (
-          <CustomerPicker
-            value={form._customer}
-            onPick={(c) => setForm(p => ({ ...p, customer_id: c.id, _customer: c }))}
-            onClear={() => setForm(p => ({ ...p, customer_id: '', _customer: null }))}
-          />
-        )}
-      </div>
 
-      <div>
-        <FieldLabel>Customer Name</FieldLabel>
-        <div className="min-h-[36px] px-3 py-[7px] bg-gray-50 rounded border border-gray-100 text-sm text-gray-700">{form._customer?.name || <span className="text-gray-300">—</span>}</div>
-      </div>
+          <div>
+            <FieldLabel>Customer Name</FieldLabel>
+            <div className="min-h-[36px] px-3 py-[7px] bg-gray-50 rounded border border-gray-100 text-sm text-gray-700">{form._customer?.name || <span className="text-gray-300">—</span>}</div>
+          </div>
 
-      <div>
-        <FieldLabel>Customer Contact Number</FieldLabel>
-        <div className="min-h-[36px] px-3 py-[7px] bg-gray-50 rounded border border-gray-100 text-sm text-gray-700">{form._customer?.phone || <span className="text-gray-300">—</span>}</div>
-      </div>
+          <div>
+            <FieldLabel>Customer Contact Number</FieldLabel>
+            <div className="min-h-[36px] px-3 py-[7px] bg-gray-50 rounded border border-gray-100 text-sm text-gray-700">{form._customer?.phone || <span className="text-gray-300">—</span>}</div>
+          </div>
+        </>
+      )}
 
       <SectionDivider title="Area Measurement" />
 
       <div>
         <FieldLabel>
           Front Area
-          {form._inventory && !readOnly && <span className="ml-1 text-[10px] font-normal text-emerald-600">· from unit</span>}
+          {form._inventory && !readOnly && <span className="ml-1 text-[10px] font-normal text-emerald-600">· default from unit</span>}
         </FieldLabel>
-        <FInput type="number" value={form.front_area} onChange={set('front_area')} placeholder="0" readOnly={readOnly || !!form._inventory} />
+        <FInput type="number" value={form.front_area} onChange={set('front_area')} placeholder="0" readOnly={readOnly} />
       </div>
 
       <div>
         <FieldLabel>Front Area Unit</FieldLabel>
-        <FSelect value={form.front_area_details} onChange={set('front_area_details')} readOnly={readOnly || !!form._inventory}>
+        <FSelect value={form.front_area_details} onChange={set('front_area_details')} readOnly={readOnly}>
           <option value="">— Select unit —</option>
           {AREA_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
         </FSelect>
@@ -140,12 +144,12 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false }) {
 
       <div>
         <FieldLabel>Back Area</FieldLabel>
-        <FInput type="number" value={form.back_area} onChange={set('back_area')} placeholder="0" readOnly={readOnly || !!form._inventory} />
+        <FInput type="number" value={form.back_area} onChange={set('back_area')} placeholder="0" readOnly={readOnly} />
       </div>
 
       <div>
         <FieldLabel>Back Area Unit</FieldLabel>
-        <FSelect value={form.back_area_details} onChange={set('back_area_details')} readOnly={readOnly || !!form._inventory}>
+        <FSelect value={form.back_area_details} onChange={set('back_area_details')} readOnly={readOnly}>
           <option value="">— Select unit —</option>
           {AREA_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
         </FSelect>
@@ -163,9 +167,9 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false }) {
       <div>
         <FieldLabel>
           Plot Rate (₹ per unit)
-          {form._inventory && !readOnly && <span className="ml-1 text-[10px] font-normal text-emerald-600">· from unit</span>}
+          {form._inventory && !readOnly && <span className="ml-1 text-[10px] font-normal text-emerald-600">· default from unit</span>}
         </FieldLabel>
-        <FInput type="number" value={form.plot_rate} onChange={set('plot_rate')} placeholder="0" readOnly={readOnly || !!form._inventory} />
+        <FInput type="number" value={form.plot_rate} onChange={set('plot_rate')} placeholder="0" readOnly={readOnly} />
       </div>
 
       <ComputedBox label="Total Value  =  Total Area × Plot Rate" value={c.total_value ? fmtINR(c.total_value) : '—'} />
@@ -177,174 +181,186 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false }) {
 
       <ComputedBox label="Actual Price  =  Selling Rate × Total Area" value={c.actual_price ? fmtINR(c.actual_price) : '—'} accent />
 
-      <SectionDivider title="Payments" />
+      {showFinancials && <>
+        <SectionDivider title="Payments" />
 
-      <div>
-        <FieldLabel>Booking Amount (₹)</FieldLabel>
-        <FInput type="number" value={form.booking_amount} onChange={set('booking_amount')} placeholder="0" readOnly={readOnly} />
-      </div>
+        <div>
+          <FieldLabel>Booking Amount (₹)</FieldLabel>
+          <FInput type="number" value={form.booking_amount} onChange={set('booking_amount')} placeholder="0" readOnly={readOnly} />
+        </div>
 
-      <div>
-        <FieldLabel>Booking Details</FieldLabel>
-        <FInput value={form.booking_details} onChange={set('booking_details')} placeholder="Cheque no., bank…" readOnly={readOnly} />
-      </div>
+        <div>
+          <FieldLabel>Booking Details</FieldLabel>
+          <FInput value={form.booking_details} onChange={set('booking_details')} placeholder="Cheque no., bank…" readOnly={readOnly} />
+        </div>
 
-      <div>
-        <FieldLabel>Advance Payment (₹)</FieldLabel>
-        <FInput type="number" value={form.advance_payment} onChange={set('advance_payment')} placeholder="0" readOnly={readOnly} />
-      </div>
+        <div>
+          <FieldLabel>Advance Payment (₹)</FieldLabel>
+          <FInput type="number" value={form.advance_payment} onChange={set('advance_payment')} placeholder="0" readOnly={readOnly} />
+        </div>
 
-      <div>
-        <FieldLabel>Advance Payment Details</FieldLabel>
-        <FTextarea value={form.advance_payment_details} onChange={set('advance_payment_details')} placeholder="Payment details…" readOnly={readOnly} />
-      </div>
+        <div>
+          <FieldLabel>Advance Payment Details</FieldLabel>
+          <FTextarea value={form.advance_payment_details} onChange={set('advance_payment_details')} placeholder="Payment details…" readOnly={readOnly} />
+        </div>
 
-      <ComputedBox label="Balance Amount  =  Actual Price − Advance Payment" value={c.actual_price ? fmtINR(c.balance_amount) : '—'} />
+        <ComputedBox label="Balance Amount  =  Actual Price − Advance Payment" value={c.actual_price ? fmtINR(c.balance_amount) : '—'} />
 
-      <div>
-        <FieldLabel>Balance Amount Details</FieldLabel>
-        <FInput value={form.balance_amount_details} onChange={set('balance_amount_details')} placeholder="Notes on balance…" readOnly={readOnly} />
-      </div>
+        <div>
+          <FieldLabel>Balance Amount Details</FieldLabel>
+          <FInput value={form.balance_amount_details} onChange={set('balance_amount_details')} placeholder="Notes on balance…" readOnly={readOnly} />
+        </div>
 
-      <SectionDivider title="Charges" />
+        <SectionDivider title="Charges" />
 
-      <div>
-        <FieldLabel>Registration Charges (₹)</FieldLabel>
-        <FInput type="number" value={form.registration_charges} onChange={set('registration_charges')} placeholder="0" readOnly={readOnly} />
-      </div>
+        <div>
+          <FieldLabel>Registration Charges (₹)</FieldLabel>
+          <FInput type="number" value={form.registration_charges} onChange={set('registration_charges')} placeholder="0" readOnly={readOnly} />
+        </div>
 
-      <div>
-        <FieldLabel>Registration Details</FieldLabel>
-        <FTextarea value={form.registration_details} onChange={set('registration_details')} placeholder="Registration notes…" readOnly={readOnly} />
-      </div>
+        <div>
+          <FieldLabel>Registration Details</FieldLabel>
+          <FTextarea value={form.registration_details} onChange={set('registration_details')} placeholder="Registration notes…" readOnly={readOnly} />
+        </div>
 
-      <div>
-        <FieldLabel>Intkaal Charges (₹)</FieldLabel>
-        <FInput type="number" value={form.intkaal_charges} onChange={set('intkaal_charges')} placeholder="0" readOnly={readOnly} />
-      </div>
+        <div>
+          <FieldLabel>Intkaal Charges (₹)</FieldLabel>
+          <FInput type="number" value={form.intkaal_charges} onChange={set('intkaal_charges')} placeholder="0" readOnly={readOnly} />
+        </div>
 
-      <div>
-        <FieldLabel>Intkaal Details</FieldLabel>
-        <FInput value={form.intkaal_details} onChange={set('intkaal_details')} placeholder="Notes…" readOnly={readOnly} />
-      </div>
+        <div>
+          <FieldLabel>Intkaal Details</FieldLabel>
+          <FInput value={form.intkaal_details} onChange={set('intkaal_details')} placeholder="Notes…" readOnly={readOnly} />
+        </div>
 
-      <div>
-        <FieldLabel>Water Connection Charges (₹)</FieldLabel>
-        <FInput type="number" value={form.water_connection_charges} onChange={set('water_connection_charges')} placeholder="0" readOnly={readOnly} />
-      </div>
+        <div>
+          <FieldLabel>Water Connection Charges (₹)</FieldLabel>
+          <FInput type="number" value={form.water_connection_charges} onChange={set('water_connection_charges')} placeholder="0" readOnly={readOnly} />
+        </div>
 
-      <div>
-        <FieldLabel>Water Connection Details</FieldLabel>
-        <FInput value={form.water_connection_details} onChange={set('water_connection_details')} placeholder="Notes…" readOnly={readOnly} />
-      </div>
+        <div>
+          <FieldLabel>Water Connection Details</FieldLabel>
+          <FInput value={form.water_connection_details} onChange={set('water_connection_details')} placeholder="Notes…" readOnly={readOnly} />
+        </div>
 
-      <div>
-        <FieldLabel>Electricity Meter Charges (₹)</FieldLabel>
-        <FInput type="number" value={form.electricity_meter_charges} onChange={set('electricity_meter_charges')} placeholder="0" readOnly={readOnly} />
-      </div>
+        <div>
+          <FieldLabel>Electricity Meter Charges (₹)</FieldLabel>
+          <FInput type="number" value={form.electricity_meter_charges} onChange={set('electricity_meter_charges')} placeholder="0" readOnly={readOnly} />
+        </div>
 
-      <div>
-        <FieldLabel>Electricity Meter Details</FieldLabel>
-        <FInput value={form.electricity_meter_details} onChange={set('electricity_meter_details')} placeholder="Notes…" readOnly={readOnly} />
-      </div>
+        <div>
+          <FieldLabel>Electricity Meter Details</FieldLabel>
+          <FInput value={form.electricity_meter_details} onChange={set('electricity_meter_details')} placeholder="Notes…" readOnly={readOnly} />
+        </div>
 
-      <ComputedBox label="Net Amount  =  Booking + Advance + All Charges" value={fmtINR(c.net_amount || 0)} accent />
+        <ComputedBox label="Net Amount  =  Booking + Advance + All Charges" value={fmtINR(c.net_amount || 0)} accent />
 
-      <SectionDivider title="Other Financial" />
+        <SectionDivider title="Other Financial" />
 
-      <div>
-        <FieldLabel>Payment Due Date</FieldLabel>
-        <FInput type="date" value={form.payment_due_date?.split?.('T')?.[0] ?? form.payment_due_date ?? ''} onChange={set('payment_due_date')} readOnly={readOnly} />
-      </div>
+        <div>
+          <FieldLabel>Payment Due Date</FieldLabel>
+          <FInput type="date" value={form.payment_due_date?.split?.('T')?.[0] ?? form.payment_due_date ?? ''} onChange={set('payment_due_date')} readOnly={readOnly} />
+        </div>
 
-      <div>
-        <FieldLabel>Registration Area</FieldLabel>
-        <FInput type="number" value={form.registration_area} onChange={set('registration_area')} placeholder="0" readOnly={readOnly} />
-      </div>
+        <div>
+          <FieldLabel>Registration Area</FieldLabel>
+          <FInput type="number" value={form.registration_area} onChange={set('registration_area')} placeholder="0" readOnly={readOnly} />
+        </div>
 
-      <div>
-        <FieldLabel>Discount (₹)</FieldLabel>
-        <FInput type="number" value={form.discount} onChange={set('discount')} placeholder="0" readOnly={readOnly} />
-      </div>
+        <div>
+          <FieldLabel>Discount (₹)</FieldLabel>
+          <FInput type="number" value={form.discount} onChange={set('discount')} placeholder="0" readOnly={readOnly} />
+        </div>
 
-      <div>
-        <FieldLabel>Discount Details</FieldLabel>
-        <FInput value={form.discount_details} onChange={set('discount_details')} placeholder="Reason…" readOnly={readOnly} />
-      </div>
+        <div>
+          <FieldLabel>Discount Details</FieldLabel>
+          <FInput value={form.discount_details} onChange={set('discount_details')} placeholder="Reason…" readOnly={readOnly} />
+        </div>
 
-      <div>
-        <FieldLabel>Brokerage (₹)</FieldLabel>
-        <FInput type="number" value={form.brokerage} onChange={set('brokerage')} placeholder="0" readOnly={readOnly} />
-      </div>
+        <div>
+          <FieldLabel>Brokerage (₹)</FieldLabel>
+          <FInput type="number" value={form.brokerage} onChange={set('brokerage')} placeholder="0" readOnly={readOnly} />
+        </div>
 
-      <div>
-        <FieldLabel>Brokerage Details</FieldLabel>
-        <FInput value={form.brokerage_details} onChange={set('brokerage_details')} placeholder="Notes…" readOnly={readOnly} />
-      </div>
+        <div>
+          <FieldLabel>Brokerage Details</FieldLabel>
+          <FInput value={form.brokerage_details} onChange={set('brokerage_details')} placeholder="Notes…" readOnly={readOnly} />
+        </div>
 
-      <div>
-        <FieldLabel>Incentive (₹)</FieldLabel>
-        <FInput type="number" value={form.incentive} onChange={set('incentive')} placeholder="0" readOnly={readOnly} />
-      </div>
+        <div>
+          <FieldLabel>Incentive (₹)</FieldLabel>
+          <FInput type="number" value={form.incentive} onChange={set('incentive')} placeholder="0" readOnly={readOnly} />
+        </div>
 
-      <div>
-        <FieldLabel>Incentive Details</FieldLabel>
-        <FInput value={form.incentive_details} onChange={set('incentive_details')} placeholder="Notes…" readOnly={readOnly} />
-      </div>
+        <div>
+          <FieldLabel>Incentive Details</FieldLabel>
+          <FInput value={form.incentive_details} onChange={set('incentive_details')} placeholder="Notes…" readOnly={readOnly} />
+        </div>
 
-      <div>
-        <FieldLabel>Extra Income (₹)</FieldLabel>
-        <FInput type="number" value={form.extra_income} onChange={set('extra_income')} placeholder="0" readOnly={readOnly} />
-      </div>
+        <div>
+          <FieldLabel>Extra Income (₹)</FieldLabel>
+          <FInput type="number" value={form.extra_income} onChange={set('extra_income')} placeholder="0" readOnly={readOnly} />
+        </div>
 
-      <div>
-        <FieldLabel>Extra Income Details</FieldLabel>
-        <FInput value={form.extra_income_details} onChange={set('extra_income_details')} placeholder="Notes…" readOnly={readOnly} />
-      </div>
+        <div>
+          <FieldLabel>Extra Income Details</FieldLabel>
+          <FInput value={form.extra_income_details} onChange={set('extra_income_details')} placeholder="Notes…" readOnly={readOnly} />
+        </div>
 
-      <SectionDivider title="Registration & Possession" />
+        <SectionDivider title="Registration & Possession" />
 
-      <div>
-        <FieldLabel>Intkaal Number</FieldLabel>
-        <FInput value={form.intkaal_number} onChange={set('intkaal_number')} placeholder="Intkaal number" readOnly={readOnly} />
-      </div>
+        <div>
+          <FieldLabel>Intkaal Number</FieldLabel>
+          <FInput value={form.intkaal_number} onChange={set('intkaal_number')} placeholder="Intkaal number" readOnly={readOnly} />
+        </div>
 
-      <div>
-        <FieldLabel>Date of Registration</FieldLabel>
-        <FInput type="date" value={form.date_of_registration?.split?.('T')?.[0] ?? form.date_of_registration ?? ''} onChange={set('date_of_registration')} readOnly={readOnly} />
-      </div>
+        <div>
+          <FieldLabel>Date of Registration</FieldLabel>
+          <FInput type="date" value={form.date_of_registration?.split?.('T')?.[0] ?? form.date_of_registration ?? ''} onChange={set('date_of_registration')} readOnly={readOnly} />
+        </div>
 
-      <div>
-        <FieldLabel>Vasika</FieldLabel>
-        <FInput value={form.vasika} onChange={set('vasika')} placeholder="Vasika reference" readOnly={readOnly} />
-      </div>
+        <div>
+          <FieldLabel>Vasika</FieldLabel>
+          <FInput value={form.vasika} onChange={set('vasika')} placeholder="Vasika reference" readOnly={readOnly} />
+        </div>
 
-      <div>
-        <FieldLabel>Possession</FieldLabel>
-        <FSelect value={form.possession} onChange={set('possession')} readOnly={readOnly}>
-          {POSSESSION_STATES.map(s => <option key={s} value={s}>{POSS_LABEL[s]}</option>)}
-        </FSelect>
-      </div>
+        <div>
+          <FieldLabel>Possession</FieldLabel>
+          <FSelect value={form.possession} onChange={set('possession')} readOnly={readOnly}>
+            {POSSESSION_STATES.map(s => <option key={s} value={s}>{POSS_LABEL[s]}</option>)}
+          </FSelect>
+        </div>
 
-      <div>
-        <FieldLabel>Possession Detail</FieldLabel>
-        <FInput value={form.possession_detail} onChange={set('possession_detail')} placeholder="Notes…" readOnly={readOnly} />
-      </div>
+        <div>
+          <FieldLabel>Possession Detail</FieldLabel>
+          <FInput value={form.possession_detail} onChange={set('possession_detail')} placeholder="Notes…" readOnly={readOnly} />
+        </div>
 
-      <SectionDivider title="Other" />
+        <SectionDivider title="Other" />
 
-      <div className="col-span-full">
-        <FieldLabel>Other Details</FieldLabel>
-        <FTextarea value={form.other_details} onChange={set('other_details')} placeholder="Additional notes…" rows={3} readOnly={readOnly} />
-      </div>
+        <div className="col-span-full">
+          <FieldLabel>Other Details</FieldLabel>
+          <FTextarea value={form.other_details} onChange={set('other_details')} placeholder="Additional notes…" rows={3} readOnly={readOnly} />
+        </div>
 
-      <div>
-        <FieldLabel>Status</FieldLabel>
-        <FSelect value={form.status} onChange={set('status')} readOnly={readOnly}>
-          <option value="ACTIVE">Active</option>
-          <option value="INACTIVE">Inactive</option>
-        </FSelect>
-      </div>
+        <div>
+          <FieldLabel>Status</FieldLabel>
+          <FSelect value={form.status} onChange={set('status')} readOnly={readOnly}>
+            <option value="ACTIVE">Active</option>
+            <option value="INACTIVE">Inactive</option>
+          </FSelect>
+        </div>
+      </>}
+
+      {!showFinancials && (
+        <div>
+          <FieldLabel>Status</FieldLabel>
+          <FSelect value={form.status} onChange={set('status')} readOnly={readOnly}>
+            <option value="ACTIVE">Active</option>
+            <option value="INACTIVE">Inactive</option>
+          </FSelect>
+        </div>
+      )}
 
     </div>
   );

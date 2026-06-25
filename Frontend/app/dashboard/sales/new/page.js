@@ -68,7 +68,7 @@ export default function NewSalePage() {
         <div className="max-w-5xl mx-auto">
           <h1 className="text-xl font-bold text-gray-900 mb-5">New Sale</h1>
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-            <SaleFormBody form={form} set={set} setForm={setForm} />
+            <SaleFormBody form={form} set={set} setForm={setForm} showFinancials={false} />
           </div>
           <div className="flex justify-end gap-3 mt-4">
             <Link href="/dashboard/sales" className="h-9 px-5 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition flex items-center">Cancel</Link>

@@ -2,7 +2,8 @@ const { Router }   = require('express');
 const authenticate = require('../../middleware/authenticate');
 const authorize    = require('../../middleware/authorize');
 const { getSales, getSaleById, createSale, updateSale, deleteSale } = require('./sales.controller');
-const installmentsRoutes = require('../installments/installments.routes');
+const installmentsRoutes  = require('../installments/installments.routes');
+const bookingsRoutes      = require('../sale-bookings/sale-bookings.routes');
 
 const router = Router();
 router.use(authenticate);
@@ -14,5 +15,6 @@ router.put('/:id',   authorize('SALE_EDIT'),    updateSale);
 router.delete('/:id', authorize('SALE_DELETE'), deleteSale);
 
 router.use('/:sale_id/installments', installmentsRoutes);
+router.use('/:sale_id/bookings',     bookingsRoutes);
 
 module.exports = router;

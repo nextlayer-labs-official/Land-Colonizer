@@ -107,7 +107,7 @@ export function SectionDivider({ title }) {
 }
 
 // ── Lookup Pickers ─────────────────────────────────────────────────────────────
-function BasePicker({ value, onPick, onClear, label, endpoint, renderItem, renderSelected, placeholder, readOnly }) {
+function BasePicker({ value, onPick, onClear, label, endpoint, renderItem, renderSelected, placeholder, readOnly, excludeIds }) {
   const [open,   setOpen]   = useState(false);
   const [search, setSearch] = useState('');
   const [items,  setItems]  = useState([]);
@@ -171,14 +171,17 @@ function BasePicker({ value, onPick, onClear, label, endpoint, renderItem, rende
           <div className="max-h-48 overflow-y-auto">
             {loading ? (
               <div className="p-3 text-center text-xs text-gray-400">Loading…</div>
-            ) : items.length === 0 ? (
+            ) : items.filter(i => !excludeIds?.includes(i.id)).length === 0 ? (
               <div className="p-3 text-center text-xs text-gray-400">No results</div>
-            ) : items.map(item => (
-              <button key={item.id} type="button" onClick={() => { onPick(item); setOpen(false); setSearch(''); }}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-[#875A7B]/5 transition border-b border-gray-50 last:border-0">
-                {renderItem(item)}
-              </button>
-            ))}
+            ) : items.map(item => {
+              const excluded = excludeIds?.includes(item.id);
+              return excluded ? null : (
+                <button key={item.id} type="button" onClick={() => { onPick(item); setOpen(false); setSearch(''); }}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-[#875A7B]/5 transition border-b border-gray-50 last:border-0">
+                  {renderItem(item)}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -186,11 +189,11 @@ function BasePicker({ value, onPick, onClear, label, endpoint, renderItem, rende
   );
 }
 
-export function CustomerPicker({ value, onPick, onClear, readOnly }) {
+export function CustomerPicker({ value, onPick, onClear, readOnly, excludeIds }) {
   return (
     <BasePicker
       value={value?.id ? value : null}
-      onPick={onPick} onClear={onClear} readOnly={readOnly}
+      onPick={onPick} onClear={onClear} readOnly={readOnly} excludeIds={excludeIds}
       label="Customer" endpoint="customers" placeholder="Search customer…"
       renderSelected={v => v ? `${v.customer_code || ''} ${v.name || ''} ${v.phone ? `· ${v.phone}` : ''}`.trim() : ''}
       renderItem={c => (

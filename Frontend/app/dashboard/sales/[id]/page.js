@@ -5,10 +5,11 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import useAuth from '@/lib/useAuth';
 import usePermissions from '@/lib/usePermissions';
-import { apiGet, apiPut, apiDelete } from '@/lib/api';
+import { apiGet, apiPut, apiPost, apiDelete } from '@/lib/api';
 import {
   EMPTY, computed, fmtINR, fmtDate,
   TYPE_LABEL, POSS_COLOR, POSS_LABEL,
+  CustomerPicker,
 } from '../_components/shared';
 import SaleFormBody from '../_components/SaleFormBody';
 
@@ -550,6 +551,308 @@ function FinancialsTab({ form }) {
   );
 }
 
+// ── Status colors ─────────────────────────────────────────────────────────────
+const BOOKING_STATUS_CLS = {
+  PENDING:   'bg-amber-50 text-amber-700 ring-amber-200',
+  CONFIRMED: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+  REFUNDED:  'bg-red-50 text-red-500 ring-red-200',
+};
+
+// ── BookingPanel ──────────────────────────────────────────────────────────────
+function BookingPanel({ saleId, canEdit, onConfirmed }) {
+  const [bookings, setBookings] = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [showAdd,  setShowAdd]  = useState(false);
+  const [confirming, setConfirming] = useState(null);
+  const [deleting,   setDeleting]   = useState(null);
+  const [error,    setError]    = useState('');
+
+  const emptyForm = { _customer: null, customer_id: '', booking_amount: '', notes: '' };
+  const [addForm, setAddForm] = useState(emptyForm);
+  const [saving,  setSaving]  = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try { setBookings(await apiGet(`/sales/${saleId}/bookings`)); }
+    catch (e) { setError(e.message); }
+    finally   { setLoading(false); }
+  }, [saleId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleAddSave = async () => {
+    setSaving(true); setError('');
+    try {
+      await apiPost(`/sales/${saleId}/bookings`, {
+        customer_id:    addForm.customer_id || null,
+        booking_amount: addForm.booking_amount || null,
+        notes:          addForm.notes || null,
+      });
+      setAddForm(emptyForm); setShowAdd(false);
+      await load();
+    } catch (e) { setError(e.message); }
+    finally { setSaving(false); }
+  };
+
+  const handleDelete = async (id) => {
+    setDeleting(id); setError('');
+    try { await apiDelete(`/sales/${saleId}/bookings/${id}`); await load(); }
+    catch (e) { setError(e.message); }
+    finally { setDeleting(null); }
+  };
+
+  const handleConfirm = async (id, advance_payment) => {
+    setConfirming(id); setError('');
+    try {
+      await apiPost(`/sales/${saleId}/bookings/${id}/confirm`, { advance_payment: advance_payment || null });
+      onConfirmed?.();
+      await load();
+    } catch (e) { setError(e.message); }
+    finally { setConfirming(null); }
+  };
+
+  const isConfirmed = bookings.some(b => b.status === 'CONFIRMED');
+  const bookedCustomerIds = bookings.map(b => b.customer_id).filter(Boolean);
+
+  return (
+    <div className="p-5 space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-bold text-gray-800">Customer Bookings</h3>
+          <p className="text-xs text-gray-400 mt-0.5">Add interested customers, then confirm one to close the sale.</p>
+        </div>
+        {canEdit && !isConfirmed && (
+          <button onClick={() => { setShowAdd(true); setError(''); }}
+            className="h-8 px-3 text-xs font-semibold rounded-lg text-white flex items-center gap-1.5"
+            style={{ backgroundColor: '#875A7B' }}>
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
+            Add Booking
+          </button>
+        )}
+      </div>
+
+      {isConfirmed && (
+        <div className="flex items-start gap-2 px-3 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl">
+          <svg className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-emerald-700">Sale confirmed</p>
+            <p className="text-xs text-emerald-600 mt-0.5">Payments, Charges, Other Financial and Registration &amp; Possession sections are now available. Go to <strong>Sale Details → Edit Sale</strong> to enter financial details.</p>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-red-600 text-xs">{error}</div>
+      )}
+
+      {/* Add form */}
+      {showAdd && (
+        <div className="border border-[#875A7B]/30 rounded-xl p-4 bg-[#875A7B]/5 space-y-3">
+          <p className="text-xs font-bold text-gray-700">New Booking</p>
+
+          <CustomerPicker
+            value={addForm._customer}
+            onPick={(c) => setAddForm(p => ({ ...p, customer_id: c.id, _customer: c }))}
+            onClear={() => setAddForm(p => ({ ...p, customer_id: '', _customer: null }))}
+            excludeIds={bookedCustomerIds}
+          />
+
+          <input
+            type="number"
+            value={addForm.booking_amount}
+            onChange={e => setAddForm(p => ({ ...p, booking_amount: e.target.value }))}
+            placeholder="Booking amount (₹)"
+            className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-[#875A7B]"
+          />
+          <textarea
+            value={addForm.notes}
+            onChange={e => setAddForm(p => ({ ...p, notes: e.target.value }))}
+            placeholder="Notes…"
+            rows={2}
+            className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-[#875A7B] resize-none"
+          />
+          <div className="flex gap-2">
+            <button onClick={handleAddSave} disabled={saving}
+              className="h-7 px-4 text-xs font-semibold rounded-lg text-white" style={{ backgroundColor: '#875A7B' }}>
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+            <button onClick={() => { setShowAdd(false); setAddForm(emptyForm); }}
+              className="h-7 px-3 text-xs border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Bookings table */}
+      {loading ? (
+        <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-14 bg-gray-100 rounded-xl animate-pulse"/>)}</div>
+      ) : bookings.length === 0 ? (
+        <div className="text-center py-12 text-gray-400">
+          <svg className="w-10 h-10 mx-auto mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          <p className="text-sm">No bookings yet</p>
+          <p className="text-xs mt-1">Add interested customers using the button above.</p>
+        </div>
+      ) : (
+        <div className="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden">
+          {bookings.map((b, idx) => (
+            <BookingRow key={b.id} booking={b} idx={idx}
+              canEdit={canEdit} isConfirmed={isConfirmed}
+              onConfirm={(advance) => handleConfirm(b.id, advance)} confirming={confirming === b.id}
+              onDelete={() => handleDelete(b.id)}    deleting={deleting === b.id}
+              saleId={saleId} onSaved={load}
+              excludeCustomerIds={bookedCustomerIds.filter(id => id !== b.customer_id)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirming, onDelete, deleting, saleId, onSaved, excludeCustomerIds }) {
+  const [editing,     setEditing]     = useState(false);
+  const [confirming2, setConfirming2] = useState(false); // inline confirm panel
+  const [advance,     setAdvance]     = useState('');
+  const [form,        setForm]        = useState({
+    _customer:      b.customer || null,
+    customer_id:    b.customer_id || '',
+    booking_amount: b.booking_amount != null ? String(b.booking_amount) : '',
+    notes:          b.notes || '',
+  });
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const token = localStorage.getItem('token');
+      const base  = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+      await fetch(`${base}/sales/${saleId}/bookings/${b.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ customer_id: form.customer_id || null, booking_amount: form.booking_amount || null, notes: form.notes || null }),
+      });
+      setEditing(false); await onSaved();
+    } catch (e) { console.error(e); }
+    finally { setSaving(false); }
+  };
+
+  const cls = BOOKING_STATUS_CLS[b.status] || 'bg-gray-50 text-gray-500 ring-gray-200';
+
+  if (editing) {
+    return (
+      <div className="p-4 bg-[#875A7B]/5 space-y-2">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs font-bold text-gray-600">Booking #{idx + 1}</span>
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ring-1 ${cls}`}>{b.status}</span>
+        </div>
+        <CustomerPicker
+          value={form._customer}
+          onPick={(c) => setForm(p => ({ ...p, customer_id: c.id, _customer: c }))}
+          onClear={() => setForm(p => ({ ...p, customer_id: '', _customer: null }))}
+          excludeIds={excludeCustomerIds}
+        />
+        <input type="number" value={form.booking_amount} onChange={e => setForm(p => ({ ...p, booking_amount: e.target.value }))}
+          placeholder="Amount ₹" className="w-full text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:border-[#875A7B]" />
+        <textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} placeholder="Notes…" rows={2}
+          className="w-full text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:border-[#875A7B] resize-none" />
+        <div className="flex gap-2">
+          <button onClick={handleSave} disabled={saving}
+            className="h-7 px-3 text-xs font-semibold rounded-lg text-white" style={{ backgroundColor: '#875A7B' }}>
+            {saving ? 'Saving…' : 'Update'}
+          </button>
+          <button onClick={() => setEditing(false)} className="h-7 px-3 text-xs border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50">Cancel</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+    <div className={`p-4 flex items-start gap-3 ${b.status === 'CONFIRMED' ? 'bg-emerald-50/60' : b.status === 'REFUNDED' ? 'bg-gray-50 opacity-60' : 'bg-white'}`}>
+      {/* Index */}
+      <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5"
+        style={{ backgroundColor: '#875A7B15', color: '#875A7B' }}>
+        {idx + 1}
+      </div>
+
+      {/* Details */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap mb-0.5">
+          {b.customer ? (
+            <span className="text-sm font-semibold text-gray-800">{b.customer.name}</span>
+          ) : (
+            <span className="text-sm text-gray-400 italic">No customer</span>
+          )}
+          {b.customer?.customer_code && <span className="text-[10px] text-gray-400">· {b.customer.customer_code}</span>}
+          {b.customer?.phone && <span className="text-[10px] text-gray-400">· {b.customer.phone}</span>}
+        </div>
+        {b.booking_amount != null && (
+          <p className="text-xs text-gray-600"><span className="font-medium text-[#875A7B]">{fmtINR(b.booking_amount)}</span> booking amount</p>
+        )}
+        {b.notes && <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{b.notes}</p>}
+      </div>
+
+      {/* Status + Actions */}
+      <div className="flex flex-col items-end gap-2 shrink-0">
+        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ring-1 ${cls}`}>{b.status}</span>
+        {canEdit && b.status === 'PENDING' && !isConfirmed && !confirming2 && (
+          <div className="flex gap-1.5">
+            <button onClick={() => setEditing(true)}
+              className="h-6 px-2 text-[10px] border border-gray-200 rounded text-gray-500 hover:bg-gray-50">Edit</button>
+            <button onClick={onDelete} disabled={deleting}
+              className="h-6 px-2 text-[10px] border border-red-100 rounded text-red-400 hover:bg-red-50">
+              {deleting ? '…' : 'Delete'}
+            </button>
+            <button onClick={() => { setConfirming2(true); setAdvance(''); }}
+              className="h-6 px-2.5 text-[10px] font-bold rounded text-white"
+              style={{ backgroundColor: '#875A7B' }}>
+              Confirm Sale
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+
+    {/* Inline advance panel */}
+    {confirming2 && (
+      <div className="border-t border-[#875A7B]/20 bg-[#875A7B]/5 px-4 py-3 space-y-2.5">
+        <p className="text-xs font-bold text-gray-700">Confirm sale with {b.customer?.name || 'this customer'}</p>
+        <div>
+          <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">Advance Payment Received (₹)</label>
+          <input
+            autoFocus
+            type="number"
+            value={advance}
+            onChange={e => setAdvance(e.target.value)}
+            placeholder="Enter advance amount…"
+            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/20"
+          />
+          {b.booking_amount != null && (
+            <p className="text-[10px] text-gray-400 mt-1">Booking amount: {fmtINR(b.booking_amount)}</p>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => { onConfirm(advance); setConfirming2(false); }}
+            disabled={confirming}
+            className="h-8 px-4 text-xs font-bold rounded-lg text-white flex items-center gap-1.5"
+            style={{ backgroundColor: '#875A7B' }}>
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
+            {confirming ? 'Confirming…' : 'Confirm & Close Sale'}
+          </button>
+          <button onClick={() => setConfirming2(false)}
+            className="h-8 px-3 text-xs border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50">
+            Cancel
+          </button>
+        </div>
+      </div>
+    )}
+    </>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function SaleDetailPage() {
   useAuth();
@@ -631,10 +934,12 @@ export default function SaleDetailPage() {
     }
   }
 
+  const confirmed = !!form.sale_confirmed;
   const TABS = [
-    { id: 'details',       label: 'Sale Details' },
-    { id: 'installments',  label: 'Installments' },
-    { id: 'financials',    label: 'Financials' },
+    { id: 'details',      label: 'Sale Details' },
+    { id: 'bookings',     label: 'Bookings' + (form.bookings?.length ? ` (${form.bookings.length})` : '') },
+    { id: 'installments', label: 'Installments', locked: !confirmed },
+    { id: 'financials',   label: 'Financials',   locked: !confirmed },
   ];
 
   return (
@@ -878,7 +1183,14 @@ export default function SaleDetailPage() {
 
             {/* Tab bar */}
             <div className="flex border-b border-gray-100 px-1">
-              {TABS.map(t => (
+              {TABS.map(t => t.locked ? (
+                <div key={t.id}
+                  title="Available after sale is confirmed"
+                  className="px-5 py-3 text-sm font-medium border-b-2 border-transparent text-gray-300 cursor-not-allowed flex items-center gap-1.5 select-none">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                  {t.label}
+                </div>
+              ) : (
                 <button key={t.id} onClick={() => { setTab(t.id); if(t.id!=='details') setEditing(false); }}
                   className={`px-5 py-3 text-sm font-medium transition border-b-2 -mb-px ${tab===t.id?'border-[#875A7B] text-[#875A7B]':'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-200'}`}>
                   {t.label}
@@ -890,7 +1202,7 @@ export default function SaleDetailPage() {
             {tab === 'details' && (
               editing ? (
                 <div className="p-6">
-                  <SaleFormBody form={form} set={set} setForm={setForm} />
+                  <SaleFormBody form={form} set={set} setForm={setForm} showFinancials={!!form.sale_confirmed} />
                   <div className="flex justify-end gap-2 mt-6 pt-5 border-t border-gray-100">
                     <button onClick={handleDiscard} className="h-8 px-4 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Discard</button>
                     <button onClick={handleSave} disabled={saving} className="h-8 px-5 text-sm rounded-lg text-white font-semibold" style={{backgroundColor:'#875A7B'}}>
@@ -901,6 +1213,19 @@ export default function SaleDetailPage() {
               ) : (
                 <SaleDetailView form={form} />
               )
+            )}
+
+            {/* Tab: Bookings */}
+            {tab === 'bookings' && (
+              <BookingPanel
+                saleId={params.id}
+                canEdit={canEdit}
+                onConfirmed={async () => {
+                  await load();
+                  setTab('details');
+                  setEditing(true);
+                }}
+              />
             )}
 
             {/* Tab: Installments */}

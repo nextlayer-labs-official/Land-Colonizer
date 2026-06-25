@@ -135,6 +135,7 @@ model Customer {
   created_at    DateTime       @default(now())
   updated_at    DateTime       @updatedAt
   sales         Sale[]
+  bookings      SaleBooking[]
 }
 
 enum CustomerType {
@@ -219,12 +220,14 @@ model Sale {
   possession_detail         String?
   other_details             String?          @db.Text
   status                    SaleStatus       @default(ACTIVE)
+  sale_confirmed            Boolean          @default(false)
   created_at                DateTime         @default(now())
   updated_at                DateTime         @updatedAt
   inventory                 Inventory?       @relation(fields: [inventory_id], references: [id])
   customer                  Customer?        @relation(fields: [customer_id], references: [id])
   broker                    Broker?          @relation(fields: [broker_id], references: [id])
   installment               Installment?
+  bookings                  SaleBooking[]
 }
 
 enum SaleType {
@@ -243,6 +246,25 @@ enum PossessionStatus {
 enum SaleStatus {
   ACTIVE
   INACTIVE
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  REFUNDED
+}
+
+model SaleBooking {
+  id             Int           @id @default(autoincrement())
+  sale_id        Int
+  customer_id    Int?
+  booking_amount Decimal?      @db.Decimal(10, 2)
+  notes          String?       @db.Text
+  status         BookingStatus @default(PENDING)
+  created_at     DateTime      @default(now())
+  updated_at     DateTime      @updatedAt
+  sale           Sale          @relation(fields: [sale_id], references: [id], onDelete: Cascade)
+  customer       Customer?     @relation(fields: [customer_id], references: [id])
 }
 
 model Installment {

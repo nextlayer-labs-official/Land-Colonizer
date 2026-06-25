@@ -79,6 +79,7 @@ function sanitize(body) {
     possession_detail:         str(body.possession_detail),
     other_details:             str(body.other_details),
     status:                    body.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
+    sale_confirmed:            body.sale_confirmed === true || body.sale_confirmed === 'true' || false,
   };
 
   return { ...d, ...computeFields(d) };
@@ -91,6 +92,10 @@ const INCLUDE = {
   customer:  { select: { id: true, customer_code: true, name: true, phone: true, email: true } },
   broker:    { select: { id: true, broker_code: true, name: true, phone: true } },
   installment: true,
+  bookings: {
+    include: { customer: { select: { id: true, customer_code: true, name: true, phone: true } } },
+    orderBy: { created_at: 'asc' },
+  },
 };
 
 async function getSales(req, res) {
