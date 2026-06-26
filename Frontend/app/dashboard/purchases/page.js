@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import useAuth from '@/lib/useAuth';
 import usePermissions from '@/lib/usePermissions';
-import { apiGet, apiDelete } from '@/lib/api';
+import { apiGet, apiDelete, apiPost } from '@/lib/api';
 import NProgress from 'nprogress';
 import Pagination from '@/components/Pagination';
 
@@ -35,21 +35,235 @@ const STAGE_COLOR = {
 };
 
 // ─── Delete confirm ────────────────────────────────────────────────────────────
-function DeleteModal({ item, onClose, onConfirm, deleting }) {
+function DeleteModal({ item, onClose, onConfirm, deleting, error }) {
   if (!item) return null;
+  const count = item.items?.length ?? 0;
+  const hasLinked = item.items?.some(r => (r._count?.inventory || 0) > 0);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/40" onClick={onClose} />
       <div className="relative bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4">
-        <h3 className="text-base font-semibold text-gray-900 mb-1">Delete record?</h3>
-        <p className="text-sm text-gray-500 mb-5">
-          <strong>{item.plot_no || item.sl_no || `Record #${item.id}`}</strong> will be permanently deleted.
+        <h3 className="text-base font-semibold text-gray-900 mb-2">Delete {count === 1 ? 'purchase' : `${count} purchases`}?</h3>
+        <p className="text-sm text-gray-500 mb-2">
+          {count === 1 ? 'This purchase' : `These ${count} purchases`} will be permanently deleted and cannot be recovered.
         </p>
-        <div className="flex justify-end gap-2">
+        {hasLinked && (
+          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
+            Any linked inventory units will also be deleted.
+          </p>
+        )}
+        {error && (
+          <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-3 py-2.5 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+        <div className="flex justify-end gap-2 mt-4">
           <button onClick={onClose} className="btn-secondary text-sm">Cancel</button>
-          <button onClick={onConfirm} disabled={deleting} className="btn-danger text-sm min-w-[90px]">
-            {deleting ? 'Deleting…' : 'Delete'}
+          {!error && (
+            <button onClick={onConfirm} disabled={deleting} className="btn-danger text-sm min-w-[90px]">
+              {deleting ? 'Deleting…' : 'Delete'}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── CSV helpers ──────────────────────────────────────────────────────────────
+const CSV_HEADERS = ['type','purchase_category','sl_no','plot_no','location','purchased_area','purchased_area_details','rate','advance_paid','seller_details','purchase_broker_name','sell_broker_name','brokerage','extra_expenses','registration_charges','other_details'];
+const CSV_LABELS  = ['Type(PLOT/LAND/SHOP)','Category(SINGLE/DIVIDED)','SL No','Plot No','Location','Purchased Area','Area Unit','Rate(₹)','Advance Paid(₹)','Seller Details','Purchase Broker','Sell Broker','Brokerage(₹)','Extra Expenses(₹)','Reg Charges(₹)','Other Details'];
+
+function downloadTemplate() {
+  const lines = [
+    CSV_LABELS.join(','),
+    'PLOT,SINGLE,SL-001,P-42,Chennai,1200,sq.yd,5000,100000,Seller Name,Broker Name,,,,,',
+    'LAND,DIVIDED,SL-002,,Bangalore,5,acres,250000,500000,Seller Name 2,,Sell Broker,10000,5000,,Additional notes here',
+  ];
+  const csv  = lines.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'purchase_import_template.csv'; a.click();
+}
+
+function parseCSV(text) {
+  const lines = text.trim().split('\n').filter(l => l.trim() && !l.trim().startsWith('#'));
+  if (lines.length < 2) return [];
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const vals = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+    const obj  = {};
+    CSV_HEADERS.forEach((h, idx) => { obj[h] = vals[idx] ?? ''; });
+    rows.push(obj);
+  }
+  return rows;
+}
+
+function ImportModal({ open, onClose, onImported }) {
+  const [step,     setStep]     = useState('upload'); // upload | preview | result
+  const [rows,     setRows]     = useState([]);
+  const [importing,setImporting]= useState(false);
+  const [result,   setResult]   = useState(null);
+  const [error,    setError]    = useState('');
+  const fileRef = useRef(null);
+
+  const reset = () => { setStep('upload'); setRows([]); setResult(null); setError(''); };
+  const close = () => { reset(); onClose(); };
+
+  const handleFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const parsed = parseCSV(ev.target.result);
+      if (parsed.length === 0) { setError('No data rows found in file.'); return; }
+      setRows(parsed); setStep('preview'); setError('');
+    };
+    reader.readAsText(file);
+  };
+
+  const handleImport = async () => {
+    setImporting(true); setError('');
+    try {
+      const res = await apiPost('/purchases/import', { purchases: rows });
+      setResult(res); setStep('result');
+      if (res.created > 0) onImported();
+    } catch (e) { setError(e.message || 'Import failed'); }
+    finally { setImporting(false); }
+  };
+
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={close}>
+      <div className="absolute inset-0 bg-black/40" />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col overflow-hidden"
+        style={{ maxHeight: '85vh' }} onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div>
+            <p className="text-base font-black text-gray-900">Import Purchases</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {step === 'upload' ? 'Upload a CSV file to bulk import purchases' :
+               step === 'preview' ? `${rows.length} row${rows.length !== 1 ? 's' : ''} ready to import` :
+               'Import complete'}
+            </p>
+          </div>
+          <button onClick={close} className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-400">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6">
+
+          {/* Upload step */}
+          {step === 'upload' && (
+            <div className="space-y-5">
+              <div className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-100 rounded-xl text-sm text-blue-700">
+                <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Download the template first, fill in your data, then upload the file below.
+              </div>
+              <button onClick={downloadTemplate}
+                className="flex items-center gap-2 h-9 px-4 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 font-medium transition">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                Download Template CSV
+              </button>
+              <div
+                onClick={() => fileRef.current?.click()}
+                className="border-2 border-dashed border-gray-200 rounded-xl p-10 text-center cursor-pointer hover:border-[#875A7B] hover:bg-[#875A7B]/5 transition-colors">
+                <svg className="w-10 h-10 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                <p className="text-sm font-semibold text-gray-500">Click to upload CSV</p>
+                <p className="text-xs text-gray-400 mt-1">Only .csv files are supported</p>
+                <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleFile} />
+              </div>
+              {error && <p className="text-sm text-red-500 bg-red-50 border border-red-100 rounded-xl px-4 py-2">{error}</p>}
+            </div>
+          )}
+
+          {/* Preview step */}
+          {step === 'preview' && (
+            <div className="overflow-x-auto rounded-xl border border-gray-100">
+              <table className="w-full text-xs">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                    <th className="text-left px-3 py-2.5 text-gray-400 font-bold uppercase tracking-wider">#</th>
+                    {['Type','Category','SL No','Plot No','Location','Area','Unit','Rate','Advance','Seller'].map(h => (
+                      <th key={h} className="text-left px-3 py-2.5 text-gray-400 font-bold uppercase tracking-wider whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {rows.map((r, i) => (
+                    <tr key={i} className="hover:bg-gray-50">
+                      <td className="px-3 py-2.5 text-gray-400">{i + 1}</td>
+                      <td className="px-3 py-2.5 font-bold text-[#875A7B]">{r.type || '—'}</td>
+                      <td className="px-3 py-2.5 text-gray-600">{r.purchase_category || '—'}</td>
+                      <td className="px-3 py-2.5 text-gray-600">{r.sl_no || '—'}</td>
+                      <td className="px-3 py-2.5 text-gray-600">{r.plot_no || '—'}</td>
+                      <td className="px-3 py-2.5 text-gray-600 max-w-[120px] truncate">{r.location || '—'}</td>
+                      <td className="px-3 py-2.5 text-gray-600">{r.purchased_area || '—'}</td>
+                      <td className="px-3 py-2.5 text-gray-400">{r.purchased_area_details || '—'}</td>
+                      <td className="px-3 py-2.5 text-gray-600">{r.rate ? `₹${Number(r.rate).toLocaleString('en-IN')}` : '—'}</td>
+                      <td className="px-3 py-2.5 text-gray-600">{r.advance_paid ? `₹${Number(r.advance_paid).toLocaleString('en-IN')}` : '—'}</td>
+                      <td className="px-3 py-2.5 text-gray-600 max-w-[120px] truncate">{r.seller_details || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Result step */}
+          {step === 'result' && result && (
+            <div className="space-y-4">
+              <div className={`flex items-center gap-3 p-4 rounded-xl border ${result.created > 0 ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-red-50 border-red-100 text-red-700'}`}>
+                <svg className="w-6 h-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {result.created > 0
+                    ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>}
+                </svg>
+                <div>
+                  <p className="font-bold">{result.created} purchase{result.created !== 1 ? 's' : ''} imported successfully</p>
+                  {result.brokersCreated?.length > 0 && (
+                    <p className="text-sm mt-0.5">{result.brokersCreated.length} new broker{result.brokersCreated.length !== 1 ? 's' : ''} created: {result.brokersCreated.join(', ')}</p>
+                  )}
+                  {result.errors?.length > 0 && <p className="text-sm mt-0.5">{result.errors.length} row{result.errors.length !== 1 ? 's' : ''} failed</p>}
+                </div>
+              </div>
+              {result.errors?.length > 0 && (
+                <div className="bg-red-50 border border-red-100 rounded-xl p-4 space-y-1">
+                  <p className="text-xs font-bold text-red-600 uppercase tracking-wide mb-2">Failed Rows</p>
+                  {result.errors.map((e, i) => (
+                    <p key={i} className="text-xs text-red-600">Row {e.row}: {e.message}</p>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gray-50">
+          {step === 'preview' && (
+            <button onClick={() => { setStep('upload'); if (fileRef.current) fileRef.current.value = ''; }}
+              className="h-9 px-4 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-white font-medium transition">
+              ← Back
+            </button>
+          )}
+          {step !== 'preview' && <div />}
+          <div className="flex items-center gap-2">
+            {error && <p className="text-xs text-red-500">{error}</p>}
+            <button onClick={close} className="h-9 px-4 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-white font-medium transition">
+              {step === 'result' ? 'Close' : 'Cancel'}
+            </button>
+            {step === 'preview' && (
+              <button onClick={handleImport} disabled={importing}
+                className="h-9 px-5 text-sm rounded-xl text-white font-semibold hover:opacity-90 transition disabled:opacity-60"
+                style={{ backgroundColor: '#875A7B' }}>
+                {importing ? 'Importing…' : `Import ${rows.length} Row${rows.length !== 1 ? 's' : ''}`}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -68,8 +282,10 @@ export default function PurchasesPage() {
   const [page,     setPage]     = useState(1);
   const [loading,  setLoading]  = useState(true);
   const [selected, setSelected] = useState([]);
-  const [delModal, setDelModal] = useState(null);
-  const [deleting, setDeleting] = useState(false);
+  const [delModal,    setDelModal]    = useState(null);
+  const [deleting,    setDeleting]    = useState(false);
+  const [delError,    setDelError]    = useState('');
+  const [showImport,  setShowImport]  = useState(false);
 
   // filters state
   const [search,     setSearch]     = useState('');
@@ -104,10 +320,21 @@ export default function PurchasesPage() {
 
   const handleDelete = async () => {
     setDeleting(true);
+    setDelError('');
+    const ids = delModal.items.map(r => r.id);
     try {
-      await apiDelete(`/purchases/${delModal.id}`);
+      const results = await Promise.allSettled(ids.map(id => apiDelete(`/purchases/${id}`)));
+      const failures = results.filter(r => r.status === 'rejected');
+      if (failures.length > 0) {
+        const msgs = [...new Set(failures.map(r => r.reason?.message || 'Delete failed'))];
+        setDelError(msgs.join(' | '));
+        const succeeded = results.filter(r => r.status === 'fulfilled').length;
+        if (succeeded > 0) { setSelected([]); load(page); }
+        return;
+      }
       setDelModal(null);
-      load(rows.length === 1 && page > 1 ? page - 1 : page);
+      setSelected([]);
+      load(rows.length <= ids.length && page > 1 ? page - 1 : page);
     } finally { setDeleting(false); }
   };
 
@@ -136,10 +363,17 @@ export default function PurchasesPage() {
             New
           </button>
         )}
+        {canCreate && (
+          <button onClick={() => setShowImport(true)}
+            className="flex items-center gap-1.5 h-8 px-3 text-sm border border-gray-200 rounded text-gray-600 hover:bg-gray-50 transition font-medium">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+            Import
+          </button>
+        )}
 
         {selected.length > 0 && canDelete && (
           <button
-            onClick={() => setDelModal(rows.find(r => r.id === selected[0]))}
+            onClick={() => setDelModal({ items: rows.filter(r => selected.includes(r.id)) })}
             className="btn-danger text-sm h-8 px-3"
           >
             Delete ({selected.length})
@@ -336,7 +570,8 @@ export default function PurchasesPage() {
         </table>
       </div>
 
-      <DeleteModal item={delModal} onClose={() => setDelModal(null)} onConfirm={handleDelete} deleting={deleting} />
+      <DeleteModal item={delModal} onClose={() => { setDelModal(null); setDelError(''); }} onConfirm={handleDelete} deleting={deleting} error={delError} />
+      <ImportModal open={showImport} onClose={() => setShowImport(false)} onImported={() => { load(1); }} />
     </div>
   );
 }

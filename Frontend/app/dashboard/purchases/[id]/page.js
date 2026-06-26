@@ -720,8 +720,10 @@ export default function PurchaseRecordPage() {
         advance_paid:         data.advance_paid         != null ? String(data.advance_paid)         : '',
         brokerage:            data.brokerage            != null ? String(data.brokerage)            : '',
         extra_expenses:       data.extra_expenses       != null ? String(data.extra_expenses)       : '',
-        registration_charges: data.registration_charges != null ? String(data.registration_charges) : '',
-        extra_income:         data.extra_income         != null ? String(data.extra_income)         : '',
+        registration_charges:                data.registration_charges                != null ? String(data.registration_charges)                : '',
+        extra_income:                        data.extra_income                        != null ? String(data.extra_income)                        : '',
+        against_registration_amount:         data.against_registration_amount         != null ? String(data.against_registration_amount)         : '',
+        against_registration_received_date:  data.against_registration_received_date  ? data.against_registration_received_date.split('T')[0]   : '',
       };
       setForm(flat);
       setOriginal(flat);
@@ -1006,6 +1008,37 @@ export default function PurchaseRecordPage() {
                     <span className="text-sm font-medium text-gray-700">Against Registration</span>
                   </label>
                 </div>
+
+                {/* Against Registration payment confirmation */}
+                {form.against_registration_paid && (
+                  <div className={`rounded-xl border-2 p-4 space-y-3 ${form.against_registration_received ? 'border-emerald-300 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Registration Payment</span>
+                      {form.against_registration_received
+                        ? <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7"/></svg>
+                            Received
+                          </span>
+                        : <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">Pending</span>
+                      }
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <FInput label="Amount (₹)" value={form.against_registration_amount}
+                        onChange={set('against_registration_amount')} type="number" placeholder="0" readOnly={!editing} />
+                      <FInput label="Received Date" value={form.against_registration_received_date}
+                        onChange={set('against_registration_received_date')} type="date" readOnly={!editing} />
+                    </div>
+                    <label className={`flex items-center gap-2.5 select-none ${!editing ? 'pointer-events-none' : 'cursor-pointer'}`}>
+                      <input type="checkbox" checked={!!form.against_registration_received}
+                        onChange={(e) => setForm(p => ({ ...p, against_registration_received: e.target.checked }))}
+                        disabled={!editing} className="w-4 h-4 rounded border-gray-300 accent-emerald-600" />
+                      <span className={`text-sm font-semibold ${form.against_registration_received ? 'text-emerald-700' : 'text-gray-500'}`}>
+                        Payment Received
+                      </span>
+                    </label>
+                  </div>
+                )}
+
                 <FTextarea label="Instalment Details" value={form.instalment_details} onChange={set('instalment_details')} placeholder="EMI schedule, dates, amounts..." rows={2} readOnly={!editing} />
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-lg border border-amber-100 bg-amber-50/60 px-3 py-2.5 text-center">
@@ -1163,22 +1196,26 @@ export default function PurchaseRecordPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                          <div className="flex items-center gap-1.5">
-                            {canEditInventory && (
-                              <button onClick={() => setEditingUnit(inv)}
-                                className="h-7 px-2.5 text-xs border border-gray-200 rounded text-gray-500 hover:border-[#875A7B] hover:text-[#875A7B] transition flex items-center gap-1">
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                Edit
-                              </button>
-                            )}
-                            {canDeleteInventory && (
-                              <button onClick={() => setDeletingUnit(inv)}
-                                className="h-7 px-2.5 text-xs border border-gray-200 rounded text-gray-500 hover:border-red-400 hover:text-red-500 transition flex items-center gap-1">
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                Delete
-                              </button>
-                            )}
-                          </div>
+                          {inv.sales?.length > 0 ? (
+                            <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-2 py-1 rounded whitespace-nowrap">Sale exists</span>
+                          ) : (
+                            <div className="flex items-center gap-1.5">
+                              {canEditInventory && (
+                                <button onClick={() => setEditingUnit(inv)}
+                                  className="h-7 px-2.5 text-xs border border-gray-200 rounded text-gray-500 hover:border-[#875A7B] hover:text-[#875A7B] transition flex items-center gap-1">
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                  Edit
+                                </button>
+                              )}
+                              {canDeleteInventory && (
+                                <button onClick={() => setDeletingUnit(inv)}
+                                  className="h-7 px-2.5 text-xs border border-gray-200 rounded text-gray-500 hover:border-red-400 hover:text-red-500 transition flex items-center gap-1">
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                  Delete
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))}

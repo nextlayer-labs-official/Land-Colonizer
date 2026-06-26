@@ -62,7 +62,10 @@ function sanitize(body) {
     advance_payment_details:     str(body.advance_payment_details),
     instalment_details:          str(body.instalment_details),
     remaining_paid:              body.remaining_paid === true || body.remaining_paid === 'true',
-    against_registration_paid:   body.against_registration_paid === true || body.against_registration_paid === 'true',
+    against_registration_paid:              body.against_registration_paid === true || body.against_registration_paid === 'true',
+    against_registration_amount:            num(body.against_registration_amount),
+    against_registration_received:          body.against_registration_received === true || body.against_registration_received === 'true',
+    against_registration_received_date:     body.against_registration_received_date ? new Date(body.against_registration_received_date) : null,
     registration_date:           body.registration_date ? new Date(body.registration_date) : null,
     registration_details:        str(body.registration_details),
     brokerage:                   num(body.brokerage),
@@ -100,7 +103,10 @@ async function getPurchases(req, res) {
   };
 
   const [purchases, total] = await Promise.all([
-    prisma.purchase.findMany({ where, orderBy: { created_at: 'desc' }, skip, take: Number(limit) }),
+    prisma.purchase.findMany({
+      where, orderBy: { created_at: 'desc' }, skip, take: Number(limit),
+      include: { _count: { select: { inventory: true } } },
+    }),
     prisma.purchase.count({ where }),
   ]);
 
@@ -117,7 +123,7 @@ async function getPurchaseById(req, res) {
   const p = await prisma.purchase.findUnique({
     where: { id: Number(req.params.id) },
     include: {
-      inventory: { orderBy: { created_at: 'asc' } },
+      inventory: { orderBy: { created_at: 'asc' }, include: { sales: { select: { id: true }, take: 1 } } },
     },
   });
   if (!p) return res.status(404).json({ message: 'Not found' });
@@ -185,8 +191,78 @@ async function updatePurchase(req, res) {
 }
 
 async function deletePurchase(req, res) {
-  await prisma.purchase.delete({ where: { id: Number(req.params.id) } });
+  const id = Number(req.params.id);
+
+  // Block delete if any linked inventory unit has a sale
+  const saleExists = await prisma.sale.findFirst({
+    where: { inventory: { purchase_id: id } },
+  });
+  if (saleExists) {
+    return res.status(400).json({ message: 'Cannot delete: one or more inventory units linked to this purchase have an existing sale.' });
+  }
+
+  // Delete linked inventory units first, then the purchase
+  await prisma.inventory.deleteMany({ where: { purchase_id: id } });
+  await prisma.purchase.deleteMany({ where: { id } });
   res.json({ message: 'Deleted' });
 }
 
-module.exports = { getPurchases, getPurchaseById, createPurchase, updatePurchase, deletePurchase };
+async function ensureBroker(name) {
+  if (!name || !name.trim()) return;
+  const existing = await prisma.broker.findFirst({ where: { name: { equals: name.trim() } } });
+  if (existing) return;
+  const settings   = await prisma.companySettings.findFirst();
+  const brokerPfx  = settings?.broker_prefix || 'BRK';
+  const b          = await prisma.broker.create({ data: { name: name.trim(), status: 'ACTIVE' } });
+  await prisma.broker.update({ where: { id: b.id }, data: { broker_code: `${brokerPfx}-${String(b.id).padStart(4, '0')}` } });
+}
+
+async function importPurchases(req, res) {
+  const rows = req.body.purchases;
+  if (!Array.isArray(rows) || rows.length === 0)
+    return res.status(400).json({ message: 'No purchase rows provided' });
+
+  const prefix    = await getPurchasePrefix();
+  const invPrefix = (await prisma.companySettings.findFirst())?.inventory_prefix || 'INV';
+  const created        = [];
+  const errors         = [];
+  const brokersCreated = new Set();
+
+  for (let i = 0; i < rows.length; i++) {
+    try {
+      const data = sanitize(rows[i]);
+
+      // Auto-create broker record for purchase broker only
+      if (data.purchase_broker_name) { const before = await prisma.broker.count(); await ensureBroker(data.purchase_broker_name); const after = await prisma.broker.count(); if (after > before) brokersCreated.add(data.purchase_broker_name); }
+
+      const p    = await prisma.purchase.create({ data });
+      const purchase_code = `${prefix}-${String(p.id).padStart(4, '0')}`;
+      const updated = await prisma.purchase.update({ where: { id: p.id }, data: { purchase_code } });
+
+      // Auto-create inventory unit for SINGLE purchases
+      if (updated.purchase_category === 'SINGLE') {
+        const inv = await prisma.inventory.create({
+          data: {
+            purchase_id: updated.id,
+            type:        updated.type    || 'PLOT',
+            sl_no:       updated.sl_no   || null,
+            location:    updated.location || null,
+            plot_no:     updated.plot_no  || null,
+            area:        updated.purchased_area         || null,
+            area_unit:   updated.purchased_area_details || null,
+          },
+        });
+        const inventory_code = `${invPrefix}-${String(inv.id).padStart(4, '0')}`;
+        await prisma.inventory.update({ where: { id: inv.id }, data: { inventory_code } });
+      }
+
+      created.push(purchase_code);
+    } catch (e) {
+      errors.push({ row: i + 1, message: e.message });
+    }
+  }
+
+  res.json({ created: created.length, errors, codes: created, brokersCreated: [...brokersCreated] });
+}
+
+module.exports = { getPurchases, getPurchaseById, createPurchase, updatePurchase, deletePurchase, importPurchases };

@@ -434,6 +434,9 @@ model Purchase {
   instalment_details           String?          @db.Text
   remaining_paid               Boolean          @default(false)
   against_registration_paid    Boolean          @default(false)
+  against_registration_amount  Decimal?         @db.Decimal(10, 2)
+  against_registration_received Boolean         @default(false)
+  against_registration_received_date DateTime?
   registration_date            DateTime?
   registration_details         String?          @db.Text
   brokerage                    Decimal?         @db.Decimal(10, 2)
