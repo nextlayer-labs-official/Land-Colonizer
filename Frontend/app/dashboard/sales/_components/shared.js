@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { apiGet } from '@/lib/api';
+import { apiGet, apiPost } from '@/lib/api';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 export const SALE_TYPES       = ['PLOT', 'SHOP', 'SHOP_WIRE', 'PLOT_WIRE'];
@@ -8,6 +8,7 @@ export const POSSESSION_STATES = ['PENDING', 'SYMBOLIC', 'PHYSICAL'];
 
 export const EMPTY = {
   inventory_id: '', customer_id: '', broker_id: '',
+  _inventory: null, _customer: null, _broker: null,
   sale_date: '', type: '', sl_no: '', details: '',
   broker_name: '', broker_details: '',
   front_area: '', front_area_details: '',
@@ -107,13 +108,17 @@ export function SectionDivider({ title }) {
 }
 
 // ── Lookup Pickers ─────────────────────────────────────────────────────────────
-function BasePicker({ value, onPick, onClear, label, endpoint, renderItem, renderSelected, placeholder, readOnly, excludeIds }) {
-  const [open,   setOpen]   = useState(false);
-  const [search, setSearch] = useState('');
-  const [items,  setItems]  = useState([]);
-  const [loading, setLoad]  = useState(false);
-  const ref  = useRef(null);
-  const tmr  = useRef(null);
+function BasePicker({ value, onPick, onClear, label, endpoint, renderItem, renderSelected, placeholder, readOnly, excludeIds, allowCreate }) {
+  const [open,    setOpen]    = useState(false);
+  const [search,  setSearch]  = useState('');
+  const [items,   setItems]   = useState([]);
+  const [loading, setLoad]    = useState(false);
+  const [adding,  setAdding]  = useState(false);
+  const [newForm, setNewForm] = useState({ name: '', phone: '', email: '' });
+  const [saving,  setSaving]  = useState(false);
+  const [saveErr, setSaveErr] = useState('');
+  const ref = useRef(null);
+  const tmr = useRef(null);
 
   const fetchItems = useCallback(async (q = '') => {
     setLoad(true);
@@ -125,9 +130,7 @@ function BasePicker({ value, onPick, onClear, label, endpoint, renderItem, rende
     finally  { setLoad(false); }
   }, [endpoint]);
 
-  useEffect(() => {
-    if (open) fetchItems('');
-  }, [open, fetchItems]);
+  useEffect(() => { if (open) fetchItems(''); }, [open, fetchItems]);
 
   useEffect(() => {
     clearTimeout(tmr.current);
@@ -137,10 +140,24 @@ function BasePicker({ value, onPick, onClear, label, endpoint, renderItem, rende
   }, [search, open, fetchItems]);
 
   useEffect(() => {
-    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) { setOpen(false); setAdding(false); } };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, []);
+
+  const openAdd   = () => { setAdding(true); setNewForm({ name: search, phone: '', email: '' }); setSaveErr(''); };
+  const cancelAdd = () => { setAdding(false); setSaveErr(''); };
+
+  const handleSave = async () => {
+    if (!newForm.name.trim()) { setSaveErr('Name is required'); return; }
+    setSaving(true); setSaveErr('');
+    try {
+      const created = await apiPost('/brokers', newForm);
+      onPick(created);
+      setOpen(false); setAdding(false); setSearch('');
+    } catch (e) { setSaveErr(e.message || 'Failed to create'); }
+    finally { setSaving(false); }
+  };
 
   if (readOnly) {
     return <div className="min-h-[36px] px-3 py-[7px] bg-gray-50 rounded border border-gray-100 text-sm text-gray-700">{renderSelected ? renderSelected(value) : (value || <span className="text-gray-300">—</span>)}</div>;
@@ -164,25 +181,61 @@ function BasePicker({ value, onPick, onClear, label, endpoint, renderItem, rende
       )}
       {open && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden">
-          <div className="p-2 border-b border-gray-100">
-            <input autoFocus value={search} onChange={e => setSearch(e.target.value)} placeholder={`Search ${label}…`}
-              className="w-full text-sm border border-gray-200 rounded px-2.5 py-1.5 focus:outline-none focus:border-[#875A7B]" />
-          </div>
-          <div className="max-h-48 overflow-y-auto">
-            {loading ? (
-              <div className="p-3 text-center text-xs text-gray-400">Loading…</div>
-            ) : items.filter(i => !excludeIds?.includes(i.id)).length === 0 ? (
-              <div className="p-3 text-center text-xs text-gray-400">No results</div>
-            ) : items.map(item => {
-              const excluded = excludeIds?.includes(item.id);
-              return excluded ? null : (
-                <button key={item.id} type="button" onClick={() => { onPick(item); setOpen(false); setSearch(''); }}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-[#875A7B]/5 transition border-b border-gray-50 last:border-0">
-                  {renderItem(item)}
+          {!adding ? (
+            <>
+              <div className="p-2 border-b border-gray-100">
+                <input autoFocus value={search} onChange={e => setSearch(e.target.value)} placeholder={`Search ${label}…`}
+                  className="w-full text-sm border border-gray-200 rounded px-2.5 py-1.5 focus:outline-none focus:border-[#875A7B]" />
+              </div>
+              <div className="max-h-48 overflow-y-auto">
+                {loading ? (
+                  <div className="p-3 text-center text-xs text-gray-400">Loading…</div>
+                ) : items.filter(i => !excludeIds?.includes(i.id)).length === 0 ? (
+                  <div className="p-3 text-center text-xs text-gray-400">No results</div>
+                ) : items.map(item => {
+                  const excluded = excludeIds?.includes(item.id);
+                  return excluded ? null : (
+                    <button key={item.id} type="button" onClick={() => { onPick(item); setOpen(false); setSearch(''); }}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-[#875A7B]/5 transition border-b border-gray-50 last:border-0">
+                      {renderItem(item)}
+                    </button>
+                  );
+                })}
+              </div>
+              {allowCreate && (
+                <div className="border-t border-gray-100">
+                  <button type="button" onClick={openAdd}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-[#875A7B] hover:bg-[#875A7B]/5 transition font-medium">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                    Add new broker
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="p-3 space-y-2">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">New Broker</p>
+              <input autoFocus value={newForm.name} onChange={e => setNewForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="Name *"
+                className="w-full text-sm border border-gray-200 rounded px-2.5 py-1.5 focus:outline-none focus:border-[#875A7B]" />
+              <input value={newForm.phone} onChange={e => setNewForm(f => ({ ...f, phone: e.target.value }))}
+                placeholder="Phone"
+                className="w-full text-sm border border-gray-200 rounded px-2.5 py-1.5 focus:outline-none focus:border-[#875A7B]" />
+              <input value={newForm.email} onChange={e => setNewForm(f => ({ ...f, email: e.target.value }))}
+                placeholder="Email"
+                className="w-full text-sm border border-gray-200 rounded px-2.5 py-1.5 focus:outline-none focus:border-[#875A7B]" />
+              {saveErr && <p className="text-xs text-red-500">{saveErr}</p>}
+              <div className="flex gap-2 pt-1">
+                <button type="button" onClick={cancelAdd}
+                  className="flex-1 text-sm border border-gray-200 rounded py-1.5 text-gray-500 hover:bg-gray-50 transition">Cancel</button>
+                <button type="button" onClick={handleSave} disabled={saving}
+                  className="flex-1 text-sm rounded py-1.5 text-white font-medium transition disabled:opacity-60"
+                  style={{ backgroundColor: '#875A7B' }}>
+                  {saving ? 'Saving…' : 'Save'}
                 </button>
-              );
-            })}
-          </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -215,6 +268,7 @@ export function BrokerPicker({ value, onPick, onClear, readOnly }) {
       value={value?.id ? value : null}
       onPick={onPick} onClear={onClear} readOnly={readOnly}
       label="Broker" endpoint="brokers" placeholder="Search broker…"
+      allowCreate
       renderSelected={v => v ? `${v.broker_code || ''} ${v.name || ''} ${v.phone ? `· ${v.phone}` : ''}`.trim() : ''}
       renderItem={b => (
         <div>

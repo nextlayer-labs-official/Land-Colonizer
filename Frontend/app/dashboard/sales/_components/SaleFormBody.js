@@ -77,8 +77,8 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false, sho
         ) : (
           <BrokerPicker
             value={form._broker}
-            onPick={(b) => setForm(p => ({ ...p, broker_id: b.id, broker_name: b.name, _broker: b }))}
-            onClear={() => setForm(p => ({ ...p, broker_id: '', _broker: null }))}
+            onPick={(b) => setForm(p => ({ ...p, broker_id: b.id, broker_name: b.name, _broker: b, broker_details: [b.phone, b.email].filter(Boolean).join(' · ') }))}
+            onClear={() => setForm(p => ({ ...p, broker_id: '', broker_name: '', _broker: null, broker_details: '' }))}
           />
         )}
       </div>

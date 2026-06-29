@@ -186,7 +186,7 @@ function InstCard({ n, label, form, editing, setF }) {
 }
 
 // ── Installment Panel (tab content) ──────────────────────────────────────────
-function InstallmentPanel({ saleId, canEdit }) {
+function InstallmentPanel({ saleId, canEdit, onTotalPaidChange }) {
   const [form,       setForm]       = useState(emptyInst());
   const [loading,    setLoading]    = useState(true);
   const [editing,    setEditing]    = useState(false);
@@ -204,6 +204,7 @@ function InstallmentPanel({ saleId, canEdit }) {
       setTotalPaid(d.total_paid || 0);
       setBalanceAmt(d.balance_amount || 0);
       setCustomer(d.customer || null);
+      onTotalPaidChange?.(d.total_paid || 0);
     } catch { /* ignore */ }
     finally { setLoading(false); }
   }, [saleId]);
@@ -219,6 +220,7 @@ function InstallmentPanel({ saleId, canEdit }) {
       setForm(instFromApi(d.installment));
       setTotalPaid(d.total_paid || 0);
       setBalanceAmt(d.balance_amount || 0);
+      onTotalPaidChange?.(d.total_paid || 0);
       setEditing(false); setSaved(true);
     } catch { /* ignore */ }
     finally { setSaving(false); }
@@ -480,12 +482,13 @@ function DeleteModal({ open, onClose, onConfirm, deleting }) {
 }
 
 // ── Financials Tab ────────────────────────────────────────────────────────────
-function FinancialsTab({ form }) {
+function FinancialsTab({ form, instPaid = 0 }) {
   const c = computed(form);
-  const actual  = Number(form.actual_price  ?? c.actual_price  ?? 0);
-  const total_v = Number(form.total_value   ?? c.total_value   ?? 0);
-  const balance = Number(form.balance_amount ?? c.balance_amount ?? 0);
-  const net     = Number(form.net_amount    ?? c.net_amount    ?? 0);
+  const actual   = Number(form.actual_price  ?? c.actual_price  ?? 0);
+  const total_v  = Number(form.total_value   ?? c.total_value   ?? 0);
+  const balance  = Number(form.balance_amount ?? c.balance_amount ?? 0);
+  const net      = Number(form.net_amount    ?? c.net_amount    ?? 0);
+  const effBal   = Math.max(0, balance - instPaid);
 
   const Row = ({ label, value, sub, accent }) => (
     <div className={`flex items-center justify-between py-2.5 border-b border-gray-50 last:border-b-0 ${accent?'bg-[#875A7B]/3 -mx-4 px-4 rounded':''}`}>
@@ -520,7 +523,9 @@ function FinancialsTab({ form }) {
         <Hdr>Payments</Hdr>
         <Row label="Booking Amount"   value={form.booking_amount   ? fmtINR(form.booking_amount)   : '—'} sub={form.booking_details||''} />
         <Row label="Advance Payment"  value={form.advance_payment  ? fmtINR(form.advance_payment)  : '—'} sub={form.advance_payment_details||''} />
-        <Row label="Balance Amount"   value={balance ? fmtINR(balance) : '—'} sub="Actual Price − Advance" accent />
+        <Row label="Balance Amount"   value={balance ? fmtINR(balance) : '—'} sub="Actual Price − Advance" />
+        {instPaid > 0 && <Row label="Instalments Paid" value={fmtINR(instPaid)} sub="Total paid via instalments" />}
+        {instPaid > 0 && <Row label="Remaining Balance" value={fmtINR(effBal)} sub="Balance − Instalments Paid" accent />}
         {form.payment_due_date && <Row label="Payment Due" value={fmtDate(form.payment_due_date)} />}
 
         <Hdr>Charges</Hdr>
@@ -869,7 +874,8 @@ export default function SaleDetailPage() {
   const [error,    setError]    = useState('');
   const [showDel,  setShowDel]  = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [tab,      setTab]      = useState('details');
+  const [tab,         setTab]         = useState('details');
+  const [totalInstPaid, setTotalInstPaid] = useState(0);
 
   const canEdit   = can('SALE_EDIT')   || me?.is_system;
   const canDelete = can('SALE_DELETE') || me?.is_system;
@@ -933,6 +939,10 @@ export default function SaleDetailPage() {
       if (instRec[`inst_${n}_paid`]) { instPaidCount++; instPaidAmt += Number(instRec[`inst_${n}_amount`] || 0); }
     }
   }
+  // Effective paid = live totalInstPaid (updated by InstallmentPanel), fallback to embedded instPaidAmt on first render
+  const effectiveInstPaid   = totalInstPaid || instPaidAmt;
+  const effectiveBalance    = Math.max(0, balanceP - effectiveInstPaid);
+  const effectiveReceivedP  = receivedP + effectiveInstPaid;
 
   const confirmed = !!form.sale_confirmed;
   const TABS = [
@@ -1147,7 +1157,7 @@ export default function SaleDetailPage() {
                 <div className="grid grid-cols-2 gap-2">
                   <div className="bg-amber-50 rounded-lg p-2.5 border border-amber-100">
                     <p className="text-[8px] text-gray-400 uppercase tracking-wide">Balance</p>
-                    <p className="text-xs font-bold text-amber-700">{fmtINR(balanceP)}</p>
+                    <p className="text-xs font-bold text-amber-700">{fmtINR(effectiveBalance)}</p>
                   </div>
                   <div className="bg-violet-50 rounded-lg p-2.5 border border-violet-100">
                     <p className="text-[8px] text-gray-400 uppercase tracking-wide">Net Amount</p>
@@ -1158,8 +1168,8 @@ export default function SaleDetailPage() {
                 {/* Payment progress */}
                 {actualP > 0 && (
                   <div className="bg-gray-50 rounded-lg p-2.5 border border-gray-100">
-                    <PayBar received={receivedP} total={actualP} />
-                    <p className="text-[9px] text-gray-400 mt-1">{fmtINR(receivedP)} received of {fmtINR(actualP)}</p>
+                    <PayBar received={effectiveReceivedP} total={actualP} />
+                    <p className="text-[9px] text-gray-400 mt-1">{fmtINR(effectiveReceivedP)} received of {fmtINR(actualP)}</p>
                   </div>
                 )}
 
@@ -1231,13 +1241,13 @@ export default function SaleDetailPage() {
             {/* Tab: Installments */}
             {tab === 'installments' && (
               <div className="p-5">
-                <InstallmentPanel saleId={params.id} canEdit={canEdit} />
+                <InstallmentPanel saleId={params.id} canEdit={canEdit} onTotalPaidChange={setTotalInstPaid} />
               </div>
             )}
 
             {/* Tab: Financials */}
             {tab === 'financials' && (
-              <FinancialsTab form={form} />
+              <FinancialsTab form={form} instPaid={effectiveInstPaid} />
             )}
 
           </div>
