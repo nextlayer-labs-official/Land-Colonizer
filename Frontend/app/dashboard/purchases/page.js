@@ -21,8 +21,8 @@ const TYPE_BADGE = {
 
 function getStage(row) {
   const pct = Number(row.percentage_paid || 0);
-  if (pct >= 100 && row.registration_date) return 'Completed';
-  if (row.registration_date) return 'Registered';
+  if (row.registration_completed && pct >= 100) return 'Completed';
+  if (row.registration_completed) return 'Registered';
   if (pct > 0) return 'In Progress';
   return 'Draft';
 }
@@ -545,13 +545,13 @@ export default function PurchasesPage() {
                     </td>
                     <td className="px-3 py-2.5 text-right text-gray-700">{row.rate ? fmtINR(row.rate) : '—'}</td>
                     <td className="px-3 py-2.5 text-right font-semibold text-gray-900">{fmtINR(row.total_amount)}</td>
-                    <td className="px-3 py-2.5 text-right text-gray-700">{fmtINR(row.balance_to_pay)}</td>
+                    <td className="px-3 py-2.5 text-right text-gray-700">{fmtINR(row.effective_balance ?? row.balance_to_pay)}</td>
                     <td className="px-3 py-2.5 min-w-[120px]">
                       <div className="flex items-center gap-2">
                         <div className="flex-1 bg-gray-100 rounded-full h-1.5">
                           <div className={`${barColor} h-1.5 rounded-full`} style={{ width: `${pct}%` }} />
                         </div>
-                        <span className="text-xs text-gray-500 w-8 text-right">{pct.toFixed(0)}%</span>
+                        <span className="text-xs text-gray-500 w-10 text-right">{pct.toFixed(1)}%</span>
                       </div>
                     </td>
                     <td className="px-3 py-2.5 text-gray-500 whitespace-nowrap">{fmtDate(row.registration_date)}</td>

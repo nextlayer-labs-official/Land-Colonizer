@@ -9,6 +9,30 @@ import { STATUS_RING, UNIT_TYPE_RING, fmtINR, fmtNum } from './_components/share
 import NProgress from 'nprogress';
 import Pagination from '@/components/Pagination';
 
+function exportCSV(data) {
+  const headers = ['Code', 'Type', 'Purchase', 'Location', 'SL No', 'Plot No', 'Total Area', 'Area Unit', 'Rate', 'Status'];
+  const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const rows = data.map(r => {
+    const f = parseFloat(r.front_area) || 0;
+    const b = parseFloat(r.back_area)  || 0;
+    const totalArea = f && b ? parseFloat((f * (b / 9)).toFixed(2)) : (parseFloat(r.area) || 0);
+    const areaUnit  = r.front_area_details || r.area_unit || '';
+    return [
+      r.inventory_code || '', r.type || '',
+      r.purchase?.purchase_code || '', r.location || '',
+      r.sl_no || '', r.plot_no || '',
+      totalArea || '', areaUnit,
+      r.rate || '', r.status || '',
+    ].map(escape).join(',');
+  });
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `inventory_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+}
+
 function DeleteModal({ item, onClose, onConfirm, deleting }) {
   if (!item) return null;
   return (
@@ -36,12 +60,13 @@ export default function InventoryPage() {
   const { can, me } = usePermissions();
 
   const [navigatingId, setNavigatingId] = useState(null);
-  const [rows,     setRows]     = useState([]);
-  const [total,    setTotal]    = useState(0);
-  const [page,     setPage]     = useState(1);
-  const [loading,  setLoading]  = useState(true);
-  const [delModal, setDelModal] = useState(null);
-  const [deleting, setDeleting] = useState(false);
+  const [rows,      setRows]      = useState([]);
+  const [total,     setTotal]     = useState(0);
+  const [page,      setPage]      = useState(1);
+  const [loading,   setLoading]   = useState(true);
+  const [delModal,  setDelModal]  = useState(null);
+  const [deleting,  setDeleting]  = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const [search,      setSearch]      = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -80,6 +105,18 @@ export default function InventoryPage() {
       setDelModal(null);
       load(rows.length === 1 && page > 1 ? page - 1 : page);
     } finally { setDeleting(false); }
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const q = new URLSearchParams({ page: 1, limit: 10000 });
+      if (search)       q.set('search', search);
+      if (statusFilter) q.set('status', statusFilter);
+      if (typeFilter)   q.set('type',   typeFilter);
+      const data = await apiGet(`/inventory?${q}`);
+      exportCSV(data.inventory || []);
+    } finally { setExporting(false); }
   };
 
   const totalPages = Math.ceil(total / LIMIT);
@@ -153,8 +190,18 @@ export default function InventoryPage() {
           </span>
         )}
 
+        {/* Export */}
+        <button
+          onClick={handleExport}
+          disabled={exporting || total === 0}
+          className="ml-auto flex items-center gap-1.5 text-sm h-8 px-3 rounded border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+          {exporting ? 'Exporting…' : 'Export'}
+        </button>
+
         {/* Search */}
-        <div className="ml-auto relative">
+        <div className="relative">
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search code, plot no, location…"
             className="text-sm border border-gray-200 rounded h-8 pl-8 pr-3 w-52 focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30 transition" />
           <svg className="w-4 h-4 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -170,7 +217,7 @@ export default function InventoryPage() {
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="border-b border-gray-200 bg-white">
-              {['Unit', 'Purchase', 'SL No', 'Plot No', 'Location', 'Area (F × B)', 'Total Area', 'Rate', 'Status', ''].map(h => (
+              {['Unit', 'Purchase', 'SL No', 'Plot No', 'Location', 'Total Area', 'Rate', 'Status', ''].map(h => (
                 <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
               ))}
             </tr>
@@ -179,7 +226,7 @@ export default function InventoryPage() {
             {loading ? (
               Array(7).fill(0).map((_, i) => (
                 <tr key={i} className="border-b border-gray-100">
-                  {Array(10).fill(0).map((__, j) => (
+                  {Array(9).fill(0).map((__, j) => (
                     <td key={j} className="px-3 py-3">
                       <div className="h-4 bg-gray-100 rounded animate-pulse" style={{ width: `${50 + Math.random() * 40}%` }} />
                     </td>
@@ -188,7 +235,7 @@ export default function InventoryPage() {
               ))
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={10} className="px-4 py-20 text-center">
+                <td colSpan={9} className="px-4 py-20 text-center">
                   <div className="flex flex-col items-center gap-3 text-gray-400">
                     <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -219,11 +266,6 @@ export default function InventoryPage() {
                   <td className="px-3 py-2.5 font-medium text-gray-900">{row.plot_no || '—'}</td>
                   <td className="px-3 py-2.5 text-gray-500 max-w-[140px]">
                     <span className="truncate block">{row.location || '—'}</span>
-                  </td>
-                  <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap">
-                    {row.front_area && row.back_area
-                      ? <span>{fmtNum(row.front_area)} × {fmtNum(row.back_area)}{row.front_area_details ? <span className="text-gray-400 text-xs ml-1">{row.front_area_details}</span> : ''}</span>
-                      : '—'}
                   </td>
                   <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap">
                     {(() => {

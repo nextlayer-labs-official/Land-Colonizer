@@ -130,7 +130,7 @@ function InstCard({ n, label, form, editing, setF }) {
   );
 }
 
-function PurchaseInstallmentPanel({ purchaseId, canEdit }) {
+function PurchaseInstallmentPanel({ purchaseId, canEdit, onTotalPaidChange }) {
   const [form,       setInstForm]  = useState(emptyInst());
   const [loading,    setLoading]   = useState(true);
   const [editing,    setEditing]   = useState(false);
@@ -146,6 +146,7 @@ function PurchaseInstallmentPanel({ purchaseId, canEdit }) {
       setInstForm(instFromApi(d.installment));
       setTotalPaid(d.total_paid || 0);
       setBalance(d.balance_amount || 0);
+      onTotalPaidChange?.(d.total_paid || 0);
     } catch { /**/ }
     finally { setLoading(false); }
   }, [purchaseId]);
@@ -161,6 +162,7 @@ function PurchaseInstallmentPanel({ purchaseId, canEdit }) {
       setInstForm(instFromApi(d.installment));
       setTotalPaid(d.total_paid || 0);
       setBalance(d.balance_amount || 0);
+      onTotalPaidChange?.(d.total_paid || 0);
       setEditing(false); setSaved(true);
     } catch { /**/ }
     finally { setSaving(false); }
@@ -202,7 +204,7 @@ function PurchaseInstallmentPanel({ purchaseId, canEdit }) {
         {/* KPI strip */}
         <div className="grid grid-cols-3 gap-4">
           {[
-            { l: 'Balance Amount', v: fmtINR(balanceAmt), c: 'text-amber-700',   bg: 'bg-amber-50',   bd: 'border-amber-100' },
+            { l: 'Instalment Balance Amount', v: fmtINR(balanceAmt), c: 'text-amber-700',   bg: 'bg-amber-50',   bd: 'border-amber-100' },
             { l: 'Total Paid',     v: fmtINR(totalPaid),  c: 'text-emerald-700', bg: 'bg-emerald-50', bd: 'border-emerald-100' },
             { l: 'Remaining',      v: fmtINR(remaining),  c: remaining > 0 ? 'text-red-600' : 'text-emerald-700',
               bg: remaining > 0 ? 'bg-red-50' : 'bg-emerald-50', bd: remaining > 0 ? 'border-red-100' : 'border-emerald-100' },
@@ -700,6 +702,7 @@ export default function PurchaseRecordPage() {
   const [deletingUnit,  setDeletingUnit]  = useState(null);
   const [unitDeleting,  setUnitDeleting]  = useState(false);
   const [actMenu,       setActMenu]       = useState(false);
+  const [totalInstPaid, setTotalInstPaid] = useState(0);
 
   const canEdit            = can('PURCHASE_EDIT')   || me?.is_system;
   const canDelete          = can('PURCHASE_DELETE') || me?.is_system;
@@ -710,10 +713,14 @@ export default function PurchaseRecordPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await apiGet(`/purchases/${params.id}`);
+      const [data, instData] = await Promise.all([
+        apiGet(`/purchases/${params.id}`),
+        apiGet(`/purchases/${params.id}/installments`).catch(() => null),
+      ]);
       const flat = {
         ...EMPTY, ...data,
         _purchase_broker: data.purchase_broker_name ? { name: data.purchase_broker_name } : null,
+        _sell_broker:     data.sell_broker_name     ? { name: data.sell_broker_name }     : null,
         registration_date:    data.registration_date ? data.registration_date.split('T')[0] : '',
         purchased_area:       data.purchased_area       != null ? String(data.purchased_area)       : '',
         rate:                 data.rate                 != null ? String(data.rate)                 : '',
@@ -728,6 +735,7 @@ export default function PurchaseRecordPage() {
       setForm(flat);
       setOriginal(flat);
       setInventory(data.inventory || []);
+      if (instData) setTotalInstPaid(instData.total_paid || 0);
     } catch (e) { setError(e.message || 'Failed to load'); }
     finally     { setLoading(false); }
   }, [params.id]);
@@ -763,7 +771,11 @@ export default function PurchaseRecordPage() {
   const c        = computed(form);
   const stageIdx = getStageIndex(form, c);
   const title    = form.plot_no ? `Plot ${form.plot_no}` : form.sl_no ? `SL ${form.sl_no}` : `Purchase #${params.id}`;
-  const pct      = Math.min(100, Math.max(0, c.percentage_paid));
+  // Include paid installments in balance, progress, and total cost
+  const effectiveBalance  = Math.max(0, c.balance_to_pay - totalInstPaid);
+  const effectivePct      = c.total_amount > 0 ? Math.min(100, ((c.total_amount - effectiveBalance) / c.total_amount) * 100) : 0;
+  const effectiveTotalCost = c.total_cost + totalInstPaid;
+  const pct      = effectivePct;
   const barColor = pct >= 100 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#875A7B';
 
   const INV_STATUS = {
@@ -894,9 +906,9 @@ export default function PurchaseRecordPage() {
             {[
               { label: 'Total Amount',  value: fmtINR(c.total_amount),   sub: 'Rate × Area',      color: 'text-gray-900',    bg: 'bg-white' },
               { label: 'Advance Paid',  value: fmtINR(c.total_amount - c.balance_to_pay), sub: 'Amount paid',  color: 'text-[#875A7B]', bg: 'bg-white' },
-              { label: 'Balance to Pay',value: fmtINR(c.balance_to_pay), sub: 'Remaining',         color: 'text-amber-600',   bg: 'bg-white' },
+              { label: 'Balance to Pay',value: fmtINR(effectiveBalance), sub: 'After advance & instalments', color: 'text-amber-600', bg: 'bg-white' },
               { label: '% Paid',        value: `${pct.toFixed(1)}%`,     sub: 'Payment progress',  color: pct >= 100 ? 'text-emerald-600' : 'text-gray-900', bg: 'bg-white' },
-              { label: 'Total Cost',    value: fmtINR(c.total_cost),     sub: 'Adv+Brok+Exp−Inc',  color: 'text-slate-700',   bg: 'bg-white' },
+              { label: 'Total Cost',    value: fmtINR(effectiveTotalCost), sub: 'Adv+Inst+Brok+Exp−Inc', color: 'text-slate-700', bg: 'bg-white' },
             ].map(({ label, value, sub, color, bg }) => (
               <div key={label} className={`${bg} rounded-xl border border-gray-200 shadow-sm px-4 py-3`}>
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{label}</p>
@@ -917,7 +929,7 @@ export default function PurchaseRecordPage() {
             </div>
             <div className="flex justify-between text-[11px] text-gray-400 mt-1.5">
               <span>₹0</span>
-              <span className="text-amber-600 font-medium">{fmtINR(c.balance_to_pay)} remaining</span>
+              <span className="text-amber-600 font-medium">{fmtINR(effectiveBalance)} remaining</span>
               <span>{fmtINR(c.total_amount)}</span>
             </div>
           </div>
@@ -972,7 +984,12 @@ export default function PurchaseRecordPage() {
                   <option value="gaj">Gaj</option>
                 </FSelect>
                 <FInput label="Plot No" value={form.plot_no} onChange={set('plot_no')} placeholder="e.g. P-42" readOnly={!editing} />
-                <FInput label="Rate (₹ / unit)" value={form.rate} onChange={set('rate')} type="number" placeholder="0" readOnly={!editing} />
+                <FInput label="Rate (₹ / unit)" value={form.rate} onChange={(e) => {
+                  const v = e.target.value;
+                  const dot = v.indexOf('.');
+                  if (dot !== -1 && v.length - dot - 1 > 2) return;
+                  set('rate')(e);
+                }} type="number" placeholder="0" readOnly={!editing} />
                 <div className="col-span-full">
                   <FInput label="Rate Details" value={form.rate_details} onChange={set('rate_details')} placeholder="Per sq.ft / sq.yd" readOnly={!editing} />
                 </div>
@@ -1043,7 +1060,7 @@ export default function PurchaseRecordPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-lg border border-amber-100 bg-amber-50/60 px-3 py-2.5 text-center">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Balance</p>
-                    <p className="text-sm font-bold text-amber-700">{fmtINR(c.balance_to_pay)}</p>
+                    <p className="text-sm font-bold text-amber-700">{fmtINR(effectiveBalance)}</p>
                   </div>
                   <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 text-center">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">% To Pay</p>
@@ -1066,13 +1083,26 @@ export default function PurchaseRecordPage() {
                   ) : (
                     <BrokerPicker
                       value={form._purchase_broker}
-                      onPick={(b) => { setForm(p => ({ ...p, purchase_broker_name: b.name, _purchase_broker: b })); setError(''); }}
-                      onClear={() => { setForm(p => ({ ...p, purchase_broker_name: '', _purchase_broker: null })); setError(''); }}
+                      onPick={(b) => { setForm(p => ({ ...p, purchase_broker_name: b.name, _purchase_broker: b, purchase_broker_details: [b.phone, b.email].filter(Boolean).join(' · ') })); setError(''); }}
+                      onClear={() => { setForm(p => ({ ...p, purchase_broker_name: '', _purchase_broker: null, purchase_broker_details: '' })); setError(''); }}
+                      excludeId={form._sell_broker?.id}
                     />
                   )}
                 </div>
                 <FInput label="Purchase Broker Details" value={form.purchase_broker_details} onChange={set('purchase_broker_details')} placeholder="Contact / commission" readOnly={!editing} />
-                <FInput label="Sell Broker Name" value={form.sell_broker_name} onChange={set('sell_broker_name')} placeholder="Broker name" readOnly={!editing} />
+                <div>
+                  <Label>Sell Broker Name</Label>
+                  {!editing ? (
+                    <Val>{form.sell_broker_name}</Val>
+                  ) : (
+                    <BrokerPicker
+                      value={form._sell_broker}
+                      onPick={(b) => { setForm(p => ({ ...p, sell_broker_name: b.name, _sell_broker: b, sell_broker_details: [b.phone, b.email].filter(Boolean).join(' · ') })); setError(''); }}
+                      onClear={() => { setForm(p => ({ ...p, sell_broker_name: '', _sell_broker: null, sell_broker_details: '' })); setError(''); }}
+                      excludeId={form._purchase_broker?.id}
+                    />
+                  )}
+                </div>
                 <FInput label="Sell Broker Details" value={form.sell_broker_details} onChange={set('sell_broker_details')} placeholder="Contact / commission" readOnly={!editing} />
               </div>
             </Card>
@@ -1092,9 +1122,9 @@ export default function PurchaseRecordPage() {
               <div className="mt-4 rounded-lg border border-amber-100 bg-amber-50/60 px-4 py-3 flex items-center justify-between">
                 <div>
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total Cost</p>
-                  <p className="text-[11px] text-gray-400 mt-0.5">Adv + Brok + Exp + Reg − Income</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">Adv + Inst + Brok + Exp + Reg − Income</p>
                 </div>
-                <p className="text-xl font-bold text-amber-700">{fmtINR(c.total_cost)}</p>
+                <p className="text-xl font-bold text-amber-700">{fmtINR(effectiveTotalCost)}</p>
               </div>
             </Card>
 
@@ -1102,8 +1132,20 @@ export default function PurchaseRecordPage() {
             <div className="space-y-4">
               <Card title="Registration">
                 <div className="space-y-4">
-                  <FInput label="Registration Date (Purchase)" value={form.registration_date} onChange={set('registration_date')} type="date" readOnly={!editing} />
+                  <FInput label="Registration Date (Target)" value={form.registration_date} onChange={set('registration_date')} type="date" readOnly={!editing} />
                   <FTextarea label="Registration Details" value={form.registration_details} onChange={set('registration_details')} placeholder="Survey no, document no..." rows={2} readOnly={!editing} />
+                  <label className={`flex items-center gap-2.5 select-none ${!editing ? 'pointer-events-none' : 'cursor-pointer'}`}>
+                    <input
+                      type="checkbox"
+                      checked={!!form.registration_completed}
+                      onChange={(e) => setForm(p => ({ ...p, registration_completed: e.target.checked }))}
+                      disabled={!editing}
+                      className="w-4 h-4 rounded border-gray-300 accent-emerald-600"
+                    />
+                    <span className={`text-sm font-semibold ${form.registration_completed ? 'text-emerald-700' : 'text-gray-500'}`}>
+                      Registration Completed
+                    </span>
+                  </label>
                 </div>
               </Card>
               <Card title="Notes">
@@ -1114,7 +1156,7 @@ export default function PurchaseRecordPage() {
             {/* ── Row 3: Installment Schedule (full width, conditional) ── */}
             {form.remaining_paid && (
               <div className="lg:col-span-3">
-                <PurchaseInstallmentPanel purchaseId={params.id} canEdit={canEdit} />
+                <PurchaseInstallmentPanel purchaseId={params.id} canEdit={canEdit} onTotalPaidChange={setTotalInstPaid} />
               </div>
             )}
 
@@ -1186,9 +1228,9 @@ export default function PurchaseRecordPage() {
                           <span className="truncate block">{inv.location || '—'}</span>
                         </td>
                         <td className="px-4 py-3 text-gray-700">
-                          {inv.front_area && inv.back_area
-                            ? <span>{fmtNum(inv.front_area)} × {fmtNum(inv.back_area)}{inv.front_area_details ? ` ${inv.front_area_details}` : ''}</span>
-                            : inv.area ? `${fmtNum(inv.area)}${inv.area_unit ? ` ${inv.area_unit}` : ''}` : '—'}
+                          {inv.area
+                            ? `${fmtNum(inv.area)}${inv.area_unit ? ` ${inv.area_unit}` : ''}`
+                            : '—'}
                         </td>
                         <td className="px-4 py-3">
                           <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${INV_STATUS[inv.status] || INV_STATUS.AVAILABLE}`}>

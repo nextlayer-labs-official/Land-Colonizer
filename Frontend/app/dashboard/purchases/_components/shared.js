@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { apiGet } from '@/lib/api';
+import { apiGet, apiPost } from '@/lib/api';
 
 // Shared atoms, constants, and the computed-formula function for Purchase forms.
 // Used by both new/page.js and [id]/page.js.
@@ -12,6 +12,7 @@ export const EMPTY = {
   purchase_broker_name: '', purchase_broker_details: '',
   _purchase_broker: null,
   sell_broker_name: '',     sell_broker_details: '',
+  _sell_broker: null,
   seller_details: '',       plot_no: '',
   purchased_area: '',       purchased_area_details: '',
   rate: '',                 rate_details: '',
@@ -23,7 +24,7 @@ export const EMPTY = {
   against_registration_amount: '',
   against_registration_received: false,
   against_registration_received_date: '',
-  registration_date: '',    registration_details: '',
+  registration_date: '',    registration_completed: false,  registration_details: '',
   brokerage: '',            brokerage_details: '',
   extra_expenses: '',       extra_expenses_details: '',
   registration_charges: '', registration_charges_details: '',
@@ -52,15 +53,15 @@ export function computed(f) {
 }
 
 export function getStageIndex(form, c) {
-  if (c.percentage_paid >= 100 && form.registration_date) return 3;
-  if (form.registration_date) return 2;
-  if (c.percentage_paid > 0)  return 1;
+  if (form.registration_completed && c.percentage_paid >= 100) return 3;
+  if (form.registration_completed) return 2;
+  if (c.percentage_paid > 0) return 1;
   return 0;
 }
 
 export const STAGES = ['Draft', 'In Progress', 'Registered', 'Completed'];
 
-export const fmtINR  = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
+export const fmtINR  = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 export const fmtPct  = (n) => `${Number(n || 0).toFixed(1)}%`;
 export const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 export const fmtNum  = (n) => Number(n || 0).toLocaleString('en-IN');
@@ -206,11 +207,15 @@ export function StatusPipeline({ current }) {
 }
 
 // ─── Broker picker ────────────────────────────────────────────────────────────
-function BasePicker({ value, onPick, onClear, label, endpoint, placeholder, renderSelected, renderItem }) {
+function BasePicker({ value, onPick, onClear, label, endpoint, placeholder, renderSelected, renderItem, allowCreate, onCreated, excludeId }) {
   const [open,    setOpen]    = useState(false);
   const [search,  setSearch]  = useState('');
   const [items,   setItems]   = useState([]);
   const [loading, setLoad]    = useState(false);
+  const [adding,  setAdding]  = useState(false);
+  const [newForm, setNewForm] = useState({ name: '', phone: '', email: '' });
+  const [saving,  setSaving]  = useState(false);
+  const [saveErr, setSaveErr] = useState('');
   const ref = useRef(null);
   const tmr = useRef(null);
 
@@ -218,11 +223,12 @@ function BasePicker({ value, onPick, onClear, label, endpoint, placeholder, rend
     setLoad(true);
     try {
       const params = new URLSearchParams({ search: q, limit: 8 });
+      if (excludeId) params.set('exclude_id', excludeId);
       const data = await apiGet(`/lookup/${endpoint}?${params}`);
       setItems(Array.isArray(data) ? data : []);
     } catch { setItems([]); }
     finally  { setLoad(false); }
-  }, [endpoint]);
+  }, [endpoint, excludeId]);
 
   useEffect(() => { if (open) fetchItems(''); }, [open, fetchItems]);
 
@@ -234,10 +240,25 @@ function BasePicker({ value, onPick, onClear, label, endpoint, placeholder, rend
   }, [search, open, fetchItems]);
 
   useEffect(() => {
-    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) { setOpen(false); setAdding(false); } };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, []);
+
+  const openAdd = () => { setAdding(true); setNewForm({ name: search, phone: '', email: '' }); setSaveErr(''); };
+  const cancelAdd = () => { setAdding(false); setSaveErr(''); };
+
+  const handleSave = async () => {
+    if (!newForm.name.trim()) { setSaveErr('Name is required'); return; }
+    setSaving(true); setSaveErr('');
+    try {
+      const created = await apiPost('/brokers', newForm);
+      onPick(created);
+      onCreated?.(created);
+      setOpen(false); setAdding(false); setSearch('');
+    } catch (e) { setSaveErr(e.message || 'Failed to create'); }
+    finally { setSaving(false); }
+  };
 
   return (
     <div className="relative" ref={ref}>
@@ -257,34 +278,73 @@ function BasePicker({ value, onPick, onClear, label, endpoint, placeholder, rend
       )}
       {open && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden">
-          <div className="p-2 border-b border-gray-100">
-            <input autoFocus value={search} onChange={e => setSearch(e.target.value)} placeholder={`Search ${label}…`}
-              className="w-full text-sm border border-gray-200 rounded px-2.5 py-1.5 focus:outline-none focus:border-[#875A7B]" />
-          </div>
-          <div className="max-h-48 overflow-y-auto">
-            {loading ? (
-              <div className="p-3 text-center text-xs text-gray-400">Loading…</div>
-            ) : items.length === 0 ? (
-              <div className="p-3 text-center text-xs text-gray-400">No results</div>
-            ) : items.map(item => (
-              <button key={item.id} type="button" onClick={() => { onPick(item); setOpen(false); setSearch(''); }}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-[#875A7B]/5 transition border-b border-gray-50 last:border-0">
-                {renderItem(item)}
-              </button>
-            ))}
-          </div>
+          {!adding ? (
+            <>
+              <div className="p-2 border-b border-gray-100">
+                <input autoFocus value={search} onChange={e => setSearch(e.target.value)} placeholder={`Search ${label}…`}
+                  className="w-full text-sm border border-gray-200 rounded px-2.5 py-1.5 focus:outline-none focus:border-[#875A7B]" />
+              </div>
+              <div className="max-h-48 overflow-y-auto">
+                {loading ? (
+                  <div className="p-3 text-center text-xs text-gray-400">Loading…</div>
+                ) : items.length === 0 ? (
+                  <div className="p-3 text-center text-xs text-gray-400">No results</div>
+                ) : items.map(item => (
+                  <button key={item.id} type="button" onClick={() => { onPick(item); setOpen(false); setSearch(''); }}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-[#875A7B]/5 transition border-b border-gray-50 last:border-0">
+                    {renderItem(item)}
+                  </button>
+                ))}
+              </div>
+              {allowCreate && (
+                <div className="border-t border-gray-100">
+                  <button type="button" onClick={openAdd}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-[#875A7B] hover:bg-[#875A7B]/5 transition font-medium">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                    Add new broker
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="p-3 space-y-2">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">New Broker</p>
+              <input autoFocus value={newForm.name} onChange={e => setNewForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="Name *"
+                className="w-full text-sm border border-gray-200 rounded px-2.5 py-1.5 focus:outline-none focus:border-[#875A7B]" />
+              <input value={newForm.phone} onChange={e => setNewForm(f => ({ ...f, phone: e.target.value }))}
+                placeholder="Phone"
+                className="w-full text-sm border border-gray-200 rounded px-2.5 py-1.5 focus:outline-none focus:border-[#875A7B]" />
+              <input value={newForm.email} onChange={e => setNewForm(f => ({ ...f, email: e.target.value }))}
+                placeholder="Email"
+                className="w-full text-sm border border-gray-200 rounded px-2.5 py-1.5 focus:outline-none focus:border-[#875A7B]" />
+              {saveErr && <p className="text-xs text-red-500">{saveErr}</p>}
+              <div className="flex gap-2 pt-1">
+                <button type="button" onClick={cancelAdd}
+                  className="flex-1 text-sm border border-gray-200 rounded py-1.5 text-gray-500 hover:bg-gray-50 transition">
+                  Cancel
+                </button>
+                <button type="button" onClick={handleSave} disabled={saving}
+                  className="flex-1 text-sm rounded py-1.5 text-white font-medium transition disabled:opacity-60"
+                  style={{ backgroundColor: '#875A7B' }}>
+                  {saving ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-export function BrokerPicker({ value, onPick, onClear }) {
+export function BrokerPicker({ value, onPick, onClear, excludeId }) {
   return (
     <BasePicker
       value={value?.id ? value : null}
       onPick={onPick} onClear={onClear}
       label="Broker" endpoint="brokers" placeholder="Search broker…"
+      allowCreate excludeId={excludeId}
       renderSelected={v => v ? `${v.broker_code || ''} ${v.name || ''} ${v.phone ? `· ${v.phone}` : ''}`.trim() : ''}
       renderItem={b => (
         <div>

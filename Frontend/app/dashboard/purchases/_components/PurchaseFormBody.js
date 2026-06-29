@@ -74,11 +74,14 @@ export default function PurchaseFormBody({ form, set, setForm, c, readOnly = fal
             {form.purchase_broker_name || <span className="text-gray-300">—</span>}
           </div>
         ) : (
-          <BrokerPicker
-            value={form._purchase_broker}
-            onPick={(b) => setForm(p => ({ ...p, purchase_broker_name: b.name, _purchase_broker: b }))}
-            onClear={() => setForm(p => ({ ...p, purchase_broker_name: '', _purchase_broker: null }))}
-          />
+          <>
+            <BrokerPicker
+              value={form._purchase_broker}
+              onPick={(b) => setForm(p => ({ ...p, purchase_broker_name: b.name, _purchase_broker: b, purchase_broker_details: [b.phone, b.email].filter(Boolean).join(' · ') }))}
+              onClear={() => setForm(p => ({ ...p, purchase_broker_name: '', _purchase_broker: null, purchase_broker_details: '' }))}
+              excludeId={form._sell_broker?.id}
+            />
+          </>
         )}
       </div>
 
@@ -89,7 +92,20 @@ export default function PurchaseFormBody({ form, set, setForm, c, readOnly = fal
 
       <div>
         <FieldLabel>Sell Broker Name</FieldLabel>
-        <FInput value={form.sell_broker_name} onChange={set('sell_broker_name')} placeholder="Broker name" readOnly={readOnly} />
+        {readOnly ? (
+          <div className="min-h-[36px] px-3 py-[7px] bg-gray-50 rounded border border-gray-100 text-sm text-gray-700">
+            {form.sell_broker_name || <span className="text-gray-300">—</span>}
+          </div>
+        ) : (
+          <>
+            <BrokerPicker
+              value={form._sell_broker}
+              onPick={(b) => setForm(p => ({ ...p, sell_broker_name: b.name, _sell_broker: b, sell_broker_details: [b.phone, b.email].filter(Boolean).join(' · ') }))}
+              onClear={() => setForm(p => ({ ...p, sell_broker_name: '', _sell_broker: null, sell_broker_details: '' }))}
+              excludeId={form._purchase_broker?.id}
+            />
+          </>
+        )}
       </div>
 
       <div>
@@ -127,7 +143,12 @@ export default function PurchaseFormBody({ form, set, setForm, c, readOnly = fal
 
       <div>
         <FieldLabel>Rate (per unit, ₹)</FieldLabel>
-        <FInput type="number" value={form.rate} onChange={set('rate')} placeholder="0" readOnly={readOnly} />
+        <FInput type="number" value={form.rate} onChange={(e) => {
+          const v = e.target.value;
+          const dot = v.indexOf('.');
+          if (dot !== -1 && v.length - dot - 1 > 2) return;
+          set('rate')(e);
+        }} placeholder="0" readOnly={readOnly} />
       </div>
 
       <div>
@@ -247,13 +268,28 @@ export default function PurchaseFormBody({ form, set, setForm, c, readOnly = fal
       <SectionDivider title="Registration" />
 
       <div>
-        <FieldLabel>Registration Date (Purchase)</FieldLabel>
+        <FieldLabel>Registration Date (Target)</FieldLabel>
         <FInput type="date" value={form.registration_date} onChange={set('registration_date')} readOnly={readOnly} />
       </div>
 
       <div>
         <FieldLabel>Registration Details</FieldLabel>
         <FTextarea value={form.registration_details} onChange={set('registration_details')} placeholder="Survey no, document no, notes..." rows={2} readOnly={readOnly} />
+      </div>
+
+      <div className="col-span-full">
+        <label className={`flex items-center gap-2.5 select-none ${readOnly ? 'pointer-events-none' : 'cursor-pointer'}`}>
+          <input
+            type="checkbox"
+            checked={!!form.registration_completed}
+            onChange={(e) => set('registration_completed')({ target: { value: e.target.checked } })}
+            disabled={readOnly}
+            className="w-4 h-4 rounded border-gray-300 accent-emerald-600"
+          />
+          <span className={`text-sm font-semibold ${form.registration_completed ? 'text-emerald-700' : 'text-gray-500'}`}>
+            Registration Completed
+          </span>
+        </label>
       </div>
 
       {/* ── OTHER ────────────────────────────────────────────── */}

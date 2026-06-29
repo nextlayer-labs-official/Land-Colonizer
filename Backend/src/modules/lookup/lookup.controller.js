@@ -28,7 +28,7 @@ const getPermissions = async (req, res) => {
 };
 
 const getBrokers = async (req, res) => {
-  const { search = '', limit = '3', id } = req.query;
+  const { search = '', limit = '3', id, exclude_id } = req.query;
 
   if (id) {
     const b = await prisma.broker.findUnique({
@@ -40,6 +40,7 @@ const getBrokers = async (req, res) => {
 
   const where = {
     status: 'ACTIVE',
+    ...(exclude_id ? { id: { not: Number(exclude_id) } } : {}),
     ...(search.trim() ? {
       OR: [
         { broker_code: { contains: search } },

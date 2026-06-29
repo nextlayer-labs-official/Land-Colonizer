@@ -67,6 +67,7 @@ function sanitize(body) {
     against_registration_received:          body.against_registration_received === true || body.against_registration_received === 'true',
     against_registration_received_date:     body.against_registration_received_date ? new Date(body.against_registration_received_date) : null,
     registration_date:           body.registration_date ? new Date(body.registration_date) : null,
+    registration_completed:      body.registration_completed === true || body.registration_completed === 'true',
     registration_details:        str(body.registration_details),
     brokerage:                   num(body.brokerage),
     brokerage_details:           str(body.brokerage_details),
@@ -105,13 +106,26 @@ async function getPurchases(req, res) {
   const [purchases, total] = await Promise.all([
     prisma.purchase.findMany({
       where, orderBy: { created_at: 'desc' }, skip, take: Number(limit),
-      include: { _count: { select: { inventory: true } } },
+      include: { _count: { select: { inventory: true } }, purchaseInstallment: true },
     }),
     prisma.purchase.count({ where }),
   ]);
 
   res.json({
-    purchases: purchases.map(withComputed),
+    purchases: purchases.map(p => {
+      const comp = withComputed(p);
+      let instPaid = 0;
+      if (p.purchaseInstallment) {
+        for (let n = 1; n <= 20; n++) {
+          if (p.purchaseInstallment[`inst_${n}_paid`])
+            instPaid += Number(p.purchaseInstallment[`inst_${n}_amount`] || 0);
+        }
+      }
+      return {
+        ...comp,
+        effective_balance: parseFloat(Math.max(0, comp.balance_to_pay - instPaid).toFixed(2)),
+      };
+    }),
     total,
     page:  Number(page),
     limit: Number(limit),
