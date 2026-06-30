@@ -175,4 +175,88 @@ const brokerReport = async (req, res) => {
   res.json({ brokers: rows, summary });
 };
 
-module.exports = { salesReport, inventoryReport, purchaseReport, brokerReport };
+// ── Instalments Report ───────────────────────────────────────────────────────
+const instalmentsReport = async (req, res) => {
+  function pendingOf(inst) {
+    const paid = [], pending = [];
+    for (let n = 1; n <= 20; n++) {
+      const amount = Number(inst[`inst_${n}_amount`] || 0);
+      if (amount <= 0) continue;
+      if (inst[`inst_${n}_paid`]) paid.push({ no: n, amount, date: inst[`inst_${n}_date`] || null });
+      else                        pending.push({ no: n, amount, date: inst[`inst_${n}_date`] || null });
+    }
+    return { paid, pending };
+  }
+
+  const [purchases, sales] = await Promise.all([
+    prisma.purchase.findMany({
+      include: {
+        purchaseInstallment: true,
+        inventory: { take: 1, include: { project: { select: { id: true, name: true } } } },
+      },
+      orderBy: { created_at: 'desc' },
+    }),
+    prisma.sale.findMany({
+      where: { installment: { isNot: null } },
+      include: {
+        installment: true,
+        customer:  { select: { id: true, name: true, phone: true, customer_code: true } },
+        inventory: { select: { project: { select: { id: true, name: true } } } },
+      },
+      orderBy: { created_at: 'desc' },
+    }),
+  ]);
+
+  const purchaseRows = purchases
+    .filter(p => p.purchaseInstallment)
+    .map(p => {
+      const { paid, pending } = pendingOf(p.purchaseInstallment);
+      return {
+        id:            p.id,
+        purchase_code: p.purchase_code || `PUR-${String(p.id).padStart(4, '0')}`,
+        seller:        p.seller_details ? p.seller_details.substring(0, 60) : null,
+        project:       p.inventory?.[0]?.project || null,
+        paid_amount:   paid.reduce((s, r) => s + r.amount, 0),
+        pending_amount:pending.reduce((s, r) => s + r.amount, 0),
+        paid_instalments: paid,
+        pending_instalments: pending,
+      };
+    })
+    .filter(r => r.pending_amount > 0);
+
+  const saleRows = sales
+    .filter(s => s.installment)
+    .map(s => {
+      const { paid, pending } = pendingOf(s.installment);
+      return {
+        id:            s.id,
+        sale_code:     s.sale_code || `SAL-${String(s.id).padStart(4, '0')}`,
+        customer:      s.customer || null,
+        project:       s.inventory?.project || null,
+        actual_price:  Number(s.actual_price || 0),
+        advance:       Number(s.advance_payment || 0),
+        paid_amount:   paid.reduce((s, r) => s + r.amount, 0),
+        pending_amount:pending.reduce((s, r) => s + r.amount, 0),
+        paid_instalments: paid,
+        pending_instalments: pending,
+      };
+    })
+    .filter(r => r.pending_amount > 0);
+
+  res.json({
+    purchase_pending: purchaseRows,
+    purchase_summary: {
+      count:         purchaseRows.length,
+      total_paid:    purchaseRows.reduce((s, r) => s + r.paid_amount, 0),
+      total_pending: purchaseRows.reduce((s, r) => s + r.pending_amount, 0),
+    },
+    sale_pending: saleRows,
+    sale_summary: {
+      count:         saleRows.length,
+      total_paid:    saleRows.reduce((s, r) => s + r.paid_amount, 0),
+      total_pending: saleRows.reduce((s, r) => s + r.pending_amount, 0),
+    },
+  });
+};
+
+module.exports = { salesReport, inventoryReport, purchaseReport, brokerReport, instalmentsReport };

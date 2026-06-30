@@ -13,6 +13,13 @@ const fmtINR  = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
 const fmtNum  = (n) => Number(n || 0).toLocaleString('en-IN');
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
+function toCSV(headers, rows) {
+  const esc = v => { const s = v == null ? '' : String(v); return (s.includes(',') || s.includes('"') || s.includes('\n')) ? `"${s.replace(/"/g,'""')}"` : s; };
+  return [headers.join(','), ...rows.map(r => r.map(esc).join(','))].join('\n');
+}
+function dlCSV(csv, name) { const b = new Blob([csv], { type: 'text/csv' }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = name; a.click(); }
+async function dlXlsx(rows, sheet, name) { const X = (await import('xlsx')).default; const ws = X.utils.json_to_sheet(rows); const wb = X.utils.book_new(); X.utils.book_append_sheet(wb, ws, sheet); X.writeFile(wb, name); }
+
 const TYPE_BADGE = {
   LAND: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',
   SHOP: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200',
@@ -286,12 +293,14 @@ export default function PurchasesPage() {
   const [deleting,    setDeleting]    = useState(false);
   const [delError,    setDelError]    = useState('');
   const [showImport,  setShowImport]  = useState(false);
+  const [exportOpen,  setExportOpen]  = useState(false);
 
   // filters state
   const [search,     setSearch]     = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [showFilter, setShowFilter] = useState(false);
   const filterRef = useRef(null);
+  const exportRef  = useRef(null);
 
   const LIMIT = 15;
 
@@ -311,12 +320,37 @@ export default function PurchasesPage() {
 
   useEffect(() => { load(1); }, [search, typeFilter]);
 
-  // close filter dropdown on outside click
   useEffect(() => {
-    const h = (e) => { if (filterRef.current && !filterRef.current.contains(e.target)) setShowFilter(false); };
+    const h = (e) => {
+      if (filterRef.current && !filterRef.current.contains(e.target)) setShowFilter(false);
+      if (exportRef.current  && !exportRef.current.contains(e.target))  setExportOpen(false);
+    };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, []);
+
+  const handleExport = async (format) => {
+    setExportOpen(false);
+    const q = new URLSearchParams({ page: 1, limit: 9999 });
+    if (search)     q.set('search', search);
+    if (typeFilter) q.set('type',   typeFilter);
+    const data  = await apiGet(`/purchases?${q}`);
+    const items = data.purchases || [];
+    const date  = new Date().toISOString().slice(0, 10);
+    const HEADERS = ['Code','Category','Type','Plot No','Location','Area','Area Unit','Rate','Total Amount','Balance','% Paid','Reg Date','Stage','Seller','Purchase Broker','Sell Broker'];
+    const toRow   = r => [
+      r.purchase_code || '', r.purchase_category || '', r.type || '', r.plot_no || '',
+      r.location || '', r.purchased_area || '', r.purchased_area_details || '',
+      r.rate || '', r.total_amount || '', r.effective_balance ?? r.balance_to_pay ?? '',
+      Number(r.percentage_paid || 0).toFixed(1), r.registration_date ? fmtDate(r.registration_date) : '',
+      getStage(r), r.seller_details || '', r.purchase_broker_name || '', r.sell_broker_name || '',
+    ];
+    if (format === 'csv') {
+      dlCSV(toCSV(HEADERS, items.map(toRow)), `purchases_${date}.csv`);
+    } else {
+      await dlXlsx(items.map(r => Object.fromEntries(HEADERS.map((h, i) => [h, toRow(r)[i]]))), 'Purchases', `purchases_${date}.xlsx`);
+    }
+  };
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -379,6 +413,26 @@ export default function PurchasesPage() {
             Delete ({selected.length})
           </button>
         )}
+
+        {/* Export */}
+        <div className="relative" ref={exportRef}>
+          <button onClick={() => setExportOpen(v => !v)}
+            className="flex items-center gap-1.5 h-8 px-3 text-sm border border-gray-200 rounded text-gray-600 hover:bg-gray-50 transition font-medium">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Export
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          {exportOpen && (
+            <div className="absolute left-0 top-full mt-1 w-36 bg-white border border-gray-200 rounded-lg shadow-lg z-30 py-1">
+              <button onClick={() => handleExport('csv')} className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1 rounded">CSV</span>Export CSV
+              </button>
+              <button onClick={() => handleExport('excel')} className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1 rounded">XLS</span>Export Excel
+              </button>
+            </div>
+          )}
+        </div>
 
         <div className="w-px h-5 bg-gray-200 mx-1" />
 

@@ -18,7 +18,9 @@ export default function NewSalePage() {
   const set = (key) => (e) => { setForm(p => ({ ...p, [key]: e.target.value })); setError(''); };
 
   const handleSave = async () => {
-    if (!form.inventory_id) { setError('Inventory unit is required'); return; }
+    if (!form.inventory_id)  { setError('Inventory unit is required'); return; }
+    if (!form.sale_date)     { setError('Sale Date is required'); return; }
+    if (!form.selling_rate)  { setError('Selling Rate is required'); return; }
     setSaving(true); setError('');
     try {
       const { _inventory, _customer, _broker, ...payload } = form;

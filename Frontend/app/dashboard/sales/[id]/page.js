@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import useAuth from '@/lib/useAuth';
@@ -12,6 +12,107 @@ import {
   CustomerPicker,
 } from '../_components/shared';
 import SaleFormBody from '../_components/SaleFormBody';
+
+// ── Project Picker ────────────────────────────────────────────────────────────
+function ProjectPicker({ current, onPick, onClose }) {
+  const [search,  setSearch]  = useState('');
+  const [items,   setItems]   = useState([]);
+  const [loading, setLoad]    = useState(false);
+  const [adding,  setAdding]  = useState(false);
+  const [newName, setNewName] = useState('');
+  const [saving,  setSaving]  = useState(false);
+  const [saveErr, setSaveErr] = useState('');
+  const ref = useRef(null);
+  const tmr = useRef(null);
+
+  const fetch = useCallback(async (q = '') => {
+    setLoad(true);
+    try {
+      const data = await apiGet(`/lookup/projects?search=${encodeURIComponent(q)}&limit=3`);
+      setItems(Array.isArray(data) ? data : []);
+    } catch { setItems([]); }
+    finally { setLoad(false); }
+  }, []);
+
+  useEffect(() => { fetch(''); }, [fetch]);
+
+  useEffect(() => {
+    clearTimeout(tmr.current);
+    tmr.current = setTimeout(() => fetch(search), 300);
+    return () => clearTimeout(tmr.current);
+  }, [search, fetch]);
+
+  useEffect(() => {
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [onClose]);
+
+  const handleCreate = async () => {
+    if (!newName.trim()) { setSaveErr('Name is required'); return; }
+    setSaving(true); setSaveErr('');
+    try {
+      const p = await apiPost('/projects', { name: newName.trim(), status: 'OPEN' });
+      onPick(p);
+    } catch (e) { setSaveErr(e.message || 'Failed to create'); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div ref={ref} className="absolute right-0 top-full mt-1 w-72 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden">
+      {!adding ? (
+        <>
+          <div className="p-2 border-b border-gray-100">
+            <input autoFocus value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Search projects…"
+              className="w-full text-sm border border-gray-200 rounded px-2.5 py-1.5 focus:outline-none focus:border-[#875A7B]" />
+          </div>
+          <div className="max-h-48 overflow-y-auto">
+            {loading ? (
+              <div className="p-3 text-center text-xs text-gray-400">Loading…</div>
+            ) : items.length === 0 ? (
+              <div className="p-3 text-center text-xs text-gray-400">No projects found</div>
+            ) : items.map(p => (
+              <button key={p.id} type="button" onClick={() => onPick(p)}
+                className={`w-full text-left px-3 py-2.5 text-sm hover:bg-[#875A7B]/5 transition border-b border-gray-50 last:border-0 ${current?.id === p.id ? 'bg-[#875A7B]/8' : ''}`}>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono text-xs text-[#875A7B]">{p.project_code}</span>
+                  <span className="font-medium text-gray-800">{p.name}</span>
+                  {current?.id === p.id && <span className="ml-auto text-[10px] text-emerald-600 font-semibold">Current</span>}
+                </div>
+                {p.location && <p className="text-[10px] text-gray-400 mt-0.5">{p.location}</p>}
+              </button>
+            ))}
+          </div>
+          <div className="border-t border-gray-100">
+            <button type="button" onClick={() => { setAdding(true); setNewName(search); setSaveErr(''); }}
+              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-[#875A7B] hover:bg-[#875A7B]/5 transition font-medium">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+              Add new project
+            </button>
+          </div>
+        </>
+      ) : (
+        <div className="p-3 space-y-2">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">New Project</p>
+          <input autoFocus value={newName} onChange={e => setNewName(e.target.value)}
+            placeholder="Project name *"
+            className="w-full text-sm border border-gray-200 rounded px-2.5 py-1.5 focus:outline-none focus:border-[#875A7B]" />
+          {saveErr && <p className="text-xs text-red-500">{saveErr}</p>}
+          <div className="flex gap-2 pt-1">
+            <button type="button" onClick={() => { setAdding(false); setSaveErr(''); }}
+              className="flex-1 text-sm border border-gray-200 rounded py-1.5 text-gray-500 hover:bg-gray-50 transition">Cancel</button>
+            <button type="button" onClick={handleCreate} disabled={saving}
+              className="flex-1 text-sm rounded py-1.5 text-white font-medium disabled:opacity-60"
+              style={{ backgroundColor: '#875A7B' }}>
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const ORDINALS = [
@@ -345,7 +446,7 @@ function InstallmentPanel({ saleId, canEdit, onTotalPaidChange }) {
 }
 
 // ── Sale Detail View (compact, read-only) ─────────────────────────────────────
-function SaleDetailView({ form }) {
+function SaleDetailView({ form, linkedProject }) {
   const c      = computed(form);
   const noVal  = <span className="text-gray-300">—</span>;
 
@@ -378,6 +479,17 @@ function SaleDetailView({ form }) {
         <Cell label="Type"        value={form.type ? (TYPE_LABEL[form.type] || form.type) : null} />
         <Cell label="SL No."      value={v(form.sl_no)} />
         {form.details && <Cell label="Details" value={v(form.details)} wide />}
+        {linkedProject && (
+          <div className="col-span-full sm:col-span-1">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Project</p>
+            <Link href={`/dashboard/projects/${linkedProject.id}`}
+              className="inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 hover:underline">
+              {linkedProject.name}
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            </Link>
+            {linkedProject.project_code && <p className="text-[10px] text-gray-400 mt-0.5">{linkedProject.project_code}</p>}
+          </div>
+        )}
       </Section>
 
       {/* Area */}
@@ -874,8 +986,11 @@ export default function SaleDetailPage() {
   const [error,    setError]    = useState('');
   const [showDel,  setShowDel]  = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [tab,         setTab]         = useState('details');
+  const [tab,           setTab]           = useState('details');
   const [totalInstPaid, setTotalInstPaid] = useState(0);
+  const [projectOpen,   setProjectOpen]   = useState(false);
+  const [linkedProject, setLinkedProject] = useState(null);
+  const [projectSaving, setProjectSaving] = useState(false);
 
   const canEdit   = can('SALE_EDIT')   || me?.is_system;
   const canDelete = can('SALE_DELETE') || me?.is_system;
@@ -886,6 +1001,7 @@ export default function SaleDetailPage() {
       const data = await apiGet(`/sales/${params.id}`);
       const s = toFormState(data);
       setForm(s); setOriginal(s);
+      setLinkedProject(data.inventory?.project || null);
     } catch (e) { setError(e.message); }
     finally     { setLoading(false); }
   }, [params.id]);
@@ -893,9 +1009,22 @@ export default function SaleDetailPage() {
   useEffect(() => { load(); }, [load]);
 
   const set = (key) => (e) => { setForm(p => ({ ...p, [key]: e.target.value })); setError(''); };
+
+  const handlePickProject = async (project) => {
+    setProjectOpen(false);
+    if (!form._inventory?.id) return;
+    setProjectSaving(true);
+    try {
+      await apiPut(`/inventory/${form._inventory.id}`, { project_id: project.id });
+      setLinkedProject(project);
+    } catch (e) { setError(e.message); }
+    finally { setProjectSaving(false); }
+  };
   const handleEdit    = () => { setEditing(true);  setSaved(false); setError(''); };
   const handleDiscard = () => { setForm(original); setEditing(false); setError(''); };
   const handleSave    = async () => {
+    if (!form.sale_date)    { setError('Sale Date is required'); return; }
+    if (!form.selling_rate) { setError('Selling Rate is required'); return; }
     setSaving(true); setError('');
     try {
       const { _inventory, _customer, _broker, ...payload } = form;
@@ -977,6 +1106,27 @@ export default function SaleDetailPage() {
               className="h-8 px-3 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition flex items-center gap-1.5">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>Back
             </Link>
+
+            {/* Add to Project */}
+            {form._inventory?.id && (
+              <div className="relative">
+                <button
+                  onClick={() => setProjectOpen(v => !v)}
+                  disabled={projectSaving}
+                  className={`h-8 px-3 text-sm border rounded-lg flex items-center gap-1.5 transition ${linkedProject ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                  {projectSaving ? 'Saving…' : linkedProject ? linkedProject.name : 'Add to Project'}
+                </button>
+                {projectOpen && (
+                  <ProjectPicker
+                    current={linkedProject}
+                    onPick={handlePickProject}
+                    onClose={() => setProjectOpen(false)}
+                  />
+                )}
+              </div>
+            )}
             {editing ? (
               <>
                 <button onClick={handleDiscard} disabled={saving} className="h-8 px-4 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Discard</button>
@@ -1045,6 +1195,19 @@ export default function SaleDetailPage() {
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                       </Link>
                       <p className="text-[10px] text-gray-400">{form._inventory.plot_no||form._inventory.sl_no||''}</p>
+                    </div>
+                  )}
+
+                  {/* Project */}
+                  {linkedProject && (
+                    <div>
+                      <p className="text-[9px] text-gray-400 uppercase tracking-wide mb-1">Project</p>
+                      <Link href={`/dashboard/projects/${linkedProject.id}`}
+                        className="text-sm font-semibold text-emerald-700 hover:underline flex items-center gap-1">
+                        {linkedProject.name}
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                      </Link>
+                      {linkedProject.project_code && <p className="text-[10px] text-gray-400">{linkedProject.project_code}</p>}
                     </div>
                   )}
 
@@ -1221,7 +1384,7 @@ export default function SaleDetailPage() {
                   </div>
                 </div>
               ) : (
-                <SaleDetailView form={form} />
+                <SaleDetailView form={form} linkedProject={linkedProject} />
               )
             )}
 

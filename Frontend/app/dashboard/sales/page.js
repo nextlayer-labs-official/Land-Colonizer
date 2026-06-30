@@ -7,6 +7,13 @@ import useAuth from '@/lib/useAuth';
 import usePermissions from '@/lib/usePermissions';
 import { apiGet, apiDelete } from '@/lib/api';
 import { fmtINR, fmtDate, TYPE_LABEL, POSS_COLOR, POSS_LABEL } from './_components/shared';
+
+function toCSV(headers, rows) {
+  const esc = v => { const s = v == null ? '' : String(v); return (s.includes(',') || s.includes('"') || s.includes('\n')) ? `"${s.replace(/"/g,'""')}"` : s; };
+  return [headers.join(','), ...rows.map(r => r.map(esc).join(','))].join('\n');
+}
+function dlCSV(csv, name) { const b = new Blob([csv], { type: 'text/csv' }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = name; a.click(); }
+async function dlXlsx(rows, sheet, name) { const X = (await import('xlsx')).default; const ws = X.utils.json_to_sheet(rows); const wb = X.utils.book_new(); X.utils.book_append_sheet(wb, ws, sheet); X.writeFile(wb, name); }
 import NProgress from 'nprogress';
 import Pagination from '@/components/Pagination';
 
@@ -43,7 +50,9 @@ export default function SalesPage() {
   const [search,       setSearch]       = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [showFilter,   setShowFilter]   = useState(false);
+  const [exportOpen,   setExportOpen]   = useState(false);
   const filterRef = useRef(null);
+  const exportRef  = useRef(null);
 
   const LIMIT = 15;
 
@@ -63,10 +72,43 @@ export default function SalesPage() {
   useEffect(() => { load(1); }, [search, statusFilter]);
 
   useEffect(() => {
-    const h = (e) => { if (filterRef.current && !filterRef.current.contains(e.target)) setShowFilter(false); };
+    const h = (e) => {
+      if (filterRef.current && !filterRef.current.contains(e.target)) setShowFilter(false);
+      if (exportRef.current  && !exportRef.current.contains(e.target))  setExportOpen(false);
+    };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, []);
+
+  const handleExport = async (format) => {
+    setExportOpen(false);
+    const q = new URLSearchParams({ page: 1, limit: 9999 });
+    if (search)       q.set('search', search);
+    if (statusFilter) q.set('status', statusFilter);
+    const data  = await apiGet(`/sales?${q}`);
+    const items = data.sales || [];
+    const date  = new Date().toISOString().slice(0, 10);
+    const HEADERS = ['Sale Code','Type','Inventory','Customer','Phone','Broker','Actual Price','Booking','Balance','Possession','Status','Sale Date'];
+    const toRow   = r => [
+      r.sale_code || `SAL-${String(r.id).padStart(4,'0')}`,
+      TYPE_LABEL[r.type] || r.type || '',
+      r.inventory?.inventory_code || '',
+      r.customer?.name || '',
+      r.customer?.phone || '',
+      r.broker?.name || r.broker_name || '',
+      r.actual_price || 0,
+      r.booking_amount || 0,
+      r.balance_amount || 0,
+      POSS_LABEL[r.possession] || r.possession || '',
+      r.status || '',
+      r.sale_date ? fmtDate(r.sale_date) : fmtDate(r.created_at),
+    ];
+    if (format === 'csv') {
+      dlCSV(toCSV(HEADERS, items.map(toRow)), `sales_${date}.csv`);
+    } else {
+      await dlXlsx(items.map(r => Object.fromEntries(HEADERS.map((h, i) => [h, toRow(r)[i]]))), 'Sales', `sales_${date}.xlsx`);
+    }
+  };
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -91,6 +133,27 @@ export default function SalesPage() {
         {canCreate && (
           <button onClick={() => router.push('/dashboard/sales/new')} className="btn-primary text-sm h-8 px-4">New</button>
         )}
+
+        {/* Export */}
+        <div className="relative" ref={exportRef}>
+          <button onClick={() => setExportOpen(v => !v)}
+            className="flex items-center gap-1.5 h-8 px-3 text-sm border border-gray-200 rounded text-gray-600 hover:bg-gray-50 transition font-medium">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Export
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          {exportOpen && (
+            <div className="absolute left-0 top-full mt-1 w-36 bg-white border border-gray-200 rounded-lg shadow-lg z-30 py-1">
+              <button onClick={() => handleExport('csv')} className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1 rounded">CSV</span>Export CSV
+              </button>
+              <button onClick={() => handleExport('excel')} className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1 rounded">XLS</span>Export Excel
+              </button>
+            </div>
+          )}
+        </div>
+
         <div className="w-px h-5 bg-gray-200 mx-1" />
 
         {/* Filter dropdown */}

@@ -9,28 +9,46 @@ import { STATUS_RING, UNIT_TYPE_RING, fmtINR, fmtNum } from './_components/share
 import NProgress from 'nprogress';
 import Pagination from '@/components/Pagination';
 
-function exportCSV(data) {
-  const headers = ['Code', 'Type', 'Purchase', 'Location', 'SL No', 'Plot No', 'Total Area', 'Area Unit', 'Rate', 'Status'];
-  const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  const rows = data.map(r => {
+function buildRows(data) {
+  return data.map(r => {
     const f = parseFloat(r.front_area) || 0;
     const b = parseFloat(r.back_area)  || 0;
     const totalArea = f && b ? parseFloat((f * (b / 9)).toFixed(2)) : (parseFloat(r.area) || 0);
     const areaUnit  = r.front_area_details || r.area_unit || '';
-    return [
-      r.inventory_code || '', r.type || '',
-      r.purchase?.purchase_code || '', r.location || '',
-      r.sl_no || '', r.plot_no || '',
-      totalArea || '', areaUnit,
-      r.rate || '', r.status || '',
-    ].map(escape).join(',');
+    return {
+      Code:        r.inventory_code || '',
+      Type:        r.type           || '',
+      Purchase:    r.purchase?.purchase_code || '',
+      Location:    r.location       || '',
+      'SL No':     r.sl_no          || '',
+      'Plot No':   r.plot_no        || '',
+      'Total Area': totalArea       || '',
+      'Area Unit': areaUnit,
+      Rate:        r.rate           || '',
+      Status:      r.status         || '',
+    };
   });
-  const csv = [headers.join(','), ...rows].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+}
+
+function exportCSV(data) {
+  const rows    = buildRows(data);
+  const headers = Object.keys(rows[0] || { Code:'',Type:'',Purchase:'',Location:'','SL No':'','Plot No':'','Total Area':'','Area Unit':'',Rate:'',Status:'' });
+  const escape  = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const lines   = [headers.join(','), ...rows.map(r => headers.map(h => escape(r[h])).join(','))].join('\n');
+  const blob = new Blob([lines], { type: 'text/csv;charset=utf-8;' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href = url; a.download = `inventory_${new Date().toISOString().slice(0,10)}.csv`;
   a.click(); URL.revokeObjectURL(url);
+}
+
+async function exportExcel(data) {
+  const XLSX   = (await import('xlsx')).default;
+  const rows   = buildRows(data);
+  const ws     = XLSX.utils.json_to_sheet(rows);
+  const wb     = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Inventory');
+  XLSX.writeFile(wb, `inventory_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
 function DeleteModal({ item, onClose, onConfirm, deleting }) {
@@ -107,15 +125,31 @@ export default function InventoryPage() {
     } finally { setDeleting(false); }
   };
 
-  const handleExport = async () => {
+  const [exportOpen, setExportOpen] = useState(false);
+  const exportRef = useRef(null);
+
+  useEffect(() => {
+    const h = (e) => { if (exportRef.current && !exportRef.current.contains(e.target)) setExportOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+
+  const fetchExportData = async () => {
+    const q = new URLSearchParams({ page: 1, limit: 10000 });
+    if (search)       q.set('search', search);
+    if (statusFilter) q.set('status', statusFilter);
+    if (typeFilter)   q.set('type',   typeFilter);
+    const data = await apiGet(`/inventory?${q}`);
+    return data.inventory || [];
+  };
+
+  const handleExport = async (format) => {
+    setExportOpen(false);
     setExporting(true);
     try {
-      const q = new URLSearchParams({ page: 1, limit: 10000 });
-      if (search)       q.set('search', search);
-      if (statusFilter) q.set('status', statusFilter);
-      if (typeFilter)   q.set('type',   typeFilter);
-      const data = await apiGet(`/inventory?${q}`);
-      exportCSV(data.inventory || []);
+      const rows = await fetchExportData();
+      if (format === 'excel') await exportExcel(rows);
+      else exportCSV(rows);
     } finally { setExporting(false); }
   };
 
@@ -190,15 +224,36 @@ export default function InventoryPage() {
           </span>
         )}
 
-        {/* Export */}
-        <button
-          onClick={handleExport}
-          disabled={exporting || total === 0}
-          className="ml-auto flex items-center gap-1.5 text-sm h-8 px-3 rounded border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-          {exporting ? 'Exporting…' : 'Export'}
-        </button>
+        {/* Export dropdown */}
+        <div className="ml-auto relative" ref={exportRef}>
+          <div className={`flex items-center rounded border border-gray-200 overflow-hidden ${exporting || total === 0 ? 'opacity-50 pointer-events-none' : ''}`}>
+            <button
+              onClick={() => handleExport('csv')}
+              className="flex items-center gap-1.5 text-sm h-8 px-3 text-gray-600 hover:bg-gray-50 transition-colors border-r border-gray-200"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+              {exporting ? 'Exporting…' : 'Export'}
+            </button>
+            <button
+              onClick={() => setExportOpen(v => !v)}
+              className="flex items-center h-8 px-2 text-gray-500 hover:bg-gray-50 transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+            </button>
+          </div>
+          {exportOpen && (
+            <div className="absolute right-0 top-full mt-1 w-36 bg-white border border-gray-200 rounded-lg shadow-lg z-30 py-1">
+              <button onClick={() => handleExport('csv')}
+                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                <span className="text-[10px] font-bold text-gray-400 uppercase">CSV</span> Export as CSV
+              </button>
+              <button onClick={() => handleExport('excel')}
+                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                <span className="text-[10px] font-bold text-emerald-600 uppercase">XLS</span> Export as Excel
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* Search */}
         <div className="relative">

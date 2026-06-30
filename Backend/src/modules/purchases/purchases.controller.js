@@ -246,8 +246,13 @@ async function importPurchases(req, res) {
     try {
       const data = sanitize(rows[i]);
 
-      // Auto-create broker record for purchase broker only
-      if (data.purchase_broker_name) { const before = await prisma.broker.count(); await ensureBroker(data.purchase_broker_name); const after = await prisma.broker.count(); if (after > before) brokersCreated.add(data.purchase_broker_name); }
+      // Auto-create broker records for purchase broker and sell broker
+      for (const bname of [data.purchase_broker_name, data.sell_broker_name].filter(Boolean)) {
+        const before = await prisma.broker.count();
+        await ensureBroker(bname);
+        const after = await prisma.broker.count();
+        if (after > before) brokersCreated.add(bname);
+      }
 
       const p    = await prisma.purchase.create({ data });
       const purchase_code = `${prefix}-${String(p.id).padStart(4, '0')}`;

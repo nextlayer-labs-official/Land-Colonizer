@@ -44,7 +44,7 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false, sho
       </div>
 
       <div>
-        <FieldLabel>Sale Date</FieldLabel>
+        <FieldLabel required>Sale Date</FieldLabel>
         <FInput type="date" value={form.sale_date?.split?.('T')?.[0] ?? form.sale_date ?? ''} onChange={set('sale_date')} readOnly={readOnly} />
       </div>
 
@@ -127,32 +127,23 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false, sho
       <SectionDivider title="Area Measurement" />
 
       <div>
-        <FieldLabel>
-          Front Area
-          {form._inventory && !readOnly && <span className="ml-1 text-[10px] font-normal text-emerald-600">· default from unit</span>}
-        </FieldLabel>
-        <FInput type="number" value={form.front_area} onChange={set('front_area')} placeholder="0" readOnly={readOnly} />
+        <FieldLabel>Front Area <span className="ml-1 text-[10px] font-normal text-gray-400">· edit in Inventory</span></FieldLabel>
+        <FInput type="number" value={form.front_area} placeholder="0" readOnly />
       </div>
 
       <div>
         <FieldLabel>Front Area Unit</FieldLabel>
-        <FSelect value={form.front_area_details} onChange={set('front_area_details')} readOnly={readOnly}>
-          <option value="">— Select unit —</option>
-          {AREA_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-        </FSelect>
+        <FInput value={form.front_area_details} placeholder="—" readOnly />
       </div>
 
       <div>
-        <FieldLabel>Back Area</FieldLabel>
-        <FInput type="number" value={form.back_area} onChange={set('back_area')} placeholder="0" readOnly={readOnly} />
+        <FieldLabel>Back Area <span className="ml-1 text-[10px] font-normal text-gray-400">· edit in Inventory</span></FieldLabel>
+        <FInput type="number" value={form.back_area} placeholder="0" readOnly />
       </div>
 
       <div>
         <FieldLabel>Back Area Unit</FieldLabel>
-        <FSelect value={form.back_area_details} onChange={set('back_area_details')} readOnly={readOnly}>
-          <option value="">— Select unit —</option>
-          {AREA_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-        </FSelect>
+        <FInput value={form.back_area_details} placeholder="—" readOnly />
       </div>
 
       <ComputedBox label="Total Area  =  Front × (Back ÷ 9)" value={c.total_area ? fmtNum(parseFloat(c.total_area.toFixed(4))) : '—'} />
@@ -175,7 +166,7 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false, sho
       <ComputedBox label="Total Value  =  Total Area × Plot Rate" value={c.total_value ? fmtINR(c.total_value) : '—'} />
 
       <div>
-        <FieldLabel>Selling Rate (₹ per unit)</FieldLabel>
+        <FieldLabel required>Selling Rate (₹ per unit)</FieldLabel>
         <FInput type="number" value={form.selling_rate} onChange={set('selling_rate')} placeholder="0" readOnly={readOnly} />
       </div>
 

@@ -88,7 +88,8 @@ function sanitize(body) {
 const INCLUDE = {
   inventory: { select: { id: true, inventory_code: true, type: true, plot_no: true, sl_no: true, location: true,
     front_area: true, front_area_details: true, back_area: true, back_area_details: true,
-    area: true, area_unit: true, rate: true, status: true } },
+    area: true, area_unit: true, rate: true, status: true,
+    project: { select: { id: true, project_code: true, name: true } } } },
   customer:  { select: { id: true, customer_code: true, name: true, phone: true, email: true } },
   broker:    { select: { id: true, broker_code: true, name: true, phone: true } },
   installment: true,

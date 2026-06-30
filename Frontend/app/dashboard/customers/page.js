@@ -6,6 +6,13 @@ import useAuth from '@/lib/useAuth';
 import usePermissions from '@/lib/usePermissions';
 import { apiGet, apiDelete } from '@/lib/api';
 import { AvatarCircle, fmtDate } from './_components/shared';
+
+function toCSV(headers, rows) {
+  const esc = v => { const s = v == null ? '' : String(v); return (s.includes(',') || s.includes('"') || s.includes('\n')) ? `"${s.replace(/"/g,'""')}"` : s; };
+  return [headers.join(','), ...rows.map(r => r.map(esc).join(','))].join('\n');
+}
+function dlCSV(csv, name) { const b = new Blob([csv], { type: 'text/csv' }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = name; a.click(); }
+async function dlXlsx(rows, sheet, name) { const X = (await import('xlsx')).default; const ws = X.utils.json_to_sheet(rows); const wb = X.utils.book_new(); X.utils.book_append_sheet(wb, ws, sheet); X.writeFile(wb, name); }
 import NProgress from 'nprogress';
 import Pagination from '@/components/Pagination';
 
@@ -43,10 +50,12 @@ export default function CustomersPage() {
   const [selected, setSelected] = useState([]);
   const [delModal, setDelModal] = useState(null);
   const [deleting, setDeleting] = useState(false);
-  const [search,   setSearch]   = useState('');
-  const [statusF,  setStatusF]  = useState('');
-  const [showF,    setShowF]    = useState(false);
+  const [search,     setSearch]     = useState('');
+  const [statusF,    setStatusF]    = useState('');
+  const [showF,      setShowF]      = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const filterRef = useRef(null);
+  const exportRef  = useRef(null);
 
   const LIMIT = 15;
 
@@ -67,10 +76,35 @@ export default function CustomersPage() {
   useEffect(() => { load(1); }, [search, statusF]);
 
   useEffect(() => {
-    const h = (e) => { if (filterRef.current && !filterRef.current.contains(e.target)) setShowF(false); };
+    const h = (e) => {
+      if (filterRef.current && !filterRef.current.contains(e.target)) setShowF(false);
+      if (exportRef.current  && !exportRef.current.contains(e.target))  setExportOpen(false);
+    };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, []);
+
+  const handleExport = async (format) => {
+    setExportOpen(false);
+    const q = new URLSearchParams({ page: 1, limit: 9999 });
+    if (search)  q.set('search', search);
+    if (statusF) q.set('status', statusF);
+    const data  = await apiGet(`/customers?${q}`);
+    const items = data.customers || [];
+    const date  = new Date().toISOString().slice(0, 10);
+    const HEADERS = ['Code','Name','Phone','Email','Address','Type','Sales Count','Status','Created'];
+    const toRow   = r => [
+      r.customer_code || `CUS-${String(r.id).padStart(4,'0')}`,
+      r.name || '', r.phone || '', r.email || '', r.address || '',
+      r.type === 'COMPANY' ? 'Company' : 'Individual',
+      r._count?.sales ?? 0, r.status || '', fmtDate(r.created_at),
+    ];
+    if (format === 'csv') {
+      dlCSV(toCSV(HEADERS, items.map(toRow)), `customers_${date}.csv`);
+    } else {
+      await dlXlsx(items.map(r => Object.fromEntries(HEADERS.map((h, i) => [h, toRow(r)[i]]))), 'Customers', `customers_${date}.xlsx`);
+    }
+  };
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -104,6 +138,26 @@ export default function CustomersPage() {
             Delete ({selected.length})
           </button>
         )}
+
+        {/* Export */}
+        <div className="relative" ref={exportRef}>
+          <button onClick={() => setExportOpen(v => !v)}
+            className="flex items-center gap-1.5 h-8 px-3 text-sm border border-gray-200 rounded text-gray-600 hover:bg-gray-50 transition font-medium">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Export
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          {exportOpen && (
+            <div className="absolute left-0 top-full mt-1 w-36 bg-white border border-gray-200 rounded-lg shadow-lg z-30 py-1">
+              <button onClick={() => handleExport('csv')} className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1 rounded">CSV</span>Export CSV
+              </button>
+              <button onClick={() => handleExport('excel')} className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1 rounded">XLS</span>Export Excel
+              </button>
+            </div>
+          )}
+        </div>
 
         <div className="w-px h-5 bg-gray-200 mx-1" />
 
