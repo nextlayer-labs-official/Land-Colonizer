@@ -43,12 +43,18 @@ function exportCSV(data) {
 }
 
 async function exportExcel(data) {
-  const XLSX   = (await import('xlsx')).default;
-  const rows   = buildRows(data);
-  const ws     = XLSX.utils.json_to_sheet(rows);
-  const wb     = XLSX.utils.book_new();
+  const mod  = await import('xlsx');
+  const XLSX = mod.default || mod;
+  const rows = buildRows(data);
+  const ws   = XLSX.utils.json_to_sheet(rows);
+  const wb   = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Inventory');
-  XLSX.writeFile(wb, `inventory_${new Date().toISOString().slice(0,10)}.xlsx`);
+  const buf  = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `inventory_${new Date().toISOString().slice(0,10)}.xlsx`; a.click();
+  URL.revokeObjectURL(url);
 }
 
 function DeleteModal({ item, onClose, onConfirm, deleting }) {

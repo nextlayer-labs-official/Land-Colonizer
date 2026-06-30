@@ -12,7 +12,19 @@ function toCSV(headers, rows) {
   return [headers.join(','), ...rows.map(r => r.map(esc).join(','))].join('\n');
 }
 function dlCSV(csv, name) { const b = new Blob([csv], { type: 'text/csv' }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = name; a.click(); }
-async function dlXlsx(rows, sheet, name) { const X = (await import('xlsx')).default; const ws = X.utils.json_to_sheet(rows); const wb = X.utils.book_new(); X.utils.book_append_sheet(wb, ws, sheet); X.writeFile(wb, name); }
+async function dlXlsx(rows, sheet, name) {
+  const mod = await import('xlsx');
+  const X   = mod.default || mod;
+  const ws  = X.utils.json_to_sheet(rows);
+  const wb  = X.utils.book_new();
+  X.utils.book_append_sheet(wb, ws, sheet);
+  const buf  = X.write(wb, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = name; a.click();
+  URL.revokeObjectURL(url);
+}
 import NProgress from 'nprogress';
 import Pagination from '@/components/Pagination';
 

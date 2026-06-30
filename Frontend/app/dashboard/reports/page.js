@@ -11,13 +11,19 @@ const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-dig
 const fmtNum  = (n) => n == null ? 0 : Number(n);
 
 async function exportXlsx(sheets, filename) {
-  const XLSX = (await import('xlsx')).default;
+  const mod  = await import('xlsx');
+  const XLSX = mod.default || mod;
   const wb   = XLSX.utils.book_new();
   for (const { name, rows } of sheets) {
     const ws = XLSX.utils.json_to_sheet(rows);
     XLSX.utils.book_append_sheet(wb, ws, name);
   }
-  XLSX.writeFile(wb, filename);
+  const buf  = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
 }
 
 function SummaryCard({ label, value }) {
