@@ -338,6 +338,10 @@ function AddUnitModal({ open, onClose, purchase, inventory = [], onCreated }) {
   const set = (key) => (e) => { setUnit(p => ({ ...p, [key]: e.target.value })); setError(''); };
 
   const handleSave = async () => {
+    if (!unit.rate || Number(unit.rate) <= 0) {
+      setError('Plot Rate is required.');
+      return;
+    }
     if (areaExceeds) {
       setError(`Computed area (${enteredArea} ${areaUnit}) exceeds remaining ${remainingArea} ${areaUnit}.`);
       return;
@@ -455,7 +459,7 @@ function AddUnitModal({ open, onClose, purchase, inventory = [], onCreated }) {
             {/* Row 3: rate + computed total + date */}
             <div className="col-span-2">
               <label className="block text-xs font-semibold text-gray-500 mb-1.5">
-                Plot Rate (₹ per {unit.front_area_details || 'unit'})
+                Plot Rate (₹ per {unit.front_area_details || 'unit'}) <span className="text-red-500">*</span>
                 {purchase?.rate && <span className="ml-1 text-gray-400 font-normal">— purchase: ₹{Number(purchase.rate).toLocaleString('en-IN')}</span>}
               </label>
               <input type="number" value={unit.rate} onChange={set('rate')} placeholder={purchase?.rate ? String(purchase.rate) : '0'}

@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { apiGet, apiPost } from '@/lib/api';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
-export const SALE_TYPES       = ['PLOT', 'SHOP', 'SHOP_WIRE', 'PLOT_WIRE'];
+export const SALE_TYPES       = ['PLOT', 'SHOP', 'LAND'];
 export const POSSESSION_STATES = ['PENDING', 'SYMBOLIC', 'PHYSICAL'];
 
 export const EMPTY = {
@@ -28,7 +28,7 @@ export const EMPTY = {
   extra_income: '', extra_income_details: '',
   intkaal_number: '', date_of_registration: '',
   vasika: '', possession: 'PENDING', possession_detail: '',
-  other_details: '', status: 'ACTIVE',
+  other_details: '', status: 'ACTIVE', booking_in_received: true,
 };
 
 // ── Computed fields (live in form) ─────────────────────────────────────────────
@@ -59,7 +59,7 @@ export const fmtNum  = (n) => n != null && n !== '' ? Number(n).toLocaleString('
 export const fmtDate = (d) =>
   d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
-export const TYPE_LABEL = { PLOT: 'Plot', SHOP: 'Shop', SHOP_WIRE: 'Shop Wire', PLOT_WIRE: 'Plot Wire' };
+export const TYPE_LABEL = { PLOT: 'Plot', SHOP: 'Shop', LAND: 'Land' };
 export const POSS_LABEL = { PENDING: 'Pending', SYMBOLIC: 'Symbolic', PHYSICAL: 'Physical' };
 export const POSS_COLOR = {
   PENDING:  'bg-amber-50 text-amber-700 ring-amber-200',

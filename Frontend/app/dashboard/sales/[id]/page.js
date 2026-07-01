@@ -294,8 +294,9 @@ function InstallmentPanel({ saleId, canEdit, onTotalPaidChange }) {
   const [saving,     setSaving]     = useState(false);
   const [saved,      setSaved]      = useState(false);
   const [totalPaid,  setTotalPaid]  = useState(0);
-  const [balanceAmt, setBalanceAmt] = useState(0);
+  const [netAmt,     setNetAmt]     = useState(0);
   const [customer,   setCustomer]   = useState(null);
+  const [saveError,  setSaveError]  = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -303,7 +304,7 @@ function InstallmentPanel({ saleId, canEdit, onTotalPaidChange }) {
       const d = await apiGet(`/sales/${saleId}/installments`);
       setForm(instFromApi(d.installment));
       setTotalPaid(d.total_paid || 0);
-      setBalanceAmt(d.balance_amount || 0);
+      setNetAmt(d.net_amount || 0);
       setCustomer(d.customer || null);
       onTotalPaidChange?.(d.total_paid || 0);
     } catch { /* ignore */ }
@@ -315,19 +316,28 @@ function InstallmentPanel({ saleId, canEdit, onTotalPaidChange }) {
   const setF = (key, val) => setForm(p => ({ ...p, [key]: val }));
 
   const handleSave = async () => {
+    setSaveError('');
+    if (netAmt > 0) {
+      let totalInstAmt = 0;
+      for (let n = 1; n <= 20; n++) totalInstAmt += Number(form[`inst_${n}_amount`] || 0);
+      if (totalInstAmt > netAmt) {
+        setSaveError(`Total instalment amount (${fmtINR(totalInstAmt)}) exceeds the Net Amount (${fmtINR(netAmt)}). Please reduce the amounts.`);
+        return;
+      }
+    }
     setSaving(true); setSaved(false);
     try {
       const d = await apiPut(`/sales/${saleId}/installments`, form);
       setForm(instFromApi(d.installment));
       setTotalPaid(d.total_paid || 0);
-      setBalanceAmt(d.balance_amount || 0);
+      setNetAmt(d.net_amount || 0);
       onTotalPaidChange?.(d.total_paid || 0);
       setEditing(false); setSaved(true);
     } catch { /* ignore */ }
     finally { setSaving(false); }
   };
 
-  const remaining  = balanceAmt - totalPaid;
+  const remaining  = netAmt - totalPaid;
   const paidCount  = ORDINALS.filter((_, i) => form[`inst_${i + 1}_paid`]).length;
   const filledCount = ORDINALS.filter((_, i) => form[`inst_${i + 1}_amount`]).length;
 
@@ -359,7 +369,7 @@ function InstallmentPanel({ saleId, canEdit, onTotalPaidChange }) {
         {/* KPI strip */}
         <div className="grid grid-cols-3 gap-2 flex-1">
           {[
-            { l: 'Balance Amount', v: fmtINR(balanceAmt), c: 'text-amber-700',   bg: 'bg-amber-50',   bd: 'border-amber-100' },
+            { l: 'Net Amount',     v: fmtINR(netAmt),    c: 'text-amber-700',   bg: 'bg-amber-50',   bd: 'border-amber-100' },
             { l: 'Total Paid',     v: fmtINR(totalPaid),  c: 'text-emerald-700', bg: 'bg-emerald-50', bd: 'border-emerald-100' },
             { l: 'Remaining',      v: fmtINR(remaining),  c: remaining > 0 ? 'text-red-600' : 'text-emerald-700',
               bg: remaining > 0 ? 'bg-red-50' : 'bg-emerald-50', bd: remaining > 0 ? 'border-red-100' : 'border-emerald-100' },
@@ -375,13 +385,18 @@ function InstallmentPanel({ saleId, canEdit, onTotalPaidChange }) {
         {canEdit && (
           <div className="flex items-start shrink-0">
             {editing ? (
-              <div className="flex gap-2">
-                <button onClick={() => { load(); setEditing(false); }}
-                  className="h-8 px-3 text-xs border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Discard</button>
-                <button onClick={handleSave} disabled={saving}
-                  className="h-8 px-4 text-xs rounded-lg text-white font-semibold" style={{ backgroundColor: '#875A7B' }}>
-                  {saving ? 'Saving…' : 'Save'}
-                </button>
+              <div className="flex flex-col items-end gap-1.5">
+                <div className="flex gap-2">
+                  <button onClick={() => { load(); setEditing(false); setSaveError(''); }}
+                    className="h-8 px-3 text-xs border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Discard</button>
+                  <button onClick={handleSave} disabled={saving}
+                    className="h-8 px-4 text-xs rounded-lg text-white font-semibold" style={{ backgroundColor: '#875A7B' }}>
+                    {saving ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
+                {saveError && (
+                  <p className="text-[10px] text-red-500 text-right max-w-[220px] leading-tight">{saveError}</p>
+                )}
               </div>
             ) : (
               <div className="flex items-center gap-2">
@@ -390,7 +405,7 @@ function InstallmentPanel({ saleId, canEdit, onTotalPaidChange }) {
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>Saved
                   </span>
                 )}
-                <button onClick={() => { setEditing(true); setSaved(false); }}
+                <button onClick={() => { setEditing(true); setSaved(false); setSaveError(''); }}
                   className="h-8 px-3 text-xs border border-[#875A7B] rounded-lg text-[#875A7B] hover:bg-[#875A7B]/5 font-medium flex items-center gap-1.5 transition">
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                   Edit
@@ -698,6 +713,7 @@ function BookingPanel({ saleId, canEdit, onConfirmed }) {
   useEffect(() => { load(); }, [load]);
 
   const handleAddSave = async () => {
+    if (!addForm.customer_id) { setError('Please select a customer before adding a booking.'); return; }
     setSaving(true); setError('');
     try {
       await apiPost(`/sales/${saleId}/bookings`, {
@@ -718,10 +734,13 @@ function BookingPanel({ saleId, canEdit, onConfirmed }) {
     finally { setDeleting(null); }
   };
 
-  const handleConfirm = async (id, advance_payment) => {
+  const handleConfirm = async (id, advance_payment, booking_in_received) => {
     setConfirming(id); setError('');
     try {
-      await apiPost(`/sales/${saleId}/bookings/${id}/confirm`, { advance_payment: advance_payment || null });
+      await apiPost(`/sales/${saleId}/bookings/${id}/confirm`, {
+        advance_payment:    advance_payment || null,
+        booking_in_received,
+      });
       onConfirmed?.();
       await load();
     } catch (e) { setError(e.message); }
@@ -816,7 +835,7 @@ function BookingPanel({ saleId, canEdit, onConfirmed }) {
           {bookings.map((b, idx) => (
             <BookingRow key={b.id} booking={b} idx={idx}
               canEdit={canEdit} isConfirmed={isConfirmed}
-              onConfirm={(advance) => handleConfirm(b.id, advance)} confirming={confirming === b.id}
+              onConfirm={(advance, bookingInReceived) => handleConfirm(b.id, advance, bookingInReceived)} confirming={confirming === b.id}
               onDelete={() => handleDelete(b.id)}    deleting={deleting === b.id}
               saleId={saleId} onSaved={load}
               excludeCustomerIds={bookedCustomerIds.filter(id => id !== b.customer_id)}
@@ -829,9 +848,10 @@ function BookingPanel({ saleId, canEdit, onConfirmed }) {
 }
 
 function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirming, onDelete, deleting, saleId, onSaved, excludeCustomerIds }) {
-  const [editing,     setEditing]     = useState(false);
-  const [confirming2, setConfirming2] = useState(false); // inline confirm panel
-  const [advance,     setAdvance]     = useState('');
+  const [editing,            setEditing]            = useState(false);
+  const [confirming2,        setConfirming2]        = useState(false);
+  const [advance,            setAdvance]            = useState('');
+  const [bookingInReceived,  setBookingInReceived]  = useState(true);
   const [form,        setForm]        = useState({
     _customer:      b.customer || null,
     customer_id:    b.customer_id || '',
@@ -950,16 +970,29 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
             <p className="text-[10px] text-gray-400 mt-1">Booking amount: {fmtINR(b.booking_amount)}</p>
           )}
         </div>
+        {b.booking_amount != null && (
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={bookingInReceived}
+              onChange={e => setBookingInReceived(e.target.checked)}
+              className="w-4 h-4 accent-[#875A7B] cursor-pointer"
+            />
+            <span className="text-xs text-gray-600">
+              Include booking amount <span className="font-semibold text-[#875A7B]">{fmtINR(b.booking_amount)}</span> in received
+            </span>
+          </label>
+        )}
         <div className="flex gap-2">
           <button
-            onClick={() => { onConfirm(advance); setConfirming2(false); }}
+            onClick={() => { onConfirm(advance, bookingInReceived); setConfirming2(false); }}
             disabled={confirming}
             className="h-8 px-4 text-xs font-bold rounded-lg text-white flex items-center gap-1.5"
             style={{ backgroundColor: '#875A7B' }}>
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
             {confirming ? 'Confirming…' : 'Confirm & Close Sale'}
           </button>
-          <button onClick={() => setConfirming2(false)}
+          <button onClick={() => { setConfirming2(false); setBookingInReceived(true); }}
             className="h-8 px-3 text-xs border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50">
             Cancel
           </button>
@@ -1055,9 +1088,10 @@ export default function SaleDetailPage() {
   const actualP    = Number(form.actual_price   ?? c.actual_price   ?? 0);
   const balanceP   = Number(form.balance_amount ?? c.balance_amount ?? 0);
   const netP       = Number(form.net_amount     ?? c.net_amount     ?? 0);
-  const bookingP   = Number(form.booking_amount  || 0);
-  const advanceP   = Number(form.advance_payment || 0);
-  const receivedP  = bookingP + advanceP;
+  const bookingP          = Number(form.booking_amount  || 0);
+  const advanceP          = Number(form.advance_payment || 0);
+  const bookingInReceived = form.booking_in_received !== false;
+  const receivedP         = (bookingInReceived ? bookingP : 0) + advanceP;
 
   // Installment quick summary from form's linked installment (loaded from API via INCLUDE)
   const instRec   = form.installment || null;
@@ -1308,7 +1342,23 @@ export default function SaleDetailPage() {
 
                 <div className="grid grid-cols-2 gap-2">
                   <div className="bg-emerald-50 rounded-lg p-2.5 border border-emerald-100">
-                    <p className="text-[8px] text-gray-400 uppercase tracking-wide">Booking</p>
+                    <div className="flex items-center justify-between mb-0.5">
+                      <p className="text-[8px] text-gray-400 uppercase tracking-wide">Booking</p>
+                      <label className="flex items-center gap-1 cursor-pointer" title="Include booking in received">
+                        <input
+                          type="checkbox"
+                          checked={bookingInReceived}
+                          onChange={async (e) => {
+                            const val = e.target.checked;
+                            setForm(p => ({ ...p, booking_in_received: val }));
+                            try { await apiPut(`/sales/${params.id}`, { ...form, booking_in_received: val }); }
+                            catch { setForm(p => ({ ...p, booking_in_received: !val })); }
+                          }}
+                          className="w-3 h-3 accent-emerald-600 cursor-pointer"
+                        />
+                        <span className="text-[8px] text-gray-400">incl.</span>
+                      </label>
+                    </div>
                     <p className="text-xs font-bold text-emerald-700">{fmtINR(bookingP)}</p>
                   </div>
                   <div className="bg-blue-50 rounded-lg p-2.5 border border-blue-100">

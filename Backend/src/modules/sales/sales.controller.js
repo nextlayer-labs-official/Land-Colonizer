@@ -1,7 +1,7 @@
 const prisma = require('../../lib/prisma');
 const { syncInventoryStatus } = require('../inventory/inventory.controller');
 
-const SALE_TYPES        = ['PLOT', 'SHOP', 'SHOP_WIRE', 'PLOT_WIRE'];
+const SALE_TYPES        = ['PLOT', 'SHOP', 'LAND'];
 const POSSESSION_STATES = ['PENDING', 'SYMBOLIC', 'PHYSICAL'];
 
 function computeFields(d) {
@@ -80,6 +80,7 @@ function sanitize(body) {
     other_details:             str(body.other_details),
     status:                    body.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
     sale_confirmed:            body.sale_confirmed === true || body.sale_confirmed === 'true' || false,
+    booking_in_received:       body.booking_in_received === false || body.booking_in_received === 'false' ? false : true,
   };
 
   return { ...d, ...computeFields(d) };

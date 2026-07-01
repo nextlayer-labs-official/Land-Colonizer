@@ -221,6 +221,7 @@ model Sale {
   other_details             String?          @db.Text
   status                    SaleStatus       @default(ACTIVE)
   sale_confirmed            Boolean          @default(false)
+  booking_in_received       Boolean          @default(true)
   created_at                DateTime         @default(now())
   updated_at                DateTime         @updatedAt
   inventory                 Inventory?       @relation(fields: [inventory_id], references: [id])

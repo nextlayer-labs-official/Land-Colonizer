@@ -36,14 +36,14 @@ async function getInstallment(req, res) {
 
   const sale = await prisma.sale.findUnique({
     where:  { id: sale_id },
-    select: { balance_amount: true, customer: { select: { name: true, phone: true, customer_code: true } } },
+    select: { net_amount: true, customer: { select: { name: true, phone: true, customer_code: true } } },
   });
 
   res.json({
-    installment:    inst,
-    total_paid:     computeTotalPaid(inst),
-    balance_amount: Number(sale?.balance_amount || 0),
-    customer:       sale?.customer || null,
+    installment: inst,
+    total_paid:  computeTotalPaid(inst),
+    net_amount:  Number(sale?.net_amount || 0),
+    customer:    sale?.customer || null,
   });
 }
 
@@ -59,14 +59,14 @@ async function updateInstallment(req, res) {
 
   const sale = await prisma.sale.findUnique({
     where:  { id: sale_id },
-    select: { balance_amount: true, customer: { select: { name: true, phone: true, customer_code: true } } },
+    select: { net_amount: true, customer: { select: { name: true, phone: true, customer_code: true } } },
   });
 
   res.json({
-    installment:    inst,
-    total_paid:     computeTotalPaid(inst),
-    balance_amount: Number(sale?.balance_amount || 0),
-    customer:       sale?.customer || null,
+    installment: inst,
+    total_paid:  computeTotalPaid(inst),
+    net_amount:  Number(sale?.net_amount || 0),
+    customer:    sale?.customer || null,
   });
 }
 

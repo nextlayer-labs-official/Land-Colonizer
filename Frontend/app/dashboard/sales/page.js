@@ -100,11 +100,12 @@ export default function SalesPage() {
     const data  = await apiGet(`/sales?${q}`);
     const items = data.sales || [];
     const date  = new Date().toISOString().slice(0, 10);
-    const HEADERS = ['Sale Code','Type','Inventory','Customer','Phone','Broker','Actual Price','Booking','Balance','Possession','Status','Sale Date'];
+    const HEADERS = ['Sale Code','Type','Inventory','Project','Customer','Phone','Broker','Actual Price','Booking','Balance','Possession','Status','Sale Date'];
     const toRow   = r => [
       r.sale_code || `SAL-${String(r.id).padStart(4,'0')}`,
       TYPE_LABEL[r.type] || r.type || '',
       r.inventory?.inventory_code || '',
+      r.inventory?.project?.name || '',
       r.customer?.name || '',
       r.customer?.phone || '',
       r.broker?.name || r.broker_name || '',
@@ -214,7 +215,7 @@ export default function SalesPage() {
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="border-b border-gray-200 bg-white">
-              {['Sale ID', 'Inventory', 'Customer', 'Broker', 'Actual Price', 'Booking', 'Balance', 'Possession', 'Status', 'Date', ''].map(h => (
+              {['Sale ID', 'Inventory', 'Project', 'Customer', 'Broker', 'Actual Price', 'Booking', 'Balance', 'Possession', 'Status', 'Date', ''].map(h => (
                 <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
               ))}
             </tr>
@@ -223,14 +224,14 @@ export default function SalesPage() {
             {loading ? (
               Array(7).fill(0).map((_, i) => (
                 <tr key={i} className="border-b border-gray-100">
-                  {Array(11).fill(0).map((__, j) => (
+                  {Array(12).fill(0).map((__, j) => (
                     <td key={j} className="px-3 py-3"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td>
                   ))}
                 </tr>
               ))
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={11} className="px-4 py-20 text-center">
+                <td colSpan={12} className="px-4 py-20 text-center">
                   <div className="flex flex-col items-center gap-3 text-gray-400">
                     <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" /></svg>
                     <p className="text-sm font-medium text-gray-500">No sales found</p>
@@ -249,6 +250,14 @@ export default function SalesPage() {
                 <td className="px-3 py-2.5">
                   <p className="font-medium text-gray-800 text-xs">{row.inventory?.inventory_code || '—'}</p>
                   {row.inventory?.plot_no && <p className="text-[10px] text-gray-400">Plot {row.inventory.plot_no}</p>}
+                </td>
+                <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
+                  {row.inventory?.project ? (
+                    <Link href={`/dashboard/projects/${row.inventory.project.id}`}
+                      className="text-xs font-medium text-violet-700 hover:underline">
+                      {row.inventory.project.name}
+                    </Link>
+                  ) : <span className="text-gray-300 text-xs">—</span>}
                 </td>
                 <td className="px-3 py-2.5">
                   <p className="font-medium text-gray-800">{row.customer?.name || '—'}</p>

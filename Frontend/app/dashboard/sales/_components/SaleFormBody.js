@@ -29,13 +29,13 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false, sho
             onPick={(u) => setForm(p => ({
               ...p,
               inventory_id:        u.id,
-              type:                u.type || p.type,
-              sl_no:               p.sl_no || u.sl_no || '',
-              front_area:          u.front_area  != null ? String(u.front_area)         : p.front_area,
-              front_area_details:  u.front_area_details || u.area_unit || p.front_area_details,
-              back_area:           u.back_area   != null ? String(u.back_area)          : p.back_area,
-              back_area_details:   u.back_area_details  || u.area_unit || p.back_area_details,
-              plot_rate:           u.rate        != null ? String(u.rate)               : (u.purchase?.rate != null ? String(u.purchase.rate) : p.plot_rate),
+              type:                SALE_TYPES.includes(u.type) ? u.type : p.type,
+              sl_no:               u.sl_no || '',
+              front_area:          u.front_area  != null ? String(u.front_area)  : '',
+              front_area_details:  u.front_area_details || u.area_unit || '',
+              back_area:           u.back_area   != null ? String(u.back_area)   : '',
+              back_area_details:   u.back_area_details  || u.area_unit || '',
+              plot_rate:           u.rate        != null ? String(u.rate)        : (u.purchase?.rate != null ? String(u.purchase.rate) : p.plot_rate),
               _inventory:          u,
             }))}
             onClear={() => setForm(p => ({ ...p, inventory_id: '', _inventory: null }))}

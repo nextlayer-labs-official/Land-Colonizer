@@ -52,16 +52,18 @@ async function deleteBooking(req, res) {
 async function confirmBooking(req, res) {
   const sale_id         = Number(req.params.sale_id);
   const id              = Number(req.params.id);
-  const advance_payment = req.body.advance_payment != null && req.body.advance_payment !== ''
+  const advance_payment      = req.body.advance_payment != null && req.body.advance_payment !== ''
     ? parseFloat(req.body.advance_payment)
     : null;
+  const booking_in_received  = req.body.booking_in_received === false || req.body.booking_in_received === 'false' ? false : true;
 
   const booking = await prisma.saleBooking.findUnique({ where: { id } });
   if (!booking || booking.sale_id !== sale_id)
     return res.status(404).json({ message: 'Booking not found' });
 
   const saleUpdate = {
-    sale_confirmed: true,
+    sale_confirmed:      true,
+    booking_in_received,
     ...(booking.customer_id    ? { customer_id:    booking.customer_id }    : {}),
     ...(booking.booking_amount ? { booking_amount: booking.booking_amount } : {}),
     ...(advance_payment != null ? { advance_payment }                        : {}),
