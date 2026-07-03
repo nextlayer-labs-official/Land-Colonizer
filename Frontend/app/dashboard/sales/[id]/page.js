@@ -1104,7 +1104,7 @@ export default function SaleDetailPage() {
   }
   // Effective paid = live totalInstPaid (updated by InstallmentPanel), fallback to embedded instPaidAmt on first render
   const effectiveInstPaid   = totalInstPaid || instPaidAmt;
-  const effectiveBalance    = Math.max(0, balanceP - effectiveInstPaid);
+  const effectiveBalance    = Math.max(0, balanceP - (bookingInReceived ? bookingP : 0) - effectiveInstPaid);
   const effectiveReceivedP  = receivedP + effectiveInstPaid;
 
   const confirmed = !!form.sale_confirmed;
@@ -1373,8 +1373,8 @@ export default function SaleDetailPage() {
                     <p className="text-xs font-bold text-amber-700">{fmtINR(effectiveBalance)}</p>
                   </div>
                   <div className="bg-violet-50 rounded-lg p-2.5 border border-violet-100">
-                    <p className="text-[8px] text-gray-400 uppercase tracking-wide">Net Amount</p>
-                    <p className="text-xs font-bold text-violet-700">{fmtINR(netP)}</p>
+                    <p className="text-[8px] text-gray-400 uppercase tracking-wide">Received</p>
+                    <p className="text-xs font-bold text-violet-700">{fmtINR(effectiveReceivedP)}</p>
                   </div>
                 </div>
 

@@ -36,15 +36,27 @@ async function getInstallment(req, res) {
 
   const sale = await prisma.sale.findUnique({
     where:  { id: sale_id },
-    select: { net_amount: true, customer: { select: { name: true, phone: true, customer_code: true } } },
+    select: {
+      balance_amount:     true,
+      booking_amount:     true,
+      booking_in_received: true,
+      customer: { select: { name: true, phone: true, customer_code: true } },
+    },
   });
 
   res.json({
     installment: inst,
     total_paid:  computeTotalPaid(inst),
-    net_amount:  Number(sale?.net_amount || 0),
+    net_amount:  instNetAmount(sale),
     customer:    sale?.customer || null,
   });
+}
+
+function instNetAmount(sale) {
+  const balance  = Number(sale?.balance_amount || 0);
+  const booking  = Number(sale?.booking_amount || 0);
+  const included = sale?.booking_in_received !== false;
+  return Math.max(0, balance - (included ? booking : 0));
 }
 
 async function updateInstallment(req, res) {
@@ -59,13 +71,18 @@ async function updateInstallment(req, res) {
 
   const sale = await prisma.sale.findUnique({
     where:  { id: sale_id },
-    select: { net_amount: true, customer: { select: { name: true, phone: true, customer_code: true } } },
+    select: {
+      balance_amount:     true,
+      booking_amount:     true,
+      booking_in_received: true,
+      customer: { select: { name: true, phone: true, customer_code: true } },
+    },
   });
 
   res.json({
     installment: inst,
     total_paid:  computeTotalPaid(inst),
-    net_amount:  Number(sale?.net_amount || 0),
+    net_amount:  instNetAmount(sale),
     customer:    sale?.customer || null,
   });
 }
