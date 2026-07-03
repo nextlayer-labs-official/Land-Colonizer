@@ -5,6 +5,7 @@ const fs = require('fs');
 const authenticate = require('../../middleware/authenticate');
 const {
   getSettings,
+  getPublicSettings,
   updateCompanyInfo,
   updateEmailSettings,
   updateSecuritySettings,
@@ -34,6 +35,8 @@ const logoUpload = multer({
     else cb(new Error('Only image files are allowed'));
   },
 });
+
+router.get('/public',            getPublicSettings);
 
 // All settings routes require authentication
 // Super-admin-only enforcement is handled in frontend; backend trusts authenticate

@@ -160,8 +160,15 @@ const updatePrefixSettings = async (req, res) => {
   res.json({ ...safe, smtp_pass_set: !!smtp_pass });
 };
 
+// ── Public: company name only (no auth required) ──────────────────────────────
+const getPublicSettings = async (req, res) => {
+  const settings = await prisma.companySettings.findFirst();
+  res.json({ company_name: settings?.company_name || null });
+};
+
 module.exports = {
   getSettings,
+  getPublicSettings,
   updateCompanyInfo,
   updateEmailSettings,
   updateSecuritySettings,

@@ -17,7 +17,6 @@ const jbMono = JetBrains_Mono({
 });
 
 export const metadata = {
-  title: "AMS",
   description: "Real Estate Management System",
 };
 

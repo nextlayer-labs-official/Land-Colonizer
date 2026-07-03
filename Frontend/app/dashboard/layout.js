@@ -22,7 +22,7 @@ export default function DashboardLayout({ children }) {
   const pathname = usePathname();
   const router = useRouter();
   const { me, can, loading: permLoading } = usePermissions();
-  const [companyName, setCompanyName] = useState('AMS');
+  const [companyName, setCompanyName] = useState('');
   const [companyLogo, setCompanyLogo] = useState(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const menuRef = useRef(null);
