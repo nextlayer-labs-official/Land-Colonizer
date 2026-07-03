@@ -2,7 +2,6 @@
 
 import { Suspense, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { apiPost } from '@/lib/api';
 
 function LoginForm() {
@@ -53,11 +52,8 @@ function LoginForm() {
       </div>
 
       <div>
-        <div className="flex items-center justify-between mb-1.5">
+        <div className="mb-1.5">
           <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Password</label>
-          <Link href="/forgot-password" className="text-xs font-medium hover:underline" style={{ color: 'var(--ams-primary)' }}>
-            Forgot password?
-          </Link>
         </div>
         <input
           type="password"

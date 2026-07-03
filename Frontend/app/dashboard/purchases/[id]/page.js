@@ -1209,7 +1209,7 @@ export default function PurchaseRecordPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-gray-50/60 border-b border-gray-100">
-                      {['Unit', 'Plot No', 'SL No', 'Location', 'Area', 'Status', ''].map(h => (
+                      {['Unit', 'Plot No', 'SL No', 'Location', 'Area', 'Plot Rate', 'Status', ''].map(h => (
                         <th key={h} className="px-4 py-2 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -1235,6 +1235,9 @@ export default function PurchaseRecordPage() {
                           {inv.area
                             ? `${fmtNum(inv.area)}${inv.area_unit ? ` ${inv.area_unit}` : ''}`
                             : '—'}
+                        </td>
+                        <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
+                          {inv.rate != null ? <span className="font-semibold text-[#875A7B]">₹{fmtNum(inv.rate)}</span> : <span className="text-gray-300">—</span>}
                         </td>
                         <td className="px-4 py-3">
                           <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${INV_STATUS[inv.status] || INV_STATUS.AVAILABLE}`}>

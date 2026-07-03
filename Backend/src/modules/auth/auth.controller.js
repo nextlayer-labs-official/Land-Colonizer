@@ -1,9 +1,6 @@
 const bcrypt = require('bcrypt');
 const jwt    = require('jsonwebtoken');
-const crypto = require('crypto');
 const prisma  = require('../../lib/prisma');
-const { sendMailCritical, isSmtpConfigured } = require('../../lib/mailer');
-const { forgotPassword: forgotPasswordTemplate } = require('../../lib/emailTemplates');
 const { resetLoginAttempts } = require('../../middleware/rateLimiter');
 
 
@@ -145,80 +142,10 @@ const changePassword = async (req, res) => {
   res.json({ message: 'Password updated successfully' });
 };
 
-const forgotPassword = async (req, res) => {
-  const { email } = req.body;
-  if (!email) return res.status(400).json({ message: 'Email is required' });
-
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user) {
-    return res.json({ message: 'If that email exists, a reset link has been sent.' });
-  }
-
-  await prisma.passwordResetToken.updateMany({
-    where: { user_id: user.id, used: false },
-    data:  { used: true },
-  });
-
-  const token = crypto.randomBytes(32).toString('hex');
-  const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
-
-  await prisma.passwordResetToken.create({
-    data: { user_id: user.id, token, expires_at: expiresAt },
-  });
-
-  const frontendOrigin = process.env.ALLOWED_ORIGIN || 'http://localhost:3000';
-  const resetUrl = `${frontendOrigin}/reset-password?token=${token}`;
-
-  const smtpReady = await isSmtpConfigured();
-  if (!smtpReady) {
-    console.warn('[ForgotPassword] SMTP not configured. Reset URL:', resetUrl);
-    return res.json({
-      message: 'Password reset link generated but email could not be sent — SMTP is not configured. Please contact your administrator.',
-      dev_reset_url: process.env.NODE_ENV !== 'production' ? resetUrl : undefined,
-    });
-  }
-
-  const mail = await forgotPasswordTemplate({ to: user.email, userName: user.name, resetUrl });
-  const result = await sendMailCritical(mail);
-
-  if (result?.skipped) {
-    console.warn('[ForgotPassword] Email skipped:', result.reason, '| Reset URL:', resetUrl);
-    return res.json({
-      message: 'Password reset link generated but email could not be sent. Please contact your administrator.',
-    });
-  }
-
-  res.json({ message: 'If that email exists, a reset link has been sent.' });
-};
-
-const resetPassword = async (req, res) => {
-  const { token, new_password } = req.body;
-  if (!token || !new_password) {
-    return res.status(400).json({ message: 'Token and new_password are required' });
-  }
-  if (new_password.length < 6) {
-    return res.status(400).json({ message: 'Password must be at least 6 characters' });
-  }
-
-  const record = await prisma.passwordResetToken.findUnique({ where: { token } });
-
-  if (!record || record.used || new Date() > new Date(record.expires_at)) {
-    return res.status(400).json({ message: 'Reset link is invalid or has expired. Please request a new one.' });
-  }
-
-  const hashed = await bcrypt.hash(new_password, 10);
-  await prisma.user.update({ where: { id: record.user_id }, data: { password: hashed } });
-  await prisma.passwordResetToken.update({ where: { token }, data: { used: true } });
-
-  res.json({ message: 'Password reset successfully. You can now log in.' });
-};
-
 module.exports = {
   login,
   getMe,
   getProfile,
   updateProfile,
   changePassword,
-  forgotPassword,
-  resetPassword,
 };
