@@ -464,6 +464,10 @@ function InstallmentPanel({ saleId, canEdit, onTotalPaidChange }) {
 function SaleDetailView({ form, linkedProject }) {
   const c      = computed(form);
   const noVal  = <span className="text-gray-300">—</span>;
+  const bookingInReceived = form.booking_in_received !== false;
+  const bookingAmt        = Number(form.booking_amount || 0);
+  const balanceAmt        = Number(form.balance_amount ?? c.balance_amount ?? 0);
+  const effectiveBalance  = Math.max(0, balanceAmt - (bookingInReceived ? bookingAmt : 0));
 
   const Cell = ({ label, value, wide, money, accent }) => (
     <div className={wide ? 'col-span-2 sm:col-span-3' : ''}>
@@ -530,7 +534,7 @@ function SaleDetailView({ form, linkedProject }) {
         {form.booking_details && <Cell label="Booking Details" value={v(form.booking_details)} />}
         <Cell label="Advance Payment" value={money(form.advance_payment)} money />
         {form.advance_payment_details && <Cell label="Advance Details" value={v(form.advance_payment_details)} />}
-        <Cell label="Balance Amount"  value={money(form.balance_amount ?? c.balance_amount)} money accent />
+        <Cell label="Balance Amount"  value={money(effectiveBalance)} money accent />
         {form.balance_amount_details && <Cell label="Balance Details" value={v(form.balance_amount_details)} />}
         {form.payment_due_date && <Cell label="Payment Due Date" value={dt(form.payment_due_date)} />}
       </Section>
@@ -614,8 +618,16 @@ function FinancialsTab({ form, instPaid = 0 }) {
   const actual   = Number(form.actual_price  ?? c.actual_price  ?? 0);
   const total_v  = Number(form.total_value   ?? c.total_value   ?? 0);
   const balance  = Number(form.balance_amount ?? c.balance_amount ?? 0);
-  const net      = Number(form.net_amount    ?? c.net_amount    ?? 0);
-  const effBal   = Math.max(0, balance - instPaid);
+  const bookingAmt       = Number(form.booking_amount || 0);
+  const bookingInReceived = form.booking_in_received !== false;
+  const effectiveBalance  = Math.max(0, balance - (bookingInReceived ? bookingAmt : 0));
+  const effBal   = Math.max(0, effectiveBalance - instPaid);
+  const net = (bookingInReceived ? bookingAmt : 0) +
+    Number(form.advance_payment           || 0) +
+    Number(form.registration_charges      || 0) +
+    Number(form.intkaal_charges           || 0) +
+    Number(form.water_connection_charges  || 0) +
+    Number(form.electricity_meter_charges || 0);
 
   const Row = ({ label, value, sub, accent }) => (
     <div className={`flex items-center justify-between py-2.5 border-b border-gray-50 last:border-b-0 ${accent?'bg-[#875A7B]/3 -mx-4 px-4 rounded':''}`}>
@@ -648,9 +660,9 @@ function FinancialsTab({ form, instPaid = 0 }) {
       {/* Payments & Charges */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
         <Hdr>Payments</Hdr>
-        <Row label="Booking Amount"   value={form.booking_amount   ? fmtINR(form.booking_amount)   : '—'} sub={form.booking_details||''} />
+        <Row label="Booking Amount"   value={bookingAmt ? fmtINR(bookingAmt) : '—'} sub={[form.booking_details, bookingInReceived ? 'included in received' : 'not in received'].filter(Boolean).join(' · ')} />
         <Row label="Advance Payment"  value={form.advance_payment  ? fmtINR(form.advance_payment)  : '—'} sub={form.advance_payment_details||''} />
-        <Row label="Balance Amount"   value={balance ? fmtINR(balance) : '—'} sub="Actual Price − Advance" />
+        <Row label="Balance Amount"   value={effectiveBalance ? fmtINR(effectiveBalance) : '—'} sub={bookingInReceived ? 'Actual Price − Advance − Booking' : 'Actual Price − Advance'} />
         {instPaid > 0 && <Row label="Instalments Paid" value={fmtINR(instPaid)} sub="Total paid via instalments" />}
         {instPaid > 0 && <Row label="Remaining Balance" value={fmtINR(effBal)} sub="Balance − Instalments Paid" accent />}
         {form.payment_due_date && <Row label="Payment Due" value={fmtDate(form.payment_due_date)} />}
@@ -668,7 +680,7 @@ function FinancialsTab({ form, instPaid = 0 }) {
         {form.extra_income && <Row label="Extra Income" value={fmtINR(form.extra_income)} sub={form.extra_income_details||''} />}
 
         <Hdr>Net</Hdr>
-        <Row label="Net Amount" value={net ? fmtINR(net) : '—'} sub="Booking + Advance + Charges" accent />
+        <Row label="Net Amount (Received)" value={net ? fmtINR(net) : '—'} sub={bookingInReceived ? 'Booking + Advance + Charges' : 'Advance + Charges'} accent />
 
         {(form.date_of_registration || form.intkaal_number || form.vasika) && (
           <>
