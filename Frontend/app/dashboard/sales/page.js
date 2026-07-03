@@ -29,6 +29,12 @@ async function dlXlsx(rows, sheet, name) {
 import NProgress from 'nprogress';
 import Pagination from '@/components/Pagination';
 
+function effBalance(r) {
+  const bal = Number(r.balance_amount || 0);
+  const bk  = Number(r.booking_amount || 0);
+  return Math.max(0, bal - (r.booking_in_received !== false ? bk : 0));
+}
+
 function DeleteModal({ item, onClose, onConfirm, deleting }) {
   if (!item) return null;
   return (
@@ -111,7 +117,7 @@ export default function SalesPage() {
       r.broker?.name || r.broker_name || '',
       r.actual_price || 0,
       r.booking_amount || 0,
-      r.balance_amount || 0,
+      effBalance(r),
       POSS_LABEL[r.possession] || r.possession || '',
       r.status || '',
       r.sale_date ? fmtDate(r.sale_date) : fmtDate(r.created_at),
@@ -266,7 +272,7 @@ export default function SalesPage() {
                 <td className="px-3 py-2.5 text-gray-600">{row.broker?.name || row.broker_name || '—'}</td>
                 <td className="px-3 py-2.5 font-semibold text-gray-900">{row.actual_price ? fmtINR(row.actual_price) : '—'}</td>
                 <td className="px-3 py-2.5 text-gray-700">{row.booking_amount ? fmtINR(row.booking_amount) : '—'}</td>
-                <td className="px-3 py-2.5 text-gray-700">{row.balance_amount != null ? fmtINR(row.balance_amount) : '—'}</td>
+                <td className="px-3 py-2.5 text-gray-700">{effBalance(row) > 0 ? fmtINR(effBalance(row)) : '—'}</td>
                 <td className="px-3 py-2.5">
                   <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ring-1 ${POSS_COLOR[row.possession] || 'bg-gray-50 text-gray-500 ring-gray-200'}`}>
                     {POSS_LABEL[row.possession] || row.possession || '—'}
