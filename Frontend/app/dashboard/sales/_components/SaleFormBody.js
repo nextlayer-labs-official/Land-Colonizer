@@ -11,6 +11,17 @@ const AREA_UNITS = ['gaj', 'sq.ft', 'sq.yd', 'sq.m', 'cents', 'acres', 'guntas',
 
 export default function SaleFormBody({ form, set, setForm, readOnly = false, showFinancials = false }) {
   const c = computed(form);
+  const bookingInReceived = form.booking_in_received !== false;
+  const bookingAmt        = Number(form.booking_amount || 0);
+  const effectiveBalance  = c.actual_price
+    ? Math.max(0, c.balance_amount - (bookingInReceived ? bookingAmt : 0))
+    : 0;
+  const adjustedNet = (bookingInReceived ? bookingAmt : 0) +
+    Number(form.advance_payment           || 0) +
+    Number(form.registration_charges      || 0) +
+    Number(form.intkaal_charges           || 0) +
+    Number(form.water_connection_charges  || 0) +
+    Number(form.electricity_meter_charges || 0);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3.5">
@@ -195,7 +206,7 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false, sho
           <FTextarea value={form.advance_payment_details} onChange={set('advance_payment_details')} placeholder="Payment details…" readOnly={readOnly} />
         </div>
 
-        <ComputedBox label="Balance Amount  =  Actual Price − Advance Payment" value={c.actual_price ? fmtINR(c.balance_amount) : '—'} />
+        <ComputedBox label={bookingInReceived ? 'Balance Amount  =  Actual Price − Advance − Booking' : 'Balance Amount  =  Actual Price − Advance Payment'} value={c.actual_price ? fmtINR(effectiveBalance) : '—'} />
 
         <div>
           <FieldLabel>Balance Amount Details</FieldLabel>
@@ -244,7 +255,7 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false, sho
           <FInput value={form.electricity_meter_details} onChange={set('electricity_meter_details')} placeholder="Notes…" readOnly={readOnly} />
         </div>
 
-        <ComputedBox label="Net Amount  =  Booking + Advance + All Charges" value={fmtINR(c.net_amount || 0)} accent />
+        <ComputedBox label={bookingInReceived ? 'Net Amount (Received)  =  Booking + Advance + Charges' : 'Net Amount (Received)  =  Advance + Charges'} value={fmtINR(adjustedNet)} accent />
 
         <SectionDivider title="Other Financial" />
 
