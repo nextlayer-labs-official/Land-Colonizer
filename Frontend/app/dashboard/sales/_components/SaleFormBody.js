@@ -61,7 +61,7 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false, sho
 
       <div>
         <FieldLabel>Type</FieldLabel>
-        <FSelect value={form.type} onChange={set('type')} readOnly={readOnly}>
+        <FSelect value={form.type} onChange={set('type')} readOnly={readOnly || !!form.inventory_id}>
           <option value="">— Select type —</option>
           {SALE_TYPES.map(t => <option key={t} value={t}>{TYPE_LABEL[t]}</option>)}
         </FSelect>
