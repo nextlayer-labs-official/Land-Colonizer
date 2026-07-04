@@ -136,6 +136,7 @@ function PurchaseInstallmentPanel({ purchaseId, canEdit, onTotalPaidChange }) {
   const [editing,    setEditing]   = useState(false);
   const [saving,     setSaving]    = useState(false);
   const [saved,      setSaved]     = useState(false);
+  const [saveError,  setSaveError] = useState('');
   const [totalPaid,  setTotalPaid] = useState(0);
   const [balanceAmt, setBalance]   = useState(0);
 
@@ -156,6 +157,15 @@ function PurchaseInstallmentPanel({ purchaseId, canEdit, onTotalPaidChange }) {
   const setF = (key, val) => setInstForm(p => ({ ...p, [key]: val }));
 
   const handleSave = async () => {
+    setSaveError('');
+    if (balanceAmt > 0) {
+      let totalInstAmt = 0;
+      for (let n = 1; n <= 20; n++) totalInstAmt += Number(form[`inst_${n}_amount`] || 0);
+      if (totalInstAmt > balanceAmt) {
+        setSaveError(`Total instalment amount (${fmtINR(totalInstAmt)}) exceeds the Instalment Balance (${fmtINR(balanceAmt)}). Please reduce the amounts.`);
+        return;
+      }
+    }
     setSaving(true); setSaved(false);
     try {
       const d = await apiPut(`/purchases/${purchaseId}/installments`, form);
@@ -184,11 +194,14 @@ function PurchaseInstallmentPanel({ purchaseId, canEdit, onTotalPaidChange }) {
         <p className="text-sm font-bold text-gray-600 uppercase tracking-widest">Installment Schedule</p>
         {canEdit && (
           editing ? (
-            <div className="flex gap-2">
-              <button onClick={() => { load(); setEditing(false); }} className="h-8 px-4 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Discard</button>
-              <button onClick={handleSave} disabled={saving} className="h-8 px-5 text-sm rounded-lg text-white font-semibold" style={{ backgroundColor: '#875A7B' }}>
-                {saving ? 'Saving…' : 'Save'}
-              </button>
+            <div className="flex flex-col items-end gap-1.5">
+              <div className="flex gap-2">
+                <button onClick={() => { load(); setEditing(false); setSaveError(''); }} className="h-8 px-4 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Discard</button>
+                <button onClick={handleSave} disabled={saving} className="h-8 px-5 text-sm rounded-lg text-white font-semibold" style={{ backgroundColor: '#875A7B' }}>
+                  {saving ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+              {saveError && <p className="text-[11px] text-red-500 text-right max-w-xs leading-tight">{saveError}</p>}
             </div>
           ) : (
             <div className="flex items-center gap-3">
