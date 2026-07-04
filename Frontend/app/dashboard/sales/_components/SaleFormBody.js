@@ -61,7 +61,7 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false, sho
 
       <div>
         <FieldLabel>Type</FieldLabel>
-        <FSelect value={form.type} onChange={set('type')} readOnly={readOnly || !!form.inventory_id}>
+        <FSelect value={form.type} onChange={set('type')} readOnly={readOnly || (!form.id && !!form.inventory_id)}>
           <option value="">— Select type —</option>
           {SALE_TYPES.map(t => <option key={t} value={t}>{TYPE_LABEL[t]}</option>)}
         </FSelect>
@@ -171,7 +171,7 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false, sho
           Plot Rate (₹ per unit)
           {form._inventory && !readOnly && <span className="ml-1 text-[10px] font-normal text-emerald-600">· default from unit</span>}
         </FieldLabel>
-        <FInput type="number" value={form.plot_rate} onChange={set('plot_rate')} placeholder="0" readOnly={readOnly || !!form.inventory_id} />
+        <FInput type="number" value={form.plot_rate} onChange={set('plot_rate')} placeholder="0" readOnly={readOnly || (!form.id && !!form.inventory_id)} />
       </div>
 
       <ComputedBox label="Total Value  =  Total Area × Plot Rate" value={c.total_value ? fmtINR(c.total_value) : '—'} />
