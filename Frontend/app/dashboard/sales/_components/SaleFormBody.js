@@ -30,7 +30,7 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false, sho
 
       <div>
         <FieldLabel required>Inventory Unit</FieldLabel>
-        {readOnly || !!form.id ? (
+        {readOnly ? (
           <div className="min-h-[36px] px-3 py-[7px] bg-gray-50 rounded border border-gray-100 text-sm text-gray-700">
             {form._inventory ? `${form._inventory.inventory_code || ''} · ${form._inventory.plot_no || form._inventory.sl_no || ''}`.trim().replace(/^·\s*/, '') : (form.inventory_id ? `INV-${String(form.inventory_id).padStart(4,'0')}` : <span className="text-gray-300">—</span>)}
           </div>
