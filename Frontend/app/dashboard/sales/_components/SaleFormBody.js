@@ -171,7 +171,7 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false, sho
           Plot Rate (₹ per unit)
           {form._inventory && !readOnly && <span className="ml-1 text-[10px] font-normal text-emerald-600">· default from unit</span>}
         </FieldLabel>
-        <FInput type="number" value={form.plot_rate} onChange={set('plot_rate')} placeholder="0" readOnly={readOnly} />
+        <FInput type="number" value={form.plot_rate} onChange={set('plot_rate')} placeholder="0" readOnly={readOnly || !!form.inventory_id} />
       </div>
 
       <ComputedBox label="Total Value  =  Total Area × Plot Rate" value={c.total_value ? fmtINR(c.total_value) : '—'} />
