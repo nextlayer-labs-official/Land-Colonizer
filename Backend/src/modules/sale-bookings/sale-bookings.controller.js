@@ -61,12 +61,17 @@ async function confirmBooking(req, res) {
   if (!booking || booking.sale_id !== sale_id)
     return res.status(404).json({ message: 'Booking not found' });
 
+  const currentSale    = await prisma.sale.findUnique({ where: { id: sale_id }, select: { actual_price: true } });
+  const actualPrice    = currentSale?.actual_price != null ? parseFloat(currentSale.actual_price) : null;
+  const computedBalance = actualPrice != null ? parseFloat((actualPrice - (advance_payment || 0)).toFixed(2)) : null;
+
   const saleUpdate = {
     sale_confirmed:      true,
     booking_in_received,
     ...(booking.customer_id    ? { customer_id:    booking.customer_id }    : {}),
     ...(booking.booking_amount ? { booking_amount: booking.booking_amount } : {}),
     ...(advance_payment != null ? { advance_payment }                        : {}),
+    ...(computedBalance != null ? { balance_amount: computedBalance }        : {}),
   };
 
   // Mark this booking CONFIRMED, all others for this sale REFUNDED

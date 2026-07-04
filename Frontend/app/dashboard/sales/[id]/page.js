@@ -466,7 +466,9 @@ function SaleDetailView({ form, linkedProject }) {
   const noVal  = <span className="text-gray-300">—</span>;
   const bookingInReceived = form.booking_in_received !== false;
   const bookingAmt        = Number(form.booking_amount || 0);
-  const balanceAmt        = Number(form.balance_amount ?? c.balance_amount ?? 0);
+  const actualAmt         = Number(form.actual_price ?? c.actual_price ?? 0);
+  const advanceAmt        = Number(form.advance_payment || 0);
+  const balanceAmt        = actualAmt > 0 ? (actualAmt - advanceAmt) : 0;
   const effectiveBalance  = Math.max(0, balanceAmt - (bookingInReceived ? bookingAmt : 0));
 
   const Cell = ({ label, value, wide, money, accent }) => (
@@ -617,9 +619,9 @@ function FinancialsTab({ form, instPaid = 0 }) {
   const c = computed(form);
   const actual   = Number(form.actual_price  ?? c.actual_price  ?? 0);
   const total_v  = Number(form.total_value   ?? c.total_value   ?? 0);
-  const balance  = Number(form.balance_amount ?? c.balance_amount ?? 0);
   const bookingAmt       = Number(form.booking_amount || 0);
   const bookingInReceived = form.booking_in_received !== false;
+  const balance  = actual > 0 ? (actual - Number(form.advance_payment || 0)) : 0;
   const effectiveBalance  = Math.max(0, balance - (bookingInReceived ? bookingAmt : 0));
   const effBal   = Math.max(0, effectiveBalance - instPaid);
   const net = (bookingInReceived ? bookingAmt : 0) +
@@ -1098,10 +1100,10 @@ export default function SaleDetailPage() {
 
   const c          = computed(form);
   const actualP    = Number(form.actual_price   ?? c.actual_price   ?? 0);
-  const balanceP   = Number(form.balance_amount ?? c.balance_amount ?? 0);
   const netP       = Number(form.net_amount     ?? c.net_amount     ?? 0);
   const bookingP          = Number(form.booking_amount  || 0);
   const advanceP          = Number(form.advance_payment || 0);
+  const balanceP          = actualP > 0 ? (actualP - advanceP) : 0;
   const bookingInReceived = form.booking_in_received !== false;
   const receivedP         = (bookingInReceived ? bookingP : 0) + advanceP;
 
