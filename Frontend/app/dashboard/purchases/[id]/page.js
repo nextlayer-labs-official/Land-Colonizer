@@ -315,7 +315,7 @@ function DeleteUnitModal({ open, onClose, onConfirm, deleting, unitData }) {
 
 // ── Add Unit modal (inline, no navigation) ────────────────────────────────────
 const AREA_UNITS = ['gaj', 'acres', 'bigha'];
-const UNIT_TYPES = ['PLOT', 'SHOP', 'LAND'];
+const UNIT_TYPES = ['PLOT', 'SHOP', 'LAND', 'FLAT'];
 
 function AddUnitModal({ open, onClose, purchase, inventory = [], onCreated }) {
   const UNIT_EMPTY = { type: '', sl_no: '', location: '', plot_no: '', front_area: '', front_area_details: '', back_area: '', back_area_details: '', rate: '' };
@@ -975,6 +975,7 @@ export default function PurchaseRecordPage() {
                   <option value="PLOT">Plot</option>
                   <option value="LAND">Land</option>
                   <option value="SHOP">Shop</option>
+                  <option value="FLAT">Flat</option>
                 </FSelect>
                 <FSelect label="Status" value={form.status} onChange={set('status')} readOnly={!editing}>
                   <option value="ACTIVE">Active</option>

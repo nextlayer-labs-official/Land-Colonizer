@@ -1,7 +1,7 @@
 const prisma = require('../../lib/prisma');
 const { syncInventoryStatus } = require('../inventory/inventory.controller');
 
-const SALE_TYPES        = ['PLOT', 'SHOP', 'LAND'];
+const SALE_TYPES        = ['PLOT', 'SHOP', 'LAND', 'FLAT'];
 const POSSESSION_STATES = ['PENDING', 'SYMBOLIC', 'PHYSICAL'];
 
 function computeFields(d) {

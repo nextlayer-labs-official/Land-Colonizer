@@ -19,7 +19,7 @@ export const EMPTY = {
   status:             'AVAILABLE',
 };
 
-export const UNIT_TYPES = ['PLOT', 'SHOP', 'LAND'];
+export const UNIT_TYPES = ['PLOT', 'SHOP', 'LAND', 'FLAT'];
 export const AREA_UNITS = ['gaj', 'acres', 'bigha'];
 
 export const STATUS_RING = {

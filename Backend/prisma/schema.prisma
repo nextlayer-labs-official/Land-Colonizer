@@ -235,6 +235,7 @@ enum SaleType {
   PLOT
   SHOP
   LAND
+  FLAT
 }
 
 enum PossessionStatus {
@@ -509,6 +510,7 @@ enum PurchaseType {
   LAND
   SHOP
   PLOT
+  FLAT
 }
 
 enum PurchaseStatus {
@@ -520,6 +522,7 @@ enum UnitType {
   PLOT
   SHOP
   LAND
+  FLAT
 }
 
 enum InventoryStatus {

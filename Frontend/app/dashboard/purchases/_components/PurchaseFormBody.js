@@ -38,6 +38,7 @@ export default function PurchaseFormBody({ form, set, setForm, c, readOnly = fal
           <option value="PLOT">Plot</option>
           <option value="LAND">Land</option>
           <option value="SHOP">Shop</option>
+          <option value="FLAT">Flat</option>
         </FSelect>
       </div>
 

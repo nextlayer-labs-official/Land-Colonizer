@@ -266,6 +266,7 @@ function InventoryReport() {
               <option value="">All Types</option>
               <option value="PLOT">Plot</option>
               <option value="SHOP">Shop</option>
+              <option value="LAND">Land</option>
               <option value="FLAT">Flat</option>
             </select>
           </Field>

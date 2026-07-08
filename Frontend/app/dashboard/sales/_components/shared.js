@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { apiGet, apiPost } from '@/lib/api';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
-export const SALE_TYPES       = ['PLOT', 'SHOP', 'LAND'];
+export const SALE_TYPES       = ['PLOT', 'SHOP', 'LAND', 'FLAT'];
 export const POSSESSION_STATES = ['PENDING', 'SYMBOLIC', 'PHYSICAL'];
 
 export const EMPTY = {
@@ -59,7 +59,7 @@ export const fmtNum  = (n) => n != null && n !== '' ? Number(n).toLocaleString('
 export const fmtDate = (d) =>
   d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
-export const TYPE_LABEL = { PLOT: 'Plot', SHOP: 'Shop', LAND: 'Land' };
+export const TYPE_LABEL = { PLOT: 'Plot', SHOP: 'Shop', LAND: 'Land', FLAT: 'Flat' };
 export const POSS_LABEL = { PENDING: 'Pending', SYMBOLIC: 'Symbolic', PHYSICAL: 'Physical' };
 export const POSS_COLOR = {
   PENDING:  'bg-amber-50 text-amber-700 ring-amber-200',
