@@ -1382,13 +1382,13 @@ export default function SaleDetailPage() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-amber-50 rounded-lg p-2.5 border border-amber-100">
-                    <p className="text-[8px] text-gray-400 uppercase tracking-wide">Balance</p>
-                    <p className="text-xs font-bold text-amber-700">{fmtINR(effectiveBalance)}</p>
-                  </div>
                   <div className="bg-violet-50 rounded-lg p-2.5 border border-violet-100">
                     <p className="text-[8px] text-gray-400 uppercase tracking-wide">Received</p>
                     <p className="text-xs font-bold text-violet-700">{fmtINR(effectiveReceivedP)}</p>
+                  </div>
+                  <div className="bg-amber-50 rounded-lg p-2.5 border border-amber-100">
+                    <p className="text-[8px] text-gray-400 uppercase tracking-wide">Balance</p>
+                    <p className="text-xs font-bold text-amber-700">{fmtINR(effectiveBalance)}</p>
                   </div>
                 </div>
 
