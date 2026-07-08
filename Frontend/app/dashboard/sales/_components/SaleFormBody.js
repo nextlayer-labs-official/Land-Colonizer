@@ -7,7 +7,7 @@ import {
   computed, fmtINR, fmtNum,
 } from './shared';
 
-const AREA_UNITS = ['gaj', 'sq.ft', 'sq.yd', 'sq.m', 'cents', 'acres', 'guntas', 'bigha', 'marla', 'kanal'];
+const AREA_UNITS = ['gaj', 'acres', 'bigha'];
 
 export default function SaleFormBody({ form, set, setForm, readOnly = false, showFinancials = false }) {
   const c = computed(form);

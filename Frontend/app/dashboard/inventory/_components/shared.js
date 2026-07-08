@@ -13,14 +13,14 @@ export const EMPTY = {
   back_area:          '',
   back_area_details:  '',
   area:               '',
-  area_unit:          '',
+  area_unit:          'gaj',
   rate:               '',
   registration_date:  '',
   status:             'AVAILABLE',
 };
 
 export const UNIT_TYPES = ['PLOT', 'SHOP', 'LAND'];
-export const AREA_UNITS = ['sq.ft', 'sq.yd', 'sq.m', 'cents', 'acres', 'guntas', 'bigha', 'gaj'];
+export const AREA_UNITS = ['gaj', 'acres', 'bigha'];
 
 export const STATUS_RING = {
   AVAILABLE:  'bg-emerald-50 text-emerald-700 ring-emerald-200',

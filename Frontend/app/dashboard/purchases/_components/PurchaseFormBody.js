@@ -124,15 +124,9 @@ export default function PurchaseFormBody({ form, set, setForm, c, readOnly = fal
       <div>
         <FieldLabel>Area Unit</FieldLabel>
         <FSelect value={form.purchased_area_details} onChange={set('purchased_area_details')} readOnly={readOnly}>
-          <option value="">— Select Unit —</option>
-          <option value="sq.ft">sq.ft — Square Feet</option>
-          <option value="sq.yd">sq.yd — Square Yards</option>
-          <option value="sq.m">sq.m — Square Meters</option>
-          <option value="cents">Cents</option>
-          <option value="acres">Acres</option>
-          <option value="guntas">Guntas</option>
-          <option value="bigha">Bigha</option>
           <option value="gaj">Gaj</option>
+          <option value="acres">Acres</option>
+          <option value="bigha">Bigha</option>
         </FSelect>
       </div>
 

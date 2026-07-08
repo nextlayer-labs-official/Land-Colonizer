@@ -14,7 +14,7 @@ export const EMPTY = {
   sell_broker_name: '',     sell_broker_details: '',
   _sell_broker: null,
   seller_details: '',       plot_no: '',
-  purchased_area: '',       purchased_area_details: '',
+  purchased_area: '',       purchased_area_details: 'gaj',
   purchase_price: '',       global_rate: '',
   rate: '',                 rate_details: '',
   total_amount_details: '',

@@ -314,7 +314,7 @@ function DeleteUnitModal({ open, onClose, onConfirm, deleting, unitData }) {
 }
 
 // ── Add Unit modal (inline, no navigation) ────────────────────────────────────
-const AREA_UNITS = ['sq.ft', 'sq.yd', 'sq.m', 'cents', 'acres', 'guntas', 'bigha', 'gaj'];
+const AREA_UNITS = ['gaj', 'acres', 'bigha'];
 const UNIT_TYPES = ['PLOT', 'SHOP', 'LAND'];
 
 function AddUnitModal({ open, onClose, purchase, inventory = [], onCreated }) {
@@ -992,15 +992,9 @@ export default function PurchaseRecordPage() {
               <div className="grid grid-cols-2 gap-x-5 gap-y-4">
                 <FInput label="Purchased Area" value={form.purchased_area} onChange={set('purchased_area')} type="number" placeholder="0" readOnly={!editing} />
                 <FSelect label="Area Unit" value={form.purchased_area_details} onChange={set('purchased_area_details')} readOnly={!editing}>
-                  <option value="">— Select —</option>
-                  <option value="sq.ft">sq.ft</option>
-                  <option value="sq.yd">sq.yd</option>
-                  <option value="sq.m">sq.m</option>
-                  <option value="cents">Cents</option>
-                  <option value="acres">Acres</option>
-                  <option value="guntas">Guntas</option>
-                  <option value="bigha">Bigha</option>
                   <option value="gaj">Gaj</option>
+                  <option value="acres">Acres</option>
+                  <option value="bigha">Bigha</option>
                 </FSelect>
                 <FInput label="Plot No" value={form.plot_no} onChange={set('plot_no')} placeholder="e.g. P-42" readOnly={!editing} />
                 <FInput label="Purchase Price (₹)" value={form.purchase_price} onChange={set('purchase_price')} type="number" placeholder="0" readOnly={!editing} />
