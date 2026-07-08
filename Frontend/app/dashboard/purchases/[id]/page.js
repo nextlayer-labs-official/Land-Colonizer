@@ -740,6 +740,8 @@ export default function PurchaseRecordPage() {
         _sell_broker:     data.sell_broker_name     ? { name: data.sell_broker_name }     : null,
         registration_date:    data.registration_date ? data.registration_date.split('T')[0] : '',
         purchased_area:       data.purchased_area       != null ? String(data.purchased_area)       : '',
+        purchase_price:       data.purchase_price       != null ? String(data.purchase_price)       : '',
+        global_rate:          data.global_rate          != null ? String(data.global_rate)          : '',
         rate:                 data.rate                 != null ? String(data.rate)                 : '',
         advance_paid:         data.advance_paid         != null ? String(data.advance_paid)         : '',
         brokerage:            data.brokerage            != null ? String(data.brokerage)            : '',
@@ -1001,12 +1003,14 @@ export default function PurchaseRecordPage() {
                   <option value="gaj">Gaj</option>
                 </FSelect>
                 <FInput label="Plot No" value={form.plot_no} onChange={set('plot_no')} placeholder="e.g. P-42" readOnly={!editing} />
-                <FInput label="Rate (₹ / unit)" value={form.rate} onChange={(e) => {
-                  const v = e.target.value;
-                  const dot = v.indexOf('.');
-                  if (dot !== -1 && v.length - dot - 1 > 2) return;
-                  set('rate')(e);
-                }} type="number" placeholder="0" readOnly={!editing} />
+                <FInput label="Purchase Price (₹)" value={form.purchase_price} onChange={set('purchase_price')} type="number" placeholder="0" readOnly={!editing} />
+                <FInput label="Global Rate (divisor)" value={form.global_rate} onChange={set('global_rate')} type="number" placeholder="0" readOnly={!editing} />
+                <div>
+                  <Label>Rate (per unit) = Purchase Price ÷ Global Rate</Label>
+                  <div className="min-h-[32px] px-3 py-1.5 bg-amber-50 border border-amber-200 rounded text-sm font-semibold text-amber-700 tabular-nums">
+                    {c.rate ? fmtINR(c.rate) : <span className="font-normal text-gray-300">—</span>}
+                  </div>
+                </div>
                 <div className="col-span-full">
                   <FInput label="Rate Details" value={form.rate_details} onChange={set('rate_details')} placeholder="Per sq.ft / sq.yd" readOnly={!editing} />
                 </div>
