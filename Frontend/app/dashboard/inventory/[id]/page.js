@@ -157,7 +157,7 @@ export default function InventoryRecordPage() {
   const [instData, setInstData] = useState(null);
   const [instLoading, setInstLoading] = useState(false);
 
-  const canEdit   = (can('INVENTORY_EDIT')   || me?.is_system) && inv?.status !== 'SOLD' && inv?.status !== 'REGISTERED';
+  const canEdit   = can('INVENTORY_EDIT')   || me?.is_system;
   const canDelete = (can('INVENTORY_DELETE') || me?.is_system) && inv?.status !== 'SOLD' && inv?.status !== 'REGISTERED';
 
   const load = useCallback(async () => {

@@ -32,7 +32,7 @@ function sanitize(body) {
   const computedUnit = str(body.front_area_details) || str(body.area_unit);
 
   return {
-    type:               ['LAND', 'SHOP', 'PLOT'].includes(body.type) ? body.type : 'PLOT',
+    type:               ['LAND', 'SHOP', 'PLOT', 'FLAT'].includes(body.type) ? body.type : 'PLOT',
     sl_no:              str(body.sl_no),
     location:           str(body.location),
     plot_no:            str(body.plot_no),
