@@ -426,6 +426,8 @@ model Purchase {
   plot_no                      String?
   purchased_area               Decimal?         @db.Decimal(10, 2)
   purchased_area_details       String?
+  purchase_price               Decimal?         @db.Decimal(10, 2)
+  global_rate                  Decimal?         @db.Decimal(10, 2)
   rate                         Decimal?         @db.Decimal(10, 2)
   rate_details                 String?
   total_amount_details         String?

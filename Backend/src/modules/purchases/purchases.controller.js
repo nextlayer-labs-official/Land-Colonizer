@@ -55,7 +55,15 @@ function sanitize(body) {
     plot_no:                     str(body.plot_no),
     purchased_area:              num(body.purchased_area),
     purchased_area_details:      str(body.purchased_area_details),
-    rate:                        num(body.rate),
+    purchase_price:              num(body.purchase_price),
+    global_rate:                 num(body.global_rate),
+    rate:                        (() => {
+      const pp = num(body.purchase_price);
+      const gr = num(body.global_rate);
+      return (pp != null && gr != null && gr !== 0)
+        ? parseFloat((pp / gr).toFixed(2))
+        : num(body.rate);
+    })(),
     rate_details:                str(body.rate_details),
     total_amount_details:        str(body.total_amount_details),
     advance_paid:                num(body.advance_paid),

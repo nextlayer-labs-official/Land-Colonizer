@@ -142,14 +142,16 @@ export default function PurchaseFormBody({ form, set, setForm, c, readOnly = fal
       </div>
 
       <div>
-        <FieldLabel>Rate (per unit, ₹)</FieldLabel>
-        <FInput type="number" value={form.rate} onChange={(e) => {
-          const v = e.target.value;
-          const dot = v.indexOf('.');
-          if (dot !== -1 && v.length - dot - 1 > 2) return;
-          set('rate')(e);
-        }} placeholder="0" readOnly={readOnly} />
+        <FieldLabel>Purchase Price (₹)</FieldLabel>
+        <FInput type="number" value={form.purchase_price} onChange={set('purchase_price')} placeholder="0" readOnly={readOnly} />
       </div>
+
+      <div>
+        <FieldLabel>Global Rate (divisor)</FieldLabel>
+        <FInput type="number" value={form.global_rate} onChange={set('global_rate')} placeholder="0" readOnly={readOnly} />
+      </div>
+
+      <ComputedBox label="Rate (per unit)  =  Purchase Price ÷ Global Rate" value={c.rate ? fmtINR(c.rate) : '—'} />
 
       <div>
         <FieldLabel>Rate Details</FieldLabel>

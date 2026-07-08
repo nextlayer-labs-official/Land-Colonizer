@@ -15,6 +15,7 @@ export const EMPTY = {
   _sell_broker: null,
   seller_details: '',       plot_no: '',
   purchased_area: '',       purchased_area_details: '',
+  purchase_price: '',       global_rate: '',
   rate: '',                 rate_details: '',
   total_amount_details: '',
   advance_paid: '',         advance_payment_details: '',
@@ -34,7 +35,9 @@ export const EMPTY = {
 
 export function computed(f) {
   const area = parseFloat(f.purchased_area)        || 0;
-  const rate = parseFloat(f.rate)                  || 0;
+  const pp   = parseFloat(f.purchase_price)        || 0;
+  const gr   = parseFloat(f.global_rate)           || 0;
+  const rate = (pp > 0 && gr > 0) ? pp / gr : (parseFloat(f.rate) || 0);
   const adv  = parseFloat(f.advance_paid)          || 0;
   const brok = parseFloat(f.brokerage)             || 0;
   const ext  = parseFloat(f.extra_expenses)        || 0;
@@ -44,6 +47,7 @@ export function computed(f) {
   const bal   = total - adv;
   const pct   = total > 0 ? (adv / total) * 100 : 0;
   return {
+    rate,
     total_amount:      total,
     balance_to_pay:    bal,
     percentage_paid:   pct,
