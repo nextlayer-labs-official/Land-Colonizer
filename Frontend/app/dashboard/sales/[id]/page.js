@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import useAuth from '@/lib/useAuth';
 import usePermissions from '@/lib/usePermissions';
-import { apiGet, apiPut, apiPost, apiDelete } from '@/lib/api';
+import { apiGet, apiPut, apiPost, apiDelete, apiPatch } from '@/lib/api';
 import {
   EMPTY, computed, fmtINR, fmtDate,
   TYPE_LABEL, POSS_COLOR, POSS_LABEL,
@@ -596,6 +596,24 @@ function SaleDetailView({ form, linkedProject }) {
   );
 }
 
+// ── Archive Modal ─────────────────────────────────────────────────────────────
+function ArchiveModal({ open, onClose, onConfirm, archiving }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="fixed inset-0 bg-black/50" onClick={onClose}/>
+      <div className="relative bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4">
+        <h3 className="text-base font-semibold text-gray-900 mb-1">Archive sale?</h3>
+        <p className="text-sm text-gray-500 mb-5">This sale will be hidden from the list. Only a super admin can restore it.</p>
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 h-8 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
+          <button onClick={onConfirm} disabled={archiving} className="px-4 h-8 text-sm rounded-lg text-white bg-amber-500 hover:bg-amber-600 min-w-[90px]">{archiving?'Archiving…':'Archive'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Delete Modal ──────────────────────────────────────────────────────────────
 function DeleteModal({ open, onClose, onConfirm, deleting }) {
   if (!open) return null;
@@ -1112,8 +1130,10 @@ export default function SaleDetailPage() {
   const [saving,   setSaving]   = useState(false);
   const [saved,    setSaved]    = useState(false);
   const [error,    setError]    = useState('');
-  const [showDel,  setShowDel]  = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const [showDel,   setShowDel]   = useState(false);
+  const [deleting,  setDeleting]  = useState(false);
+  const [showArch,  setShowArch]  = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const [tab,           setTab]           = useState('details');
   const [totalInstPaid, setTotalInstPaid] = useState(0);
   const [projectOpen,   setProjectOpen]   = useState(false);
@@ -1161,6 +1181,11 @@ export default function SaleDetailPage() {
       await load();
     } catch (e) { setError(e.message); }
     finally     { setSaving(false); }
+  };
+  const handleArchive = async () => {
+    setArchiving(true);
+    try { await apiPatch(`/sales/${params.id}/archive`); router.push('/dashboard/sales'); }
+    catch (e) { setError(e.message); setArchiving(false); setShowArch(false); }
   };
   const handleDelete = async () => {
     setDeleting(true);
@@ -1272,6 +1297,9 @@ export default function SaleDetailPage() {
                   </button>
                 )}
                 {canDelete && (
+                  <button onClick={()=>setShowArch(true)} className="h-8 px-3 text-sm border border-amber-200 rounded-lg text-amber-600 hover:bg-amber-50 transition">Archive</button>
+                )}
+                {me?.is_system && (
                   <button onClick={()=>setShowDel(true)} className="h-8 px-3 text-sm border border-red-200 rounded-lg text-red-500 hover:bg-red-50 transition">Delete</button>
                 )}
               </>
@@ -1563,6 +1591,7 @@ export default function SaleDetailPage() {
         </div>
       </div>
 
+      <ArchiveModal open={showArch} onClose={()=>setShowArch(false)} onConfirm={handleArchive} archiving={archiving} />
       <DeleteModal open={showDel} onClose={()=>setShowDel(false)} onConfirm={handleDelete} deleting={deleting} />
     </div>
   );

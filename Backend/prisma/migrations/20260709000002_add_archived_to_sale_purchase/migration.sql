@@ -1,0 +1,2 @@
+ALTER TABLE `Sale`     ADD COLUMN `archived` BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE `Purchase` ADD COLUMN `archived` BOOLEAN NOT NULL DEFAULT false;

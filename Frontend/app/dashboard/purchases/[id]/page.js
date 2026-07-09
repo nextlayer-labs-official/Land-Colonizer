@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import useAuth from '@/lib/useAuth';
 import usePermissions from '@/lib/usePermissions';
-import { apiGet, apiPut, apiDelete, apiPost } from '@/lib/api';
+import { apiGet, apiPut, apiDelete, apiPost, apiPatch } from '@/lib/api';
 import { EMPTY, computed, getStageIndex, StatusPipeline, TYPE_RING, fmtINR, fmtNum, BrokerPicker } from '../_components/shared';
 
 // ── Inline field atoms ─────────────────────────────────────────────────────────
@@ -263,6 +263,26 @@ function PurchaseInstallmentPanel({ purchaseId, canEdit, onTotalPaidChange }) {
           {ORDINALS.map((label, i) => (
             <InstCard key={i + 1} n={i + 1} label={label} form={form} editing={editing} setF={setF} />
           ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Archive modal ─────────────────────────────────────────────────────────────
+function ArchiveModal({ open, onClose, onConfirm, archiving }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="fixed inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4">
+        <h3 className="text-base font-semibold text-gray-900 mb-1">Archive this purchase?</h3>
+        <p className="text-sm text-gray-500 mb-5">This purchase will be hidden from the list. Only a super admin can restore it.</p>
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="btn-secondary text-sm">Cancel</button>
+          <button onClick={onConfirm} disabled={archiving} className="px-4 h-8 text-sm rounded-lg text-white bg-amber-500 hover:bg-amber-600 min-w-[90px]">
+            {archiving ? 'Archiving…' : 'Archive'}
+          </button>
         </div>
       </div>
     </div>
@@ -711,9 +731,11 @@ export default function PurchaseRecordPage() {
   const [editing,   setEditing]   = useState(false);
   const [saving,    setSaving]    = useState(false);
   const [deleting,  setDeleting]  = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const [saved,     setSaved]     = useState(false);
   const [error,     setError]     = useState('');
   const [showDel,       setShowDel]       = useState(false);
+  const [showArch,      setShowArch]      = useState(false);
   const [showAddUnit,   setShowAddUnit]   = useState(false);
   const [editingUnit,   setEditingUnit]   = useState(null);
   const [deletingUnit,  setDeletingUnit]  = useState(null);
@@ -781,6 +803,11 @@ export default function PurchaseRecordPage() {
     finally { setUnitDeleting(false); }
   };
 
+  const handleArchive = async () => {
+    setArchiving(true);
+    try { await apiPatch(`/purchases/${params.id}/archive`); router.push('/dashboard/purchases'); }
+    catch (e) { setError(e.message); setArchiving(false); setShowArch(false); }
+  };
   const handleDelete = async () => {
     setDeleting(true);
     try { await apiDelete(`/purchases/${params.id}`); router.push('/dashboard/purchases'); }
@@ -869,8 +896,11 @@ export default function PurchaseRecordPage() {
                       <Link href="/dashboard/purchases/new" onClick={() => setActMenu(false)} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">New Purchase</Link>
                       {canDelete && <>
                         <div className="border-t border-gray-100 my-1" />
-                        <button onClick={() => { setActMenu(false); setShowDel(true); }} className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50">Delete</button>
+                        <button onClick={() => { setActMenu(false); setShowArch(true); }} className="w-full text-left px-4 py-2 text-sm text-amber-600 hover:bg-amber-50">Archive</button>
                       </>}
+                      {me?.is_system && (
+                        <button onClick={() => { setActMenu(false); setShowDel(true); }} className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50">Delete</button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1307,6 +1337,7 @@ export default function PurchaseRecordPage() {
         </div>
       </div>
 
+      <ArchiveModal open={showArch} onClose={() => setShowArch(false)} onConfirm={handleArchive} archiving={archiving} />
       <DeleteModal open={showDel} onClose={() => setShowDel(false)} onConfirm={handleDelete} deleting={deleting} />
 
       <AddUnitModal

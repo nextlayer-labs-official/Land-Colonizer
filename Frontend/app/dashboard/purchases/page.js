@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import useAuth from '@/lib/useAuth';
 import usePermissions from '@/lib/usePermissions';
-import { apiGet, apiDelete, apiPost } from '@/lib/api';
+import { apiGet, apiDelete, apiPost, apiPatch } from '@/lib/api';
 import NProgress from 'nprogress';
 import Pagination from '@/components/Pagination';
 
@@ -52,6 +52,29 @@ const STAGE_COLOR = {
   Registered:  'text-blue-600',
   Completed:   'text-emerald-600',
 };
+
+// ─── Archive confirm ───────────────────────────────────────────────────────────
+function ArchiveModal({ item, onClose, onConfirm, archiving }) {
+  if (!item) return null;
+  const count = item.items?.length ?? 0;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="fixed inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4">
+        <h3 className="text-base font-semibold text-gray-900 mb-2">Archive {count === 1 ? 'purchase' : `${count} purchases`}?</h3>
+        <p className="text-sm text-gray-500 mb-4">
+          {count === 1 ? 'This purchase' : `These ${count} purchases`} will be hidden from the list.
+        </p>
+        <div className="flex justify-end gap-2 mt-4">
+          <button onClick={onClose} className="btn-secondary text-sm">Cancel</button>
+          <button onClick={onConfirm} disabled={archiving} className="px-4 h-8 text-sm rounded-lg text-white bg-amber-500 hover:bg-amber-600 min-w-[90px]">
+            {archiving ? 'Archiving…' : 'Archive'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── Delete confirm ────────────────────────────────────────────────────────────
 function DeleteModal({ item, onClose, onConfirm, deleting, error }) {
@@ -304,6 +327,8 @@ export default function PurchasesPage() {
   const [delModal,    setDelModal]    = useState(null);
   const [deleting,    setDeleting]    = useState(false);
   const [delError,    setDelError]    = useState('');
+  const [archModal,   setArchModal]   = useState(null);
+  const [archiving,   setArchiving]   = useState(false);
   const [showImport,  setShowImport]  = useState(false);
   const [exportOpen,  setExportOpen]  = useState(false);
 
@@ -364,6 +389,17 @@ export default function PurchasesPage() {
     }
   };
 
+  const handleArchive = async () => {
+    setArchiving(true);
+    const ids = archModal.items.map(r => r.id);
+    try {
+      await Promise.all(ids.map(id => apiPatch(`/purchases/${id}/archive`)));
+      setArchModal(null);
+      setSelected([]);
+      load(rows.length <= ids.length && page > 1 ? page - 1 : page);
+    } finally { setArchiving(false); }
+  };
+
   const handleDelete = async () => {
     setDeleting(true);
     setDelError('');
@@ -418,6 +454,14 @@ export default function PurchasesPage() {
         )}
 
         {selected.length > 0 && canDelete && (
+          <button
+            onClick={() => setArchModal({ items: rows.filter(r => selected.includes(r.id)) })}
+            className="h-8 px-3 text-sm rounded border border-amber-200 text-amber-600 hover:bg-amber-50 transition font-medium"
+          >
+            Archive ({selected.length})
+          </button>
+        )}
+        {selected.length > 0 && me?.is_system && (
           <button
             onClick={() => setDelModal({ items: rows.filter(r => selected.includes(r.id)) })}
             className="btn-danger text-sm h-8 px-3"
@@ -636,6 +680,7 @@ export default function PurchasesPage() {
         </table>
       </div>
 
+      <ArchiveModal item={archModal} onClose={() => setArchModal(null)} onConfirm={handleArchive} archiving={archiving} />
       <DeleteModal item={delModal} onClose={() => { setDelModal(null); setDelError(''); }} onConfirm={handleDelete} deleting={deleting} error={delError} />
       <ImportModal open={showImport} onClose={() => setShowImport(false)} onImported={() => { load(1); }} />
     </div>

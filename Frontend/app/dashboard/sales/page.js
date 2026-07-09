@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import useAuth from '@/lib/useAuth';
 import usePermissions from '@/lib/usePermissions';
-import { apiGet, apiDelete } from '@/lib/api';
+import { apiGet, apiDelete, apiPatch } from '@/lib/api';
 import { fmtINR, fmtDate, TYPE_LABEL, POSS_COLOR, POSS_LABEL } from './_components/shared';
 
 function toCSV(headers, rows) {
@@ -35,6 +35,23 @@ function effBalance(r) {
   return Math.max(0, bal - (r.booking_in_received !== false ? bk : 0));
 }
 
+function ArchiveModal({ item, onClose, onConfirm, archiving }) {
+  if (!item) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="fixed inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4">
+        <h3 className="text-base font-semibold text-gray-900 mb-1">Archive sale?</h3>
+        <p className="text-sm text-gray-500 mb-5"><strong>{item.sale_code || `Sale #${item.id}`}</strong> will be hidden from the list.</p>
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 h-8 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
+          <button onClick={onConfirm} disabled={archiving} className="px-4 h-8 text-sm rounded-lg text-white bg-amber-500 hover:bg-amber-600 min-w-[90px]">{archiving ? 'Archiving…' : 'Archive'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DeleteModal({ item, onClose, onConfirm, deleting }) {
   if (!item) return null;
   return (
@@ -62,8 +79,10 @@ export default function SalesPage() {
   const [total,   setTotal]   = useState(0);
   const [page,    setPage]    = useState(1);
   const [loading, setLoading] = useState(true);
-  const [delModal, setDelModal] = useState(null);
-  const [deleting, setDeleting] = useState(false);
+  const [delModal,  setDelModal]  = useState(null);
+  const [deleting,  setDeleting]  = useState(false);
+  const [archModal, setArchModal] = useState(null);
+  const [archiving, setArchiving] = useState(false);
 
   const [search,       setSearch]       = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -127,6 +146,15 @@ export default function SalesPage() {
     } else {
       await dlXlsx(items.map(r => Object.fromEntries(HEADERS.map((h, i) => [h, toRow(r)[i]]))), 'Sales', `sales_${date}.xlsx`);
     }
+  };
+
+  const handleArchive = async () => {
+    setArchiving(true);
+    try {
+      await apiPatch(`/sales/${archModal.id}/archive`);
+      setArchModal(null);
+      load(rows.length === 1 && page > 1 ? page - 1 : page);
+    } finally { setArchiving(false); }
   };
 
   const handleDelete = async () => {
@@ -288,8 +316,15 @@ export default function SalesPage() {
                 <td className="px-3 py-2.5 text-right" onClick={e => e.stopPropagation()}>
                   {navigatingId === row.id ? (
                     <svg className="w-4 h-4 animate-spin text-[#875A7B] inline-block" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z"/></svg>
-                  ) : canDelete && (
-                    <button onClick={() => setDelModal(row)} className="text-red-400 hover:text-red-600 text-xs hover:bg-red-50 px-2 py-1 rounded transition">Delete</button>
+                  ) : (
+                    <div className="flex items-center justify-end gap-1">
+                      {canDelete && (
+                        <button onClick={() => setArchModal(row)} className="text-amber-500 hover:text-amber-700 text-xs hover:bg-amber-50 px-2 py-1 rounded transition">Archive</button>
+                      )}
+                      {me?.is_system && (
+                        <button onClick={() => setDelModal(row)} className="text-red-400 hover:text-red-600 text-xs hover:bg-red-50 px-2 py-1 rounded transition">Delete</button>
+                      )}
+                    </div>
                   )}
                 </td>
               </tr>
@@ -298,6 +333,7 @@ export default function SalesPage() {
         </table>
       </div>
 
+      <ArchiveModal item={archModal} onClose={() => setArchModal(null)} onConfirm={handleArchive} archiving={archiving} />
       <DeleteModal item={delModal} onClose={() => setDelModal(null)} onConfirm={handleDelete} deleting={deleting} />
     </div>
   );

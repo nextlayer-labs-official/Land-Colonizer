@@ -101,11 +101,12 @@ const INCLUDE = {
 };
 
 async function getSales(req, res) {
-  const { page = 1, limit = 15, search = '', status = '', customer_id = '' } = req.query;
+  const { page = 1, limit = 15, search = '', status = '', customer_id = '', archived = 'false' } = req.query;
   const skip = (Number(page) - 1) * Number(limit);
 
   const where = {
     AND: [
+      { archived: archived === 'true' },
       search ? {
         OR: [
           { sale_code: { contains: search } },
@@ -160,6 +161,14 @@ async function updateSale(req, res) {
   res.json(s);
 }
 
+async function archiveSale(req, res) {
+  const id = Number(req.params.id);
+  const s  = await prisma.sale.findUnique({ where: { id }, select: { inventory_id: true } });
+  await prisma.sale.update({ where: { id }, data: { archived: true } });
+  if (s?.inventory_id) syncInventoryStatus(s.inventory_id);
+  res.json({ message: 'Archived' });
+}
+
 async function deleteSale(req, res) {
   const s = await prisma.sale.findUnique({ where: { id: Number(req.params.id) }, select: { inventory_id: true } });
   await prisma.sale.delete({ where: { id: Number(req.params.id) } });
@@ -167,4 +176,4 @@ async function deleteSale(req, res) {
   res.json({ message: 'Deleted' });
 }
 
-module.exports = { getSales, getSaleById, createSale, updateSale, deleteSale };
+module.exports = { getSales, getSaleById, createSale, updateSale, archiveSale, deleteSale };

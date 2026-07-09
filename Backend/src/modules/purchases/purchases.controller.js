@@ -91,11 +91,12 @@ function sanitize(body) {
 }
 
 async function getPurchases(req, res) {
-  const { page = 1, limit = 15, search = '', type = '', status = '' } = req.query;
+  const { page = 1, limit = 15, search = '', type = '', status = '', archived = 'false' } = req.query;
   const skip = (Number(page) - 1) * Number(limit);
 
   const where = {
     AND: [
+      { archived: archived === 'true' },
       search ? {
         OR: [
           { purchase_code:  { contains: search } },
@@ -212,6 +213,12 @@ async function updatePurchase(req, res) {
   res.json(withComputed(p));
 }
 
+async function archivePurchase(req, res) {
+  const id = Number(req.params.id);
+  await prisma.purchase.update({ where: { id }, data: { archived: true } });
+  res.json({ message: 'Archived' });
+}
+
 async function deletePurchase(req, res) {
   const id = Number(req.params.id);
 
@@ -292,4 +299,4 @@ async function importPurchases(req, res) {
   res.json({ created: created.length, errors, codes: created, brokersCreated: [...brokersCreated] });
 }
 
-module.exports = { getPurchases, getPurchaseById, createPurchase, updatePurchase, deletePurchase, importPurchases };
+module.exports = { getPurchases, getPurchaseById, createPurchase, updatePurchase, archivePurchase, deletePurchase, importPurchases };

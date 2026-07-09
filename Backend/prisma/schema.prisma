@@ -220,6 +220,7 @@ model Sale {
   possession_detail         String?
   other_details             String?          @db.Text
   status                    SaleStatus       @default(ACTIVE)
+  archived                  Boolean          @default(false)
   sale_confirmed            Boolean          @default(false)
   booking_in_received       Boolean          @default(true)
   created_at                DateTime         @default(now())
@@ -455,6 +456,7 @@ model Purchase {
   extra_income_details         String?
   other_details                String?          @db.Text
   status                       PurchaseStatus   @default(ACTIVE)
+  archived                     Boolean          @default(false)
   created_at                   DateTime         @default(now())
   updated_at                   DateTime         @updatedAt
   inventory                    Inventory[]

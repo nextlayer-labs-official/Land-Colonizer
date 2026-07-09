@@ -63,6 +63,20 @@ export async function apiPut(endpoint, body) {
   } finally { stopBar(); }
 }
 
+export async function apiPatch(endpoint, body = {}) {
+  startBar();
+  try {
+    const res = await fetch(`${BASE_URL}${endpoint}`, {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Something went wrong');
+    return data;
+  } finally { stopBar(); }
+}
+
 export async function apiPostForm(endpoint, formData, method = 'POST') {
   startBar();
   try {
