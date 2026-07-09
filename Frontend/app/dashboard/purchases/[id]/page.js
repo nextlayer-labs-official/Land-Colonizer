@@ -1179,7 +1179,7 @@ export default function PurchaseRecordPage() {
                   <span className="bg-[#875A7B]/10 text-[#875A7B] text-xs font-bold px-2 py-0.5 rounded-full">{inventory.length}</span>
                 )}
               </div>
-              {canCreateInventory && form.purchase_category === 'DIVIDED' && (
+              {canCreateInventory && (
                 <button onClick={() => setShowAddUnit(true)}
                   className="h-7 px-3 text-xs border border-[#875A7B] rounded text-[#875A7B] hover:bg-[#875A7B]/5 transition font-medium flex items-center gap-1">
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
@@ -1196,17 +1196,15 @@ export default function PurchaseRecordPage() {
                   </svg>
                 </div>
                 <p className="text-sm text-gray-500 font-medium">No inventory units linked</p>
-                {form.purchase_category === 'SINGLE' ? (
-                  <p className="text-xs text-gray-400 mt-1">The unit will be auto-created when this purchase is saved.</p>
-                ) : (
-                  <>
-                    <p className="text-xs text-gray-400 mt-1">Add sub-units for this divided purchase.</p>
-                    {canCreateInventory && (
-                      <button onClick={() => setShowAddUnit(true)}
-                        className="mt-3 text-sm text-[#875A7B] hover:underline">+ Add first unit</button>
-                    )}
-                  </>
-                )}
+                <>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {form.purchase_category === 'DIVIDED' ? 'Add sub-units for this divided purchase.' : 'Add the inventory unit for this purchase.'}
+                  </p>
+                  {canCreateInventory && (
+                    <button onClick={() => setShowAddUnit(true)}
+                      className="mt-3 text-sm text-[#875A7B] hover:underline">+ Add first unit</button>
+                  )}
+                </>
               </div>
             ) : (
               <div className="overflow-x-auto">

@@ -160,25 +160,6 @@ async function createPurchase(req, res) {
     data:  { purchase_code },
   });
 
-  // For SINGLE purchases, auto-create one inventory unit mirroring the purchase
-  if (updated.purchase_category === 'SINGLE') {
-    const invPrefix = (await prisma.companySettings.findFirst())?.inventory_prefix || 'INV';
-    const inv = await prisma.inventory.create({
-      data: {
-        purchase_id: updated.id,
-        type:        updated.type       || 'PLOT',
-        sl_no:       updated.sl_no      || null,
-        location:    updated.location   || null,
-        plot_no:     updated.plot_no    || null,
-        area:        updated.purchased_area             || null,
-        area_unit:   updated.purchased_area_details     || null,
-        status:      'AVAILABLE',
-      },
-    });
-    const inventory_code = `${invPrefix}-${String(inv.id).padStart(4, '0')}`;
-    await prisma.inventory.update({ where: { id: inv.id }, data: { inventory_code } });
-  }
-
   res.status(201).json(withComputed(updated));
 }
 
@@ -187,24 +168,6 @@ async function updatePurchase(req, res) {
     where: { id: Number(req.params.id) },
     data:  sanitize(req.body),
   });
-
-  // Keep the single linked inventory unit in sync with the purchase
-  if (p.purchase_category === 'SINGLE') {
-    const inv = await prisma.inventory.findFirst({ where: { purchase_id: p.id } });
-    if (inv) {
-      await prisma.inventory.update({
-        where: { id: inv.id },
-        data: {
-          type:      p.type     || 'PLOT',
-          sl_no:     p.sl_no    || null,
-          location:  p.location || null,
-          plot_no:   p.plot_no  || null,
-          area:      p.purchased_area             || null,
-          area_unit: p.purchased_area_details     || null,
-        },
-      });
-    }
-  }
 
   res.json(withComputed(p));
 }
