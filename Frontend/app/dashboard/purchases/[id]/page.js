@@ -350,7 +350,9 @@ function AddUnitModal({ open, onClose, purchase, inventory = [], onCreated }) {
   const fa            = parseFloat(unit.front_area) || 0;
   const ba            = parseFloat(unit.back_area) || 0;
   const enteredArea   = fa && ba ? parseFloat((fa * (ba / 9)).toFixed(4)) : 0;
+  const isSingle      = purchase?.purchase_category === 'SINGLE';
   const areaExceeds   = enteredArea > 0 && remainingArea > 0 && enteredArea > remainingArea;
+  const areaMismatch  = isSingle && enteredArea > 0 && totalArea > 0 && parseFloat(enteredArea.toFixed(4)) !== parseFloat(totalArea.toFixed(4));
 
   useEffect(() => {
     if (!open) return;
@@ -373,6 +375,10 @@ function AddUnitModal({ open, onClose, purchase, inventory = [], onCreated }) {
   const handleSave = async () => {
     if (!unit.rate || Number(unit.rate) <= 0) {
       setError('Plot Rate is required.');
+      return;
+    }
+    if (isSingle && areaMismatch) {
+      setError(`For a Single purchase the unit area must equal the total purchased area (${totalArea} ${areaUnit}). Entered: ${enteredArea} ${areaUnit}.`);
       return;
     }
     if (areaExceeds) {
@@ -411,19 +417,24 @@ function AddUnitModal({ open, onClose, purchase, inventory = [], onCreated }) {
 
           {/* Area allocation — compact single row */}
           {totalArea > 0 && (
-            <div className={`rounded-lg border px-4 py-2.5 ${remainingArea <= 0 ? 'bg-red-50 border-red-200' : 'bg-[#875A7B]/5 border-[#875A7B]/20'}`}>
+            <div className={`rounded-lg border px-4 py-2.5 ${(remainingArea <= 0 || areaMismatch) ? 'bg-red-50 border-red-200' : 'bg-[#875A7B]/5 border-[#875A7B]/20'}`}>
               <div className="flex items-center gap-6">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Area</span>
                 <span className="text-xs text-gray-500">Total <span className="font-bold text-gray-700">{totalArea} {areaUnit}</span></span>
-                <span className="text-xs text-gray-500">Used <span className="font-bold text-amber-600">{usedArea} {areaUnit}</span></span>
-                <span className="text-xs text-gray-500">Remaining <span className={`font-bold ${remainingArea <= 0 ? 'text-red-600' : 'text-emerald-600'}`}>{remainingArea} {areaUnit}</span></span>
-                {remainingArea > 0 && enteredArea > 0 && (
+                {!isSingle && <span className="text-xs text-gray-500">Used <span className="font-bold text-amber-600">{usedArea} {areaUnit}</span></span>}
+                {!isSingle && <span className="text-xs text-gray-500">Remaining <span className={`font-bold ${remainingArea <= 0 ? 'text-red-600' : 'text-emerald-600'}`}>{remainingArea} {areaUnit}</span></span>}
+                {isSingle && enteredArea > 0 && (
+                  <span className={`text-xs font-semibold ${areaMismatch ? 'text-red-600' : 'text-emerald-600'}`}>
+                    Entered: {enteredArea} {areaUnit} {areaMismatch ? '— must equal total' : '✓'}
+                  </span>
+                )}
+                {!isSingle && remainingArea > 0 && enteredArea > 0 && (
                   <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
                     <div className={`h-full rounded-full transition-all ${areaExceeds ? 'bg-red-500' : 'bg-emerald-500'}`}
                       style={{ width: `${Math.min(100, (enteredArea / totalArea) * 100)}%` }} />
                   </div>
                 )}
-                {remainingArea <= 0 && <span className="text-xs text-red-600 font-medium">All area allocated</span>}
+                {!isSingle && remainingArea <= 0 && <span className="text-xs text-red-600 font-medium">All area allocated</span>}
               </div>
             </div>
           )}
@@ -1179,7 +1190,7 @@ export default function PurchaseRecordPage() {
                   <span className="bg-[#875A7B]/10 text-[#875A7B] text-xs font-bold px-2 py-0.5 rounded-full">{inventory.length}</span>
                 )}
               </div>
-              {canCreateInventory && (
+              {canCreateInventory && (form.purchase_category === 'DIVIDED' || inventory.length === 0) && (
                 <button onClick={() => setShowAddUnit(true)}
                   className="h-7 px-3 text-xs border border-[#875A7B] rounded text-[#875A7B] hover:bg-[#875A7B]/5 transition font-medium flex items-center gap-1">
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
