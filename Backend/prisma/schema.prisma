@@ -443,10 +443,6 @@ model Purchase {
   advance_payment_details      String?          @db.Text
   instalment_details           String?          @db.Text
   remaining_paid               Boolean          @default(false)
-  against_registration_paid    Boolean          @default(false)
-  against_registration_amount  Decimal?         @db.Decimal(10, 2)
-  against_registration_received Boolean         @default(false)
-  against_registration_received_date DateTime?
   registration_date            DateTime?
   registration_completed       Boolean          @default(false)
   registration_details         String?          @db.Text

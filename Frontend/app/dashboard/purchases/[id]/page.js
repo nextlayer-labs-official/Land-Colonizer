@@ -770,8 +770,6 @@ export default function PurchaseRecordPage() {
         extra_expenses:       data.extra_expenses       != null ? String(data.extra_expenses)       : '',
         registration_charges:                data.registration_charges                != null ? String(data.registration_charges)                : '',
         extra_income:                        data.extra_income                        != null ? String(data.extra_income)                        : '',
-        against_registration_amount:         data.against_registration_amount         != null ? String(data.against_registration_amount)         : '',
-        against_registration_received_date:  data.against_registration_received_date  ? data.against_registration_received_date.split('T')[0]   : '',
       };
       setForm(flat);
       setOriginal(flat);
@@ -1064,43 +1062,7 @@ export default function PurchaseRecordPage() {
                       disabled={!editing} className="w-4 h-4 rounded border-gray-300 accent-[#875A7B]" />
                     <span className="text-sm font-medium text-gray-700">Pay Remaining in Installments</span>
                   </label>
-                  <label className={`flex items-center gap-2.5 select-none ${!editing ? 'pointer-events-none' : 'cursor-pointer'}`}>
-                    <input type="checkbox" checked={!!form.against_registration_paid}
-                      onChange={(e) => setForm(p => ({ ...p, against_registration_paid: e.target.checked }))}
-                      disabled={!editing} className="w-4 h-4 rounded border-gray-300 accent-[#875A7B]" />
-                    <span className="text-sm font-medium text-gray-700">Against Registration</span>
-                  </label>
                 </div>
-
-                {/* Against Registration payment confirmation */}
-                {form.against_registration_paid && (
-                  <div className={`rounded-xl border-2 p-4 space-y-3 ${form.against_registration_received ? 'border-emerald-300 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Registration Payment</span>
-                      {form.against_registration_received
-                        ? <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7"/></svg>
-                            Received
-                          </span>
-                        : <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">Pending</span>
-                      }
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <FInput label="Amount (₹)" value={form.against_registration_amount}
-                        onChange={set('against_registration_amount')} type="number" placeholder="0" readOnly={!editing} />
-                      <FInput label="Received Date" value={form.against_registration_received_date}
-                        onChange={set('against_registration_received_date')} type="date" readOnly={!editing} />
-                    </div>
-                    <label className={`flex items-center gap-2.5 select-none ${!editing ? 'pointer-events-none' : 'cursor-pointer'}`}>
-                      <input type="checkbox" checked={!!form.against_registration_received}
-                        onChange={(e) => setForm(p => ({ ...p, against_registration_received: e.target.checked }))}
-                        disabled={!editing} className="w-4 h-4 rounded border-gray-300 accent-emerald-600" />
-                      <span className={`text-sm font-semibold ${form.against_registration_received ? 'text-emerald-700' : 'text-gray-500'}`}>
-                        Payment Received
-                      </span>
-                    </label>
-                  </div>
-                )}
 
                 <FTextarea label="Instalment Details" value={form.instalment_details} onChange={set('instalment_details')} placeholder="EMI schedule, dates, amounts..." rows={2} readOnly={!editing} />
                 <div className="grid grid-cols-2 gap-3">

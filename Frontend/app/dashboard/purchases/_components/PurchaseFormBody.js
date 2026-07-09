@@ -186,16 +186,6 @@ export default function PurchaseFormBody({ form, set, setForm, c, readOnly = fal
           />
           <span className="text-sm font-medium text-gray-700">Pay Remaining in Installments</span>
         </label>
-        <label className={`flex items-center gap-2.5 cursor-pointer select-none ${readOnly ? 'pointer-events-none' : ''}`}>
-          <input
-            type="checkbox"
-            checked={!!form.against_registration_paid}
-            onChange={(e) => set('against_registration_paid')({ target: { value: e.target.checked } })}
-            disabled={readOnly}
-            className="w-4 h-4 rounded border-gray-300 accent-[#875A7B]"
-          />
-          <span className="text-sm font-medium text-gray-700">Against Registration</span>
-        </label>
       </div>
 
       <div className="col-span-full">
