@@ -704,34 +704,59 @@ function FinancialsTab({ form, instPaid = 0 }) {
         {form.payment_due_date && <Row label="Payment Due" value={fmtDate(form.payment_due_date)} />}
 
         <Hdr>Additional Costs</Hdr>
-        {form.registration_charges && (() => { const inc = Number(form.registration_charges||0) - Number(form.registration_paid||0); return (
-          <>
-            <Row label="Registration · Received"    value={fmtINR(form.registration_charges)} sub={form.registration_details||''} />
-            {form.registration_paid && <Row label="Registration · Paid"        value={fmtINR(form.registration_paid)} />}
-            {form.registration_paid && <Row label="Registration · Income/Loss" value={inc === 0 ? '—' : (inc > 0 ? `+${fmtINR(inc)}` : `-${fmtINR(-inc)}`)} />}
-          </>
-        ); })()}
-        {form.intkaal_charges && (() => { const inc = Number(form.intkaal_charges||0) - Number(form.intkaal_paid||0); return (
-          <>
-            <Row label="Intkaal · Received"    value={fmtINR(form.intkaal_charges)} sub={form.intkaal_details||''} />
-            {form.intkaal_paid && <Row label="Intkaal · Paid"        value={fmtINR(form.intkaal_paid)} />}
-            {form.intkaal_paid && <Row label="Intkaal · Income/Loss" value={inc === 0 ? '—' : (inc > 0 ? `+${fmtINR(inc)}` : `-${fmtINR(-inc)}`)} />}
-          </>
-        ); })()}
-        {form.water_connection_charges && (() => { const inc = Number(form.water_connection_charges||0) - Number(form.water_connection_paid||0); return (
-          <>
-            <Row label="Water Connection · Received"    value={fmtINR(form.water_connection_charges)} sub={form.water_connection_details||''} />
-            {form.water_connection_paid && <Row label="Water Connection · Paid"        value={fmtINR(form.water_connection_paid)} />}
-            {form.water_connection_paid && <Row label="Water Connection · Income/Loss" value={inc === 0 ? '—' : (inc > 0 ? `+${fmtINR(inc)}` : `-${fmtINR(-inc)}`)} />}
-          </>
-        ); })()}
-        {form.electricity_meter_charges && (() => { const inc = Number(form.electricity_meter_charges||0) - Number(form.electricity_meter_paid||0); return (
-          <>
-            <Row label="Electricity Meter · Received"    value={fmtINR(form.electricity_meter_charges)} sub={form.electricity_meter_details||''} />
-            {form.electricity_meter_paid && <Row label="Electricity Meter · Paid"        value={fmtINR(form.electricity_meter_paid)} />}
-            {form.electricity_meter_paid && <Row label="Electricity Meter · Income/Loss" value={inc === 0 ? '—' : (inc > 0 ? `+${fmtINR(inc)}` : `-${fmtINR(-inc)}`)} />}
-          </>
-        ); })()}
+        {(() => {
+          const cols = [
+            { key: 'reg',  label: 'Registration',  rec: Number(form.registration_charges||0),     paid: Number(form.registration_paid||0) },
+            { key: 'ink',  label: 'Intkaal',        rec: Number(form.intkaal_charges||0),          paid: Number(form.intkaal_paid||0) },
+            { key: 'wat',  label: 'Water',          rec: Number(form.water_connection_charges||0), paid: Number(form.water_connection_paid||0) },
+            { key: 'elec', label: 'Electricity',    rec: Number(form.electricity_meter_charges||0),paid: Number(form.electricity_meter_paid||0) },
+          ].filter(c => c.rec > 0);
+
+          if (cols.length === 0) return <p className="text-xs text-gray-400 py-1">—</p>;
+
+          const totalRec  = cols.reduce((s, c) => s + c.rec,  0);
+          const totalPaid = cols.reduce((s, c) => s + c.paid, 0);
+          const hasPaid   = cols.some(c => c.paid > 0);
+          const incFmt    = (v) => v === 0 ? '—' : (v > 0 ? `+${fmtINR(v)}` : `-${fmtINR(-v)}`);
+          const incCls    = (v) => v > 0 ? 'text-emerald-600' : v < 0 ? 'text-red-500' : 'text-gray-400';
+
+          const cols1 = `auto 1fr ${cols.map(()=>'1fr').join(' ')}`;
+
+          return (
+            <div className="mt-1 mb-1 text-xs">
+              {/* Column headers */}
+              <div className="grid gap-x-2 pb-1 border-b border-gray-100" style={{ gridTemplateColumns: cols1 }}>
+                <span />
+                <span className="text-[10px] font-bold text-gray-500 text-center">Total</span>
+                {cols.map(c => <span key={c.key} className="text-[10px] font-bold text-gray-400 text-center truncate">{c.label}</span>)}
+              </div>
+              {/* Received row */}
+              <div className="grid gap-x-2 py-1.5 border-b border-gray-50" style={{ gridTemplateColumns: cols1 }}>
+                <span className="text-gray-500 self-center whitespace-nowrap">Received</span>
+                <span className="text-center font-bold text-gray-900">{fmtINR(totalRec)}</span>
+                {cols.map(c => <span key={c.key} className="text-center font-semibold text-gray-700">{fmtINR(c.rec)}</span>)}
+              </div>
+              {/* Paid for row */}
+              {hasPaid && (
+                <div className="grid gap-x-2 py-1.5 border-b border-gray-50" style={{ gridTemplateColumns: cols1 }}>
+                  <span className="text-gray-500 self-center whitespace-nowrap">Paid for</span>
+                  <span className="text-center font-bold text-gray-900">{fmtINR(totalPaid)}</span>
+                  {cols.map(c => <span key={c.key} className="text-center font-semibold text-gray-700">{c.paid > 0 ? fmtINR(c.paid) : '—'}</span>)}
+                </div>
+              )}
+              {/* Income/Loss row */}
+              {hasPaid && (
+                <div className="grid gap-x-2 py-1.5" style={{ gridTemplateColumns: cols1 }}>
+                  <span className="text-gray-500 self-center whitespace-nowrap">Income/Loss</span>
+                  <span className={`text-center font-bold ${incCls(totalRec - totalPaid)}`}>{incFmt(totalRec - totalPaid)}</span>
+                  {cols.map(c => { const inc = c.rec - c.paid; return <span key={c.key} className={`text-center font-semibold ${incCls(inc)}`}>{incFmt(inc)}</span>; })}
+                </div>
+              )}
+              {/* Detail sub-labels */}
+              <p className="text-[10px] text-gray-400 mt-1">{cols.map(c => c.label).join(' + ')}</p>
+            </div>
+          );
+        })()}
 
         <Hdr>Other</Hdr>
         {form.discount   && <Row label="Discount"    value={fmtINR(form.discount)}   sub={form.discount_details||''} />}
