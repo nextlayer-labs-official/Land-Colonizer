@@ -789,6 +789,27 @@ function FinancialsTab({ form, instPaid = 0 }) {
           );
         })()}
 
+        {(() => {
+          const addlIncome =
+            (Number(form.registration_charges||0)     - Number(form.registration_paid||0)) +
+            (Number(form.intkaal_charges||0)          - Number(form.intkaal_paid||0)) +
+            (Number(form.water_connection_charges||0) - Number(form.water_connection_paid||0)) +
+            (Number(form.electricity_meter_charges||0)- Number(form.electricity_meter_paid||0));
+          const bookingIncome = (form.bookings || []).reduce((s, b) => s + Number(b.income_amount || 0), 0);
+          const incFmt = (v) => v === 0 ? '—' : (v > 0 ? `+${fmtINR(v)}` : `-${fmtINR(-v)}`);
+          const incCls = (v) => v > 0 ? 'text-emerald-600' : v < 0 ? 'text-red-500' : 'text-gray-400';
+          const hasAddl    = form.registration_charges || form.intkaal_charges || form.water_connection_charges || form.electricity_meter_charges;
+          const hasBooking = bookingIncome > 0;
+          if (!hasAddl && !hasBooking) return null;
+          return (
+            <>
+              <Hdr>Income Summary</Hdr>
+              {hasAddl    && <Row label="Income/Loss from Additional Costs" value={<span className={incCls(addlIncome)}>{incFmt(addlIncome)}</span>} sub="Received − Paid across all charges" />}
+              {hasBooking && <Row label="Income from Booking"              value={<span className="text-emerald-600">{fmtINR(bookingIncome)}</span>} sub="Sum of income from booking tab" />}
+            </>
+          );
+        })()}
+
         <Hdr>Net</Hdr>
         <Row label="Net Amount (Received)" value={net ? fmtINR(net) : '—'} sub={bookingInReceived ? 'Booking + Advance + Charges' : 'Advance + Charges'} accent />
 
