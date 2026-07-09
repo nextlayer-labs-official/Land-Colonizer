@@ -872,43 +872,42 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
     booking_amount: b.booking_amount != null ? String(b.booking_amount) : '',
     notes:          b.notes || '',
   });
-  const [refund, setRefund] = useState(b.refund_amount != null ? String(b.refund_amount) : '');
-  const [income, setIncome] = useState(b.income_amount != null ? String(b.income_amount) : '');
+  const [refund,        setRefund]        = useState(b.refund_amount != null ? String(b.refund_amount) : '');
   const [savingRI,      setSavingRI]      = useState(false);
   const [markingRefund, setMarkingRefund] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [saving,        setSaving]        = useState(false);
 
-  const bookingAmt = Number(b.booking_amount || 0);
-  const refundNum  = parseFloat(refund) || 0;
-  const incomeNum  = parseFloat(income) || 0;
-  const riExceeds  = bookingAmt > 0 && (refundNum + incomeNum) > bookingAmt;
+  const bookingAmt   = Number(b.booking_amount || 0);
+  const refundNum    = parseFloat(refund) || 0;
+  const autoIncome   = bookingAmt > 0 ? Math.max(0, bookingAmt - refundNum) : 0;
+  const refundSaved  = b.refund_amount != null;                      // locked after first save
+  const refundExceed = bookingAmt > 0 && refundNum > bookingAmt;
+  const showRefund   = isConfirmed && b.status !== 'CONFIRMED' && canEdit;
+
+  const apiFetch = (body) => {
+    const token = localStorage.getItem('token');
+    const base  = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+    return fetch(`${base}/sales/${saleId}/bookings/${b.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(body),
+    });
+  };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const token = localStorage.getItem('token');
-      const base  = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-      await fetch(`${base}/sales/${saleId}/bookings/${b.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ customer_id: form.customer_id || null, booking_amount: form.booking_amount || null, notes: form.notes || null }),
-      });
+      await apiFetch({ customer_id: form.customer_id || null, booking_amount: form.booking_amount || null, notes: form.notes || null });
       setEditing(false); await onSaved();
     } catch (e) { console.error(e); }
     finally { setSaving(false); }
   };
 
-  const handleSaveRefundIncome = async () => {
-    if (riExceeds) return;
+  const handleSaveRefund = async () => {
+    if (refundExceed) return;
     setSavingRI(true);
     try {
-      const token = localStorage.getItem('token');
-      const base  = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-      await fetch(`${base}/sales/${saleId}/bookings/${b.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ refund_amount: refund || null, income_amount: income || null }),
-      });
+      await apiFetch({ refund_amount: refund || null, income_amount: String(autoIncome) });
       await onSaved();
     } catch (e) { console.error(e); }
     finally { setSavingRI(false); }
@@ -917,20 +916,13 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
   const handleMarkRefunded = async () => {
     setMarkingRefund(true);
     try {
-      const token = localStorage.getItem('token');
-      const base  = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-      await fetch(`${base}/sales/${saleId}/bookings/${b.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ status: 'REFUNDED' }),
-      });
+      await apiFetch({ status: 'REFUNDED' });
       await onSaved();
     } catch (e) { console.error(e); }
     finally { setMarkingRefund(false); }
   };
 
   const cls = BOOKING_STATUS_CLS[b.status] || 'bg-gray-50 text-gray-500 ring-gray-200';
-  const showRefundIncome = isConfirmed && b.status !== 'CONFIRMED' && canEdit;
 
   if (editing) {
     return (
@@ -972,11 +964,9 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
       {/* Details */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap mb-0.5">
-          {b.customer ? (
-            <span className="text-sm font-semibold text-gray-800">{b.customer.name}</span>
-          ) : (
-            <span className="text-sm text-gray-400 italic">No customer</span>
-          )}
+          {b.customer
+            ? <span className="text-sm font-semibold text-gray-800">{b.customer.name}</span>
+            : <span className="text-sm text-gray-400 italic">No customer</span>}
           {b.customer?.customer_code && <span className="text-[10px] text-gray-400">· {b.customer.customer_code}</span>}
           {b.customer?.phone && <span className="text-[10px] text-gray-400">· {b.customer.phone}</span>}
         </div>
@@ -984,11 +974,54 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
           <p className="text-xs text-gray-600"><span className="font-medium text-[#875A7B]">{fmtINR(b.booking_amount)}</span> booking amount</p>
         )}
         {b.notes && <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{b.notes}</p>}
-        {/* Saved refund/income summary */}
-        {!showRefundIncome && (b.refund_amount != null || b.income_amount != null) && (
-          <div className="flex gap-3 mt-1">
-            {b.refund_amount != null && <span className="text-[10px] text-red-500">Refund: {fmtINR(b.refund_amount)}</span>}
-            {b.income_amount != null && <span className="text-[10px] text-emerald-600">Income: {fmtINR(b.income_amount)}</span>}
+
+        {/* Refund / Income — inline below customer info */}
+        {showRefund && (
+          <div className="mt-2">
+            {refundSaved ? (
+              /* Read-only after save */
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-[10px] text-gray-500">Refund <span className="font-semibold text-red-500">{fmtINR(b.refund_amount)}</span></span>
+                <span className="text-[10px] text-gray-300">·</span>
+                <span className="text-[10px] text-gray-500">Income <span className="font-semibold text-emerald-600">{fmtINR(b.income_amount ?? autoIncome)}</span></span>
+                {b.status !== 'REFUNDED' && (
+                  <button onClick={handleMarkRefunded} disabled={markingRefund}
+                    className="h-6 px-2.5 text-[10px] font-bold rounded border border-red-200 text-red-500 hover:bg-red-50 disabled:opacity-50 transition">
+                    {markingRefund ? 'Marking…' : 'Mark as Refunded'}
+                  </button>
+                )}
+              </div>
+            ) : (
+              /* Editable — only refund input, income auto-computes */
+              <div className="flex items-center gap-2 flex-wrap">
+                <div>
+                  <span className="text-[10px] text-gray-400 block mb-1">Refund Amount (₹)</span>
+                  <input
+                    type="number"
+                    value={refund}
+                    onChange={e => setRefund(e.target.value)}
+                    placeholder="0"
+                    className={`w-32 text-xs border rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-[#875A7B] ${refundExceed ? 'border-red-400' : 'border-gray-200'}`}
+                  />
+                </div>
+                {bookingAmt > 0 && refundNum >= 0 && (
+                  <div className="mt-4">
+                    <span className="text-[10px] text-gray-400 mr-1">Income:</span>
+                    <span className="text-xs font-semibold text-emerald-600">{fmtINR(autoIncome)}</span>
+                  </div>
+                )}
+                <button
+                  onClick={handleSaveRefund}
+                  disabled={savingRI || refundExceed || !refund}
+                  className="mt-4 h-7 px-3 text-[10px] font-bold rounded-lg text-white disabled:opacity-50"
+                  style={{ backgroundColor: '#875A7B' }}>
+                  {savingRI ? 'Saving…' : 'Save'}
+                </button>
+                {refundExceed && (
+                  <p className="w-full text-[10px] text-red-500 mt-0.5">Cannot exceed booking amount ({fmtINR(bookingAmt)}).</p>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1013,71 +1046,6 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
         )}
       </div>
     </div>
-
-    {/* Refund / Income panel — shown for non-confirmed bookings after sale is confirmed */}
-    {showRefundIncome && (
-      <div className="border-t border-gray-100 bg-amber-50/40 px-4 py-3 space-y-2">
-        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">
-          Booking Settlement
-          {bookingAmt > 0 && <span className="ml-1 font-normal normal-case text-gray-400">· Booking: {fmtINR(bookingAmt)}</span>}
-        </p>
-        <div className="flex items-end gap-2 flex-wrap">
-          <div className="flex-1 min-w-[120px]">
-            <label className="text-[10px] text-gray-400 block mb-1">Refund (₹)</label>
-            <input
-              type="number"
-              value={refund}
-              onChange={e => {
-                setRefund(e.target.value);
-                const r = parseFloat(e.target.value) || 0;
-                if (bookingAmt > 0) setIncome(String(Math.max(0, bookingAmt - r)));
-              }}
-              placeholder="0"
-              className={`w-full text-xs border rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-[#875A7B] ${riExceeds ? 'border-red-400' : 'border-gray-200'}`}
-            />
-          </div>
-          <div className="flex-1 min-w-[120px]">
-            <label className="text-[10px] text-gray-400 block mb-1">Income (₹)</label>
-            <input
-              type="number"
-              value={income}
-              onChange={e => {
-                setIncome(e.target.value);
-                const i = parseFloat(e.target.value) || 0;
-                if (bookingAmt > 0) setRefund(String(Math.max(0, bookingAmt - i)));
-              }}
-              placeholder="0"
-              className={`w-full text-xs border rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-[#875A7B] ${riExceeds ? 'border-red-400' : 'border-gray-200'}`}
-            />
-          </div>
-          <button
-            onClick={handleSaveRefundIncome}
-            disabled={savingRI || riExceeds}
-            className="h-8 px-3 text-[10px] font-bold rounded-lg text-white disabled:opacity-50 shrink-0"
-            style={{ backgroundColor: '#875A7B' }}>
-            {savingRI ? 'Saving…' : 'Save'}
-          </button>
-        </div>
-        {riExceeds && (
-          <p className="text-[10px] text-red-500">Refund + Income ({fmtINR(refundNum + incomeNum)}) cannot exceed booking amount ({fmtINR(bookingAmt)}).</p>
-        )}
-        {bookingAmt > 0 && !riExceeds && (refundNum > 0 || incomeNum > 0) && (
-          <p className="text-[10px] text-gray-400">
-            {fmtINR(refundNum)} refund + {fmtINR(incomeNum)} income = {fmtINR(refundNum + incomeNum)} of {fmtINR(bookingAmt)}
-          </p>
-        )}
-        {b.refund_amount != null && Number(b.refund_amount) > 0 && b.status !== 'REFUNDED' && (
-          <div className="pt-1 border-t border-amber-100">
-            <button
-              onClick={handleMarkRefunded}
-              disabled={markingRefund}
-              className="h-7 px-3 text-[10px] font-bold rounded-lg border border-red-200 text-red-500 hover:bg-red-50 disabled:opacity-50 transition">
-              {markingRefund ? 'Marking…' : '✓ Mark as Refunded'}
-            </button>
-          </div>
-        )}
-      </div>
-    )}
 
     {/* Inline advance panel */}
     {confirming2 && (
