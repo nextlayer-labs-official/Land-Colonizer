@@ -720,40 +720,40 @@ function FinancialsTab({ form, instPaid = 0 }) {
           const incFmt    = (v) => v === 0 ? '—' : (v > 0 ? `+${fmtINR(v)}` : `-${fmtINR(-v)}`);
           const incCls    = (v) => v > 0 ? 'text-emerald-600' : v < 0 ? 'text-red-500' : 'text-gray-400';
 
-          const cols1 = `auto 1fr ${cols.map(()=>'1fr').join(' ')}`;
+          const gridCols = `5rem repeat(${cols.length + 1}, 1fr)`;
 
           return (
             <div className="mt-1 mb-1 text-xs">
               {/* Column headers */}
-              <div className="grid gap-x-2 pb-1 border-b border-gray-100" style={{ gridTemplateColumns: cols1 }}>
+              <div className="grid gap-x-3 pb-1.5 border-b border-gray-100" style={{ gridTemplateColumns: gridCols }}>
                 <span />
-                <span className="text-[10px] font-bold text-gray-500 text-center">Total</span>
-                {cols.map(c => <span key={c.key} className="text-[10px] font-bold text-gray-400 text-center truncate">{c.label}</span>)}
+                <span className="text-[10px] font-bold text-gray-500 text-right">Total</span>
+                {cols.map(c => <span key={c.key} className="text-[10px] font-bold text-gray-400 text-right">{c.label}</span>)}
               </div>
               {/* Received row */}
-              <div className="grid gap-x-2 py-1.5 border-b border-gray-50" style={{ gridTemplateColumns: cols1 }}>
-                <span className="text-gray-500 self-center whitespace-nowrap">Received</span>
-                <span className="text-center font-bold text-gray-900">{fmtINR(totalRec)}</span>
-                {cols.map(c => <span key={c.key} className="text-center font-semibold text-gray-700">{fmtINR(c.rec)}</span>)}
+              <div className="grid gap-x-3 py-1.5 border-b border-gray-50 items-center" style={{ gridTemplateColumns: gridCols }}>
+                <span className="text-gray-500">Received</span>
+                <span className="text-right font-bold text-gray-900">{fmtINR(totalRec)}</span>
+                {cols.map(c => <span key={c.key} className="text-right font-semibold text-gray-700">{fmtINR(c.rec)}</span>)}
               </div>
               {/* Paid for row */}
               {hasPaid && (
-                <div className="grid gap-x-2 py-1.5 border-b border-gray-50" style={{ gridTemplateColumns: cols1 }}>
-                  <span className="text-gray-500 self-center whitespace-nowrap">Paid for</span>
-                  <span className="text-center font-bold text-gray-900">{fmtINR(totalPaid)}</span>
-                  {cols.map(c => <span key={c.key} className="text-center font-semibold text-gray-700">{c.paid > 0 ? fmtINR(c.paid) : '—'}</span>)}
+                <div className="grid gap-x-3 py-1.5 border-b border-gray-50 items-center" style={{ gridTemplateColumns: gridCols }}>
+                  <span className="text-gray-500">Paid for</span>
+                  <span className="text-right font-bold text-gray-900">{fmtINR(totalPaid)}</span>
+                  {cols.map(c => <span key={c.key} className="text-right font-semibold text-gray-700">{c.paid > 0 ? fmtINR(c.paid) : '—'}</span>)}
                 </div>
               )}
               {/* Income/Loss row */}
               {hasPaid && (
-                <div className="grid gap-x-2 py-1.5" style={{ gridTemplateColumns: cols1 }}>
-                  <span className="text-gray-500 self-center whitespace-nowrap">Income/Loss</span>
-                  <span className={`text-center font-bold ${incCls(totalRec - totalPaid)}`}>{incFmt(totalRec - totalPaid)}</span>
-                  {cols.map(c => { const inc = c.rec - c.paid; return <span key={c.key} className={`text-center font-semibold ${incCls(inc)}`}>{incFmt(inc)}</span>; })}
+                <div className="grid gap-x-3 py-1.5 items-center" style={{ gridTemplateColumns: gridCols }}>
+                  <span className="text-gray-500">Income/Loss</span>
+                  <span className={`text-right font-bold ${incCls(totalRec - totalPaid)}`}>{incFmt(totalRec - totalPaid)}</span>
+                  {cols.map(c => { const inc = c.rec - c.paid; return <span key={c.key} className={`text-right font-semibold ${incCls(inc)}`}>{incFmt(inc)}</span>; })}
                 </div>
               )}
-              {/* Detail sub-labels */}
-              <p className="text-[10px] text-gray-400 mt-1">{cols.map(c => c.label).join(' + ')}</p>
+              {/* Legend */}
+              <p className="text-[10px] text-gray-400 mt-1.5">{cols.map(c => c.label).join(' + ')}</p>
             </div>
           );
         })()}
