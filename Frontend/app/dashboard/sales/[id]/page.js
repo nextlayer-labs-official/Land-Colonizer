@@ -758,11 +758,36 @@ function FinancialsTab({ form, instPaid = 0 }) {
           );
         })()}
 
-        <Hdr>Other</Hdr>
-        {form.discount   && <Row label="Discount"    value={fmtINR(form.discount)}   sub={form.discount_details||''} />}
-        {form.brokerage  && <Row label="Brokerage"   value={fmtINR(form.brokerage)}  sub={form.brokerage_details||''} />}
-        {form.incentive  && <Row label="Incentive"   value={fmtINR(form.incentive)}  sub={form.incentive_details||''} />}
-        {form.extra_income && <Row label="Extra Income" value={fmtINR(form.extra_income)} sub={form.extra_income_details||''} />}
+        <Hdr>Other Charges</Hdr>
+        {(() => {
+          const cols = [
+            { key: 'ei',  label: 'Extra Income', val: Number(form.extra_income || 0) },
+            { key: 'dis', label: 'Discount',      val: Number(form.discount    || 0) },
+            { key: 'brk', label: 'Brokerage',     val: Number(form.brokerage   || 0) },
+            { key: 'inc', label: 'Incentive',      val: Number(form.incentive   || 0) },
+          ].filter(c => c.val > 0);
+
+          if (cols.length === 0) return <p className="text-xs text-gray-400 py-1">—</p>;
+
+          const total    = cols.reduce((s, c) => s + c.val, 0);
+          const gridCols = `5rem 1fr ${cols.map(() => '1fr').join(' ')}`;
+
+          return (
+            <div className="mt-1 mb-1 text-xs">
+              <div className="grid gap-x-3 pb-1.5 border-b border-gray-100" style={{ gridTemplateColumns: gridCols }}>
+                <span />
+                <span className="text-[10px] font-bold text-gray-500 text-right">Total</span>
+                {cols.map(c => <span key={c.key} className="text-[10px] font-bold text-gray-400 text-right">{c.label}</span>)}
+              </div>
+              <div className="grid gap-x-3 py-1.5 items-center" style={{ gridTemplateColumns: gridCols }}>
+                <span className="text-gray-500">Paid for</span>
+                <span className="text-right font-bold text-gray-900">{fmtINR(total)}</span>
+                {cols.map(c => <span key={c.key} className="text-right font-semibold text-gray-700">{fmtINR(c.val)}</span>)}
+              </div>
+              <p className="text-[10px] text-gray-400 mt-1">{cols.map(c => c.label).join(' - ')}</p>
+            </div>
+          );
+        })()}
 
         <Hdr>Net</Hdr>
         <Row label="Net Amount (Received)" value={net ? fmtINR(net) : '—'} sub={bookingInReceived ? 'Booking + Advance + Charges' : 'Advance + Charges'} accent />
@@ -1631,11 +1656,7 @@ export default function SaleDetailPage() {
               <BookingPanel
                 saleId={params.id}
                 canEdit={canEdit}
-                onConfirmed={async () => {
-                  await load();
-                  setTab('details');
-                  setEditing(true);
-                }}
+                onConfirmed={async () => { await load(); }}
               />
             )}
 
