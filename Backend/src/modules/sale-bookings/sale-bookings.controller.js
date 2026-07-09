@@ -30,13 +30,16 @@ async function createBooking(req, res) {
 
 async function updateBooking(req, res) {
   const id = Number(req.params.id);
-  const { customer_id, booking_amount, notes } = req.body;
+  const { customer_id, booking_amount, notes, refund_amount, income_amount } = req.body;
+  const num = (v) => (v != null && v !== '' ? parseFloat(v) : null);
   const booking = await prisma.saleBooking.update({
     where: { id },
     data: {
-      customer_id: customer_id ? Number(customer_id) : null,
-      booking_amount: booking_amount != null && booking_amount !== '' ? parseFloat(booking_amount) : null,
-      notes: notes || null,
+      customer_id:    customer_id ? Number(customer_id) : null,
+      booking_amount: num(booking_amount),
+      notes:          notes || null,
+      refund_amount:  num(refund_amount),
+      income_amount:  num(income_amount),
     },
     include: { customer: { select: CUSTOMER_SELECT } },
   });
@@ -74,13 +77,9 @@ async function confirmBooking(req, res) {
     ...(computedBalance != null ? { balance_amount: computedBalance }        : {}),
   };
 
-  // Mark this booking CONFIRMED, all others for this sale REFUNDED
+  // Mark this booking CONFIRMED; leave others as-is for manual refund/income entry
   await prisma.$transaction([
     prisma.saleBooking.update({ where: { id }, data: { status: 'CONFIRMED' } }),
-    prisma.saleBooking.updateMany({
-      where: { sale_id, id: { not: id }, status: 'PENDING' },
-      data:  { status: 'REFUNDED' },
-    }),
     prisma.sale.update({ where: { id: sale_id }, data: saleUpdate }),
   ]);
 

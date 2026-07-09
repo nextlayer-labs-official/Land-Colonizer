@@ -255,8 +255,6 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false, sho
           <FInput value={form.electricity_meter_details} onChange={set('electricity_meter_details')} placeholder="Notes…" readOnly={readOnly} />
         </div>
 
-        <ComputedBox label={bookingInReceived ? 'Net Amount (Received)  =  Booking + Advance + Charges' : 'Net Amount (Received)  =  Advance + Charges'} value={fmtINR(adjustedNet)} accent />
-
         <SectionDivider title="Other Financial" />
 
         <div>

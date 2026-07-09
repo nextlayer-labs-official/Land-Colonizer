@@ -261,6 +261,8 @@ model SaleBooking {
   customer_id    Int?
   booking_amount Decimal?      @db.Decimal(10, 2)
   notes          String?       @db.Text
+  refund_amount  Decimal?      @db.Decimal(10, 2)
+  income_amount  Decimal?      @db.Decimal(10, 2)
   status         BookingStatus @default(PENDING)
   created_at     DateTime      @default(now())
   updated_at     DateTime      @updatedAt

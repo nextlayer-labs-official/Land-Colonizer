@@ -543,7 +543,7 @@ function SaleDetailView({ form, linkedProject }) {
 
       {/* Charges */}
       {(form.registration_charges || form.intkaal_charges || form.water_connection_charges || form.electricity_meter_charges) && (
-        <Section title="Charges">
+        <Section title="Additional Costs">
           {form.registration_charges     && <Cell label="Registration Charges"  value={money(form.registration_charges)}     money />}
           {form.registration_details     && <Cell label="Registration Details"  value={v(form.registration_details)} />}
           {form.intkaal_charges          && <Cell label="Intkaal Charges"       value={money(form.intkaal_charges)}          money />}
@@ -862,17 +862,25 @@ function BookingPanel({ saleId, canEdit, onConfirmed }) {
 }
 
 function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirming, onDelete, deleting, saleId, onSaved, excludeCustomerIds }) {
-  const [editing,            setEditing]            = useState(false);
-  const [confirming2,        setConfirming2]        = useState(false);
-  const [advance,            setAdvance]            = useState('');
-  const [bookingInReceived,  setBookingInReceived]  = useState(true);
-  const [form,        setForm]        = useState({
+  const [editing,           setEditing]           = useState(false);
+  const [confirming2,       setConfirming2]        = useState(false);
+  const [advance,           setAdvance]            = useState('');
+  const [bookingInReceived, setBookingInReceived]  = useState(true);
+  const [form, setForm] = useState({
     _customer:      b.customer || null,
     customer_id:    b.customer_id || '',
     booking_amount: b.booking_amount != null ? String(b.booking_amount) : '',
     notes:          b.notes || '',
   });
+  const [refund, setRefund] = useState(b.refund_amount != null ? String(b.refund_amount) : '');
+  const [income, setIncome] = useState(b.income_amount != null ? String(b.income_amount) : '');
+  const [savingRI, setSavingRI] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const bookingAmt = Number(b.booking_amount || 0);
+  const refundNum  = parseFloat(refund) || 0;
+  const incomeNum  = parseFloat(income) || 0;
+  const riExceeds  = bookingAmt > 0 && (refundNum + incomeNum) > bookingAmt;
 
   const handleSave = async () => {
     setSaving(true);
@@ -889,7 +897,24 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
     finally { setSaving(false); }
   };
 
+  const handleSaveRefundIncome = async () => {
+    if (riExceeds) return;
+    setSavingRI(true);
+    try {
+      const token = localStorage.getItem('token');
+      const base  = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+      await fetch(`${base}/sales/${saleId}/bookings/${b.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ refund_amount: refund || null, income_amount: income || null }),
+      });
+      await onSaved();
+    } catch (e) { console.error(e); }
+    finally { setSavingRI(false); }
+  };
+
   const cls = BOOKING_STATUS_CLS[b.status] || 'bg-gray-50 text-gray-500 ring-gray-200';
+  const showRefundIncome = isConfirmed && b.status !== 'CONFIRMED' && canEdit;
 
   if (editing) {
     return (
@@ -921,7 +946,7 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
 
   return (
     <>
-    <div className={`p-4 flex items-start gap-3 ${b.status === 'CONFIRMED' ? 'bg-emerald-50/60' : b.status === 'REFUNDED' ? 'bg-gray-50 opacity-60' : 'bg-white'}`}>
+    <div className={`p-4 flex items-start gap-3 ${b.status === 'CONFIRMED' ? 'bg-emerald-50/60' : 'bg-white'}`}>
       {/* Index */}
       <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5"
         style={{ backgroundColor: '#875A7B15', color: '#875A7B' }}>
@@ -943,6 +968,13 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
           <p className="text-xs text-gray-600"><span className="font-medium text-[#875A7B]">{fmtINR(b.booking_amount)}</span> booking amount</p>
         )}
         {b.notes && <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{b.notes}</p>}
+        {/* Saved refund/income summary */}
+        {!showRefundIncome && (b.refund_amount != null || b.income_amount != null) && (
+          <div className="flex gap-3 mt-1">
+            {b.refund_amount != null && <span className="text-[10px] text-red-500">Refund: {fmtINR(b.refund_amount)}</span>}
+            {b.income_amount != null && <span className="text-[10px] text-emerald-600">Income: {fmtINR(b.income_amount)}</span>}
+          </div>
+        )}
       </div>
 
       {/* Status + Actions */}
@@ -965,6 +997,61 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
         )}
       </div>
     </div>
+
+    {/* Refund / Income panel — shown for non-confirmed bookings after sale is confirmed */}
+    {showRefundIncome && (
+      <div className="border-t border-gray-100 bg-amber-50/40 px-4 py-3 space-y-2">
+        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">
+          Booking Settlement
+          {bookingAmt > 0 && <span className="ml-1 font-normal normal-case text-gray-400">· Booking: {fmtINR(bookingAmt)}</span>}
+        </p>
+        <div className="flex items-end gap-2 flex-wrap">
+          <div className="flex-1 min-w-[120px]">
+            <label className="text-[10px] text-gray-400 block mb-1">Refund (₹)</label>
+            <input
+              type="number"
+              value={refund}
+              onChange={e => {
+                setRefund(e.target.value);
+                const r = parseFloat(e.target.value) || 0;
+                if (bookingAmt > 0) setIncome(String(Math.max(0, bookingAmt - r)));
+              }}
+              placeholder="0"
+              className={`w-full text-xs border rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-[#875A7B] ${riExceeds ? 'border-red-400' : 'border-gray-200'}`}
+            />
+          </div>
+          <div className="flex-1 min-w-[120px]">
+            <label className="text-[10px] text-gray-400 block mb-1">Income (₹)</label>
+            <input
+              type="number"
+              value={income}
+              onChange={e => {
+                setIncome(e.target.value);
+                const i = parseFloat(e.target.value) || 0;
+                if (bookingAmt > 0) setRefund(String(Math.max(0, bookingAmt - i)));
+              }}
+              placeholder="0"
+              className={`w-full text-xs border rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-[#875A7B] ${riExceeds ? 'border-red-400' : 'border-gray-200'}`}
+            />
+          </div>
+          <button
+            onClick={handleSaveRefundIncome}
+            disabled={savingRI || riExceeds}
+            className="h-8 px-3 text-[10px] font-bold rounded-lg text-white disabled:opacity-50 shrink-0"
+            style={{ backgroundColor: '#875A7B' }}>
+            {savingRI ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+        {riExceeds && (
+          <p className="text-[10px] text-red-500">Refund + Income ({fmtINR(refundNum + incomeNum)}) cannot exceed booking amount ({fmtINR(bookingAmt)}).</p>
+        )}
+        {bookingAmt > 0 && !riExceeds && (refundNum > 0 || incomeNum > 0) && (
+          <p className="text-[10px] text-gray-400">
+            {fmtINR(refundNum)} refund + {fmtINR(incomeNum)} income = {fmtINR(refundNum + incomeNum)} of {fmtINR(bookingAmt)}
+          </p>
+        )}
+      </div>
+    )}
 
     {/* Inline advance panel */}
     {confirming2 && (

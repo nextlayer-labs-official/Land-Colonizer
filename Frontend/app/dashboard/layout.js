@@ -82,7 +82,7 @@ export default function DashboardLayout({ children }) {
             : <WaffleIcon />}
         </div>
         <div className="flex items-center gap-2 mx-2 min-w-0 shrink-0">
-          <span className="text-white font-semibold text-sm truncate max-w-36">{companyName}</span>
+          <span className="text-white font-semibold text-sm truncate max-w-56">{companyName}</span>
         </div>
         <div className="w-px h-5 bg-white/20 mr-2 shrink-0" />
 
