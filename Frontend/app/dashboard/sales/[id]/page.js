@@ -541,17 +541,33 @@ function SaleDetailView({ form, linkedProject }) {
         {form.payment_due_date && <Cell label="Payment Due Date" value={dt(form.payment_due_date)} />}
       </Section>
 
-      {/* Charges */}
+      {/* Additional Costs */}
       {(form.registration_charges || form.intkaal_charges || form.water_connection_charges || form.electricity_meter_charges) && (
         <Section title="Additional Costs">
-          {form.registration_charges     && <Cell label="Registration Charges"  value={money(form.registration_charges)}     money />}
-          {form.registration_details     && <Cell label="Registration Details"  value={v(form.registration_details)} />}
-          {form.intkaal_charges          && <Cell label="Intkaal Charges"       value={money(form.intkaal_charges)}          money />}
-          {form.intkaal_details          && <Cell label="Intkaal Details"       value={v(form.intkaal_details)} />}
-          {form.water_connection_charges && <Cell label="Water Connection"      value={money(form.water_connection_charges)} money />}
-          {form.water_connection_details && <Cell label="Water Details"         value={v(form.water_connection_details)} />}
-          {form.electricity_meter_charges && <Cell label="Electricity Meter"   value={money(form.electricity_meter_charges)} money />}
-          {form.electricity_meter_details && <Cell label="Electricity Details" value={v(form.electricity_meter_details)} />}
+          {form.registration_charges && <>
+            <Cell label="Registration · Received"    value={money(form.registration_charges)} money />
+            <Cell label="Registration · Paid"        value={money(form.registration_paid) || '—'} money />
+            <Cell label="Registration · Income/Loss" value={(() => { const v = Number(form.registration_charges||0) - Number(form.registration_paid||0); return v === 0 ? '—' : (v > 0 ? `+${fmtINR(v)}` : `-${fmtINR(-v)}`); })()} accent={Number(form.registration_charges||0) !== Number(form.registration_paid||0)} />
+            {form.registration_details && <Cell label="Registration Details" value={v(form.registration_details)} wide />}
+          </>}
+          {form.intkaal_charges && <>
+            <Cell label="Intkaal · Received"    value={money(form.intkaal_charges)} money />
+            <Cell label="Intkaal · Paid"        value={money(form.intkaal_paid) || '—'} money />
+            <Cell label="Intkaal · Income/Loss" value={(() => { const val = Number(form.intkaal_charges||0) - Number(form.intkaal_paid||0); return val === 0 ? '—' : (val > 0 ? `+${fmtINR(val)}` : `-${fmtINR(-val)}`); })()} accent={Number(form.intkaal_charges||0) !== Number(form.intkaal_paid||0)} />
+            {form.intkaal_details && <Cell label="Intkaal Details" value={v(form.intkaal_details)} wide />}
+          </>}
+          {form.water_connection_charges && <>
+            <Cell label="Water Connection · Received"    value={money(form.water_connection_charges)} money />
+            <Cell label="Water Connection · Paid"        value={money(form.water_connection_paid) || '—'} money />
+            <Cell label="Water Connection · Income/Loss" value={(() => { const val = Number(form.water_connection_charges||0) - Number(form.water_connection_paid||0); return val === 0 ? '—' : (val > 0 ? `+${fmtINR(val)}` : `-${fmtINR(-val)}`); })()} accent={Number(form.water_connection_charges||0) !== Number(form.water_connection_paid||0)} />
+            {form.water_connection_details && <Cell label="Water Details" value={v(form.water_connection_details)} wide />}
+          </>}
+          {form.electricity_meter_charges && <>
+            <Cell label="Electricity Meter · Received"    value={money(form.electricity_meter_charges)} money />
+            <Cell label="Electricity Meter · Paid"        value={money(form.electricity_meter_paid) || '—'} money />
+            <Cell label="Electricity Meter · Income/Loss" value={(() => { const val = Number(form.electricity_meter_charges||0) - Number(form.electricity_meter_paid||0); return val === 0 ? '—' : (val > 0 ? `+${fmtINR(val)}` : `-${fmtINR(-val)}`); })()} accent={Number(form.electricity_meter_charges||0) !== Number(form.electricity_meter_paid||0)} />
+            {form.electricity_meter_details && <Cell label="Electricity Details" value={v(form.electricity_meter_details)} wide />}
+          </>}
         </Section>
       )}
 
@@ -687,11 +703,35 @@ function FinancialsTab({ form, instPaid = 0 }) {
         {instPaid > 0 && <Row label="Remaining Balance" value={fmtINR(effBal)} sub="Balance − Instalments Paid" accent />}
         {form.payment_due_date && <Row label="Payment Due" value={fmtDate(form.payment_due_date)} />}
 
-        <Hdr>Charges</Hdr>
-        {form.registration_charges      && <Row label="Registration Charges"      value={fmtINR(form.registration_charges)}      sub={form.registration_details||''} />}
-        {form.intkaal_charges            && <Row label="Intkaal Charges"            value={fmtINR(form.intkaal_charges)}            sub={form.intkaal_details||''} />}
-        {form.water_connection_charges   && <Row label="Water Connection"           value={fmtINR(form.water_connection_charges)}   sub={form.water_connection_details||''} />}
-        {form.electricity_meter_charges  && <Row label="Electricity Meter"          value={fmtINR(form.electricity_meter_charges)}  sub={form.electricity_meter_details||''} />}
+        <Hdr>Additional Costs</Hdr>
+        {form.registration_charges && (() => { const inc = Number(form.registration_charges||0) - Number(form.registration_paid||0); return (
+          <>
+            <Row label="Registration · Received"    value={fmtINR(form.registration_charges)} sub={form.registration_details||''} />
+            {form.registration_paid && <Row label="Registration · Paid"        value={fmtINR(form.registration_paid)} />}
+            {form.registration_paid && <Row label="Registration · Income/Loss" value={inc === 0 ? '—' : (inc > 0 ? `+${fmtINR(inc)}` : `-${fmtINR(-inc)}`)} />}
+          </>
+        ); })()}
+        {form.intkaal_charges && (() => { const inc = Number(form.intkaal_charges||0) - Number(form.intkaal_paid||0); return (
+          <>
+            <Row label="Intkaal · Received"    value={fmtINR(form.intkaal_charges)} sub={form.intkaal_details||''} />
+            {form.intkaal_paid && <Row label="Intkaal · Paid"        value={fmtINR(form.intkaal_paid)} />}
+            {form.intkaal_paid && <Row label="Intkaal · Income/Loss" value={inc === 0 ? '—' : (inc > 0 ? `+${fmtINR(inc)}` : `-${fmtINR(-inc)}`)} />}
+          </>
+        ); })()}
+        {form.water_connection_charges && (() => { const inc = Number(form.water_connection_charges||0) - Number(form.water_connection_paid||0); return (
+          <>
+            <Row label="Water Connection · Received"    value={fmtINR(form.water_connection_charges)} sub={form.water_connection_details||''} />
+            {form.water_connection_paid && <Row label="Water Connection · Paid"        value={fmtINR(form.water_connection_paid)} />}
+            {form.water_connection_paid && <Row label="Water Connection · Income/Loss" value={inc === 0 ? '—' : (inc > 0 ? `+${fmtINR(inc)}` : `-${fmtINR(-inc)}`)} />}
+          </>
+        ); })()}
+        {form.electricity_meter_charges && (() => { const inc = Number(form.electricity_meter_charges||0) - Number(form.electricity_meter_paid||0); return (
+          <>
+            <Row label="Electricity Meter · Received"    value={fmtINR(form.electricity_meter_charges)} sub={form.electricity_meter_details||''} />
+            {form.electricity_meter_paid && <Row label="Electricity Meter · Paid"        value={fmtINR(form.electricity_meter_paid)} />}
+            {form.electricity_meter_paid && <Row label="Electricity Meter · Income/Loss" value={inc === 0 ? '—' : (inc > 0 ? `+${fmtINR(inc)}` : `-${fmtINR(-inc)}`)} />}
+          </>
+        ); })()}
 
         <Hdr>Other</Hdr>
         {form.discount   && <Row label="Discount"    value={fmtINR(form.discount)}   sub={form.discount_details||''} />}

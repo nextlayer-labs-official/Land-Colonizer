@@ -213,47 +213,78 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false, sho
           <FInput value={form.balance_amount_details} onChange={set('balance_amount_details')} placeholder="Notes on balance…" readOnly={readOnly} />
         </div>
 
-        <SectionDivider title="Charges" />
+        <SectionDivider title="Additional Costs" />
 
-        <div>
-          <FieldLabel>Registration Charges (₹)</FieldLabel>
-          <FInput type="number" value={form.registration_charges} onChange={set('registration_charges')} placeholder="0" readOnly={readOnly} />
-        </div>
+        {(() => {
+          const incFmt = (v) => v === 0 ? '—' : (v > 0 ? `+${fmtINR(v)}` : `-${fmtINR(-v)}`);
+          const IncCell = ({ v }) => (
+            <div className={`h-9 px-3 flex items-center text-sm font-semibold rounded border ${v > 0 ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : v < 0 ? 'text-red-500 bg-red-50 border-red-100' : 'text-gray-400 bg-gray-50 border-gray-100'}`}>
+              {incFmt(v)}
+            </div>
+          );
+          const SubLabel = ({ children }) => <p className="text-[10px] text-gray-400 font-medium mb-1">{children}</p>;
 
-        <div>
-          <FieldLabel>Registration Details</FieldLabel>
-          <FTextarea value={form.registration_details} onChange={set('registration_details')} placeholder="Registration notes…" readOnly={readOnly} />
-        </div>
+          const regInc  = Number(form.registration_charges||0)     - Number(form.registration_paid||0);
+          const inkInc  = Number(form.intkaal_charges||0)          - Number(form.intkaal_paid||0);
+          const watInc  = Number(form.water_connection_charges||0)  - Number(form.water_connection_paid||0);
+          const elecInc = Number(form.electricity_meter_charges||0) - Number(form.electricity_meter_paid||0);
 
-        <div>
-          <FieldLabel>Intkaal Charges (₹)</FieldLabel>
-          <FInput type="number" value={form.intkaal_charges} onChange={set('intkaal_charges')} placeholder="0" readOnly={readOnly} />
-        </div>
+          return (
+            <>
+              <div>
+                <FieldLabel>Registration Charges (₹)</FieldLabel>
+                <div className="grid grid-cols-3 gap-2 mt-1">
+                  <div><SubLabel>Received</SubLabel><FInput type="number" value={form.registration_charges} onChange={set('registration_charges')} placeholder="0" readOnly={readOnly} /></div>
+                  <div><SubLabel>Paid</SubLabel><FInput type="number" value={form.registration_paid} onChange={set('registration_paid')} placeholder="0" readOnly={readOnly} /></div>
+                  <div><SubLabel>Income/Loss</SubLabel><IncCell v={regInc} /></div>
+                </div>
+              </div>
+              <div>
+                <FieldLabel>Registration Details</FieldLabel>
+                <FTextarea value={form.registration_details} onChange={set('registration_details')} placeholder="Registration notes…" readOnly={readOnly} />
+              </div>
 
-        <div>
-          <FieldLabel>Intkaal Details</FieldLabel>
-          <FInput value={form.intkaal_details} onChange={set('intkaal_details')} placeholder="Notes…" readOnly={readOnly} />
-        </div>
+              <div>
+                <FieldLabel>Intkaal Charges (₹)</FieldLabel>
+                <div className="grid grid-cols-3 gap-2 mt-1">
+                  <div><SubLabel>Received</SubLabel><FInput type="number" value={form.intkaal_charges} onChange={set('intkaal_charges')} placeholder="0" readOnly={readOnly} /></div>
+                  <div><SubLabel>Paid</SubLabel><FInput type="number" value={form.intkaal_paid} onChange={set('intkaal_paid')} placeholder="0" readOnly={readOnly} /></div>
+                  <div><SubLabel>Income/Loss</SubLabel><IncCell v={inkInc} /></div>
+                </div>
+              </div>
+              <div>
+                <FieldLabel>Intkaal Details</FieldLabel>
+                <FInput value={form.intkaal_details} onChange={set('intkaal_details')} placeholder="Notes…" readOnly={readOnly} />
+              </div>
 
-        <div>
-          <FieldLabel>Water Connection Charges (₹)</FieldLabel>
-          <FInput type="number" value={form.water_connection_charges} onChange={set('water_connection_charges')} placeholder="0" readOnly={readOnly} />
-        </div>
+              <div>
+                <FieldLabel>Water Connection Charges (₹)</FieldLabel>
+                <div className="grid grid-cols-3 gap-2 mt-1">
+                  <div><SubLabel>Received</SubLabel><FInput type="number" value={form.water_connection_charges} onChange={set('water_connection_charges')} placeholder="0" readOnly={readOnly} /></div>
+                  <div><SubLabel>Paid</SubLabel><FInput type="number" value={form.water_connection_paid} onChange={set('water_connection_paid')} placeholder="0" readOnly={readOnly} /></div>
+                  <div><SubLabel>Income/Loss</SubLabel><IncCell v={watInc} /></div>
+                </div>
+              </div>
+              <div>
+                <FieldLabel>Water Connection Details</FieldLabel>
+                <FInput value={form.water_connection_details} onChange={set('water_connection_details')} placeholder="Notes…" readOnly={readOnly} />
+              </div>
 
-        <div>
-          <FieldLabel>Water Connection Details</FieldLabel>
-          <FInput value={form.water_connection_details} onChange={set('water_connection_details')} placeholder="Notes…" readOnly={readOnly} />
-        </div>
-
-        <div>
-          <FieldLabel>Electricity Meter Charges (₹)</FieldLabel>
-          <FInput type="number" value={form.electricity_meter_charges} onChange={set('electricity_meter_charges')} placeholder="0" readOnly={readOnly} />
-        </div>
-
-        <div>
-          <FieldLabel>Electricity Meter Details</FieldLabel>
-          <FInput value={form.electricity_meter_details} onChange={set('electricity_meter_details')} placeholder="Notes…" readOnly={readOnly} />
-        </div>
+              <div>
+                <FieldLabel>Electricity Meter Charges (₹)</FieldLabel>
+                <div className="grid grid-cols-3 gap-2 mt-1">
+                  <div><SubLabel>Received</SubLabel><FInput type="number" value={form.electricity_meter_charges} onChange={set('electricity_meter_charges')} placeholder="0" readOnly={readOnly} /></div>
+                  <div><SubLabel>Paid</SubLabel><FInput type="number" value={form.electricity_meter_paid} onChange={set('electricity_meter_paid')} placeholder="0" readOnly={readOnly} /></div>
+                  <div><SubLabel>Income/Loss</SubLabel><IncCell v={elecInc} /></div>
+                </div>
+              </div>
+              <div>
+                <FieldLabel>Electricity Meter Details</FieldLabel>
+                <FInput value={form.electricity_meter_details} onChange={set('electricity_meter_details')} placeholder="Notes…" readOnly={readOnly} />
+              </div>
+            </>
+          );
+        })()}
 
         <SectionDivider title="Other Financial" />
 

@@ -195,12 +195,16 @@ model Sale {
   balance_amount            Decimal?         @db.Decimal(10, 2)
   balance_amount_details    String?
   registration_charges      Decimal?         @db.Decimal(10, 2)
+  registration_paid         Decimal?         @db.Decimal(10, 2)
   registration_details      String?          @db.Text
   intkaal_charges           Decimal?         @db.Decimal(10, 2)
+  intkaal_paid              Decimal?         @db.Decimal(10, 2)
   intkaal_details           String?
   water_connection_charges  Decimal?         @db.Decimal(10, 2)
+  water_connection_paid     Decimal?         @db.Decimal(10, 2)
   water_connection_details  String?
   electricity_meter_charges Decimal?         @db.Decimal(10, 2)
+  electricity_meter_paid    Decimal?         @db.Decimal(10, 2)
   electricity_meter_details String?
   payment_due_date          DateTime?
   registration_area         Decimal?         @db.Decimal(10, 2)
