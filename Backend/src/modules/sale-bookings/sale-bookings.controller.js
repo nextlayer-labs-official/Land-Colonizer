@@ -30,17 +30,20 @@ async function createBooking(req, res) {
 
 async function updateBooking(req, res) {
   const id = Number(req.params.id);
-  const { customer_id, booking_amount, notes, refund_amount, income_amount } = req.body;
+  const { customer_id, booking_amount, notes, refund_amount, income_amount, status } = req.body;
   const num = (v) => (v != null && v !== '' ? parseFloat(v) : null);
+  const ALLOWED_STATUS = ['PENDING', 'REFUNDED'];
+  const data = {
+    ...(customer_id    !== undefined ? { customer_id: customer_id ? Number(customer_id) : null } : {}),
+    ...(booking_amount !== undefined ? { booking_amount: num(booking_amount) } : {}),
+    ...(notes          !== undefined ? { notes: notes || null } : {}),
+    ...(refund_amount  !== undefined ? { refund_amount: num(refund_amount) } : {}),
+    ...(income_amount  !== undefined ? { income_amount: num(income_amount) } : {}),
+    ...(status && ALLOWED_STATUS.includes(status) ? { status } : {}),
+  };
   const booking = await prisma.saleBooking.update({
     where: { id },
-    data: {
-      customer_id:    customer_id ? Number(customer_id) : null,
-      booking_amount: num(booking_amount),
-      notes:          notes || null,
-      refund_amount:  num(refund_amount),
-      income_amount:  num(income_amount),
-    },
+    data,
     include: { customer: { select: CUSTOMER_SELECT } },
   });
   res.json(booking);

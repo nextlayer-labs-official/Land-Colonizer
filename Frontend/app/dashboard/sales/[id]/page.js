@@ -874,7 +874,8 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
   });
   const [refund, setRefund] = useState(b.refund_amount != null ? String(b.refund_amount) : '');
   const [income, setIncome] = useState(b.income_amount != null ? String(b.income_amount) : '');
-  const [savingRI, setSavingRI] = useState(false);
+  const [savingRI,      setSavingRI]      = useState(false);
+  const [markingRefund, setMarkingRefund] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const bookingAmt = Number(b.booking_amount || 0);
@@ -911,6 +912,21 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
       await onSaved();
     } catch (e) { console.error(e); }
     finally { setSavingRI(false); }
+  };
+
+  const handleMarkRefunded = async () => {
+    setMarkingRefund(true);
+    try {
+      const token = localStorage.getItem('token');
+      const base  = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+      await fetch(`${base}/sales/${saleId}/bookings/${b.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ status: 'REFUNDED' }),
+      });
+      await onSaved();
+    } catch (e) { console.error(e); }
+    finally { setMarkingRefund(false); }
   };
 
   const cls = BOOKING_STATUS_CLS[b.status] || 'bg-gray-50 text-gray-500 ring-gray-200';
@@ -1049,6 +1065,16 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
           <p className="text-[10px] text-gray-400">
             {fmtINR(refundNum)} refund + {fmtINR(incomeNum)} income = {fmtINR(refundNum + incomeNum)} of {fmtINR(bookingAmt)}
           </p>
+        )}
+        {b.refund_amount != null && Number(b.refund_amount) > 0 && b.status !== 'REFUNDED' && (
+          <div className="pt-1 border-t border-amber-100">
+            <button
+              onClick={handleMarkRefunded}
+              disabled={markingRefund}
+              className="h-7 px-3 text-[10px] font-bold rounded-lg border border-red-200 text-red-500 hover:bg-red-50 disabled:opacity-50 transition">
+              {markingRefund ? 'Marking…' : '✓ Mark as Refunded'}
+            </button>
+          </div>
         )}
       </div>
     )}
