@@ -318,7 +318,7 @@ const AREA_UNITS = ['gaj', 'acres', 'bigha'];
 const UNIT_TYPES = ['PLOT', 'SHOP', 'LAND', 'FLAT'];
 
 function AddUnitModal({ open, onClose, purchase, inventory = [], onCreated }) {
-  const UNIT_EMPTY = { type: '', sl_no: '', location: '', plot_no: '', front_area: '', front_area_details: '', back_area: '', back_area_details: '', rate: '' };
+  const UNIT_EMPTY = { type: 'PLOT', sl_no: '', location: '', plot_no: '', front_area: '', front_area_details: '', back_area: '', back_area_details: '', rate: '' };
   const [unit,   setUnit]   = useState(UNIT_EMPTY);
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState('');

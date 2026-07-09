@@ -19,6 +19,7 @@ const TYPE_STYLE = {
   PLOT: { label: 'Plot',  color: '#875A7B', bg: '#875A7B15' },
   SHOP: { label: 'Shop',  color: '#3b82f6', bg: '#3b82f615' },
   LAND: { label: 'Land',  color: '#10b981', bg: '#10b98115' },
+  FLAT: { label: 'Flat',  color: '#f97316', bg: '#f9731615' },
 };
 const POSS_LABEL = { PENDING: 'Pending', SYMBOLIC: 'Symbolic', PHYSICAL: 'Physical' };
 const POSS_STYLE = {
@@ -239,7 +240,7 @@ export default function InventoryRecordPage() {
   // Financial from active sale
   const totalValue   = Number(activeSale?.actual_price    || 0);
   const received     = Number(activeSale?.booking_amount  || 0) + Number(activeSale?.advance_payment || 0);
-  const balanceAmt   = Number(activeSale?.balance_amount  || 0);
+  const balanceAmt   = totalValue > 0 ? Math.max(0, totalValue - Number(activeSale?.advance_payment || 0)) : 0;
   const netAmt       = Number(activeSale?.net_amount      || 0);
 
   // Installment summary from activeSale.installment
