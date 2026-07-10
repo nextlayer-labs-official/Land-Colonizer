@@ -28,11 +28,12 @@ function sanitize(body) {
 
   const fa = num(body.front_area);
   const ba = num(body.back_area);
-  const computedArea = (fa != null && ba != null) ? fa * (ba / 9) : num(body.area);
+  const directArea = num(body.area);
+  const computedArea = (fa != null && ba != null) ? parseFloat((fa * (ba / 9)).toFixed(4)) : (directArea != null ? directArea : undefined);
   const computedUnit = str(body.front_area_details) || str(body.area_unit);
 
   return {
-    type:               ['LAND', 'SHOP', 'PLOT', 'FLAT'].includes(body.type) ? body.type : 'PLOT',
+    type:               ['LAND', 'SHOP', 'PLOT', 'FLAT', 'PLOT_WIRE', 'SHOP_WIRE'].includes(body.type) ? body.type : 'PLOT',
     sl_no:              str(body.sl_no),
     location:           str(body.location),
     plot_no:            str(body.plot_no),
@@ -40,8 +41,8 @@ function sanitize(body) {
     front_area_details: str(body.front_area_details),
     back_area:          ba,
     back_area_details:  str(body.back_area_details),
-    area:               computedArea,
-    area_unit:          computedUnit,
+    ...(computedArea !== undefined ? { area: computedArea } : {}),
+    area_unit:          computedUnit || undefined,
     rate:               num(body.rate),
     registration_date:  body.registration_date ? new Date(body.registration_date) : null,
     project_id:         int(body.project_id),
