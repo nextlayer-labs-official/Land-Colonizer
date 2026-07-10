@@ -241,6 +241,8 @@ enum SaleType {
   SHOP
   LAND
   FLAT
+  PLOT_WIRE
+  SHOP_WIRE
 }
 
 enum PossessionStatus {
@@ -527,6 +529,8 @@ enum UnitType {
   SHOP
   LAND
   FLAT
+  PLOT_WIRE
+  SHOP_WIRE
 }
 
 enum InventoryStatus {

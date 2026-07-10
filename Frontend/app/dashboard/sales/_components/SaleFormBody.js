@@ -3,7 +3,7 @@
 import {
   FieldLabel, FInput, FTextarea, FSelect, ComputedBox, SectionDivider,
   SALE_TYPES, POSSESSION_STATES, TYPE_LABEL, POSS_LABEL,
-  CustomerPicker, BrokerPicker, InventoryPicker,
+  CustomerPicker, BrokerPicker, InventoryPickerModal,
   computed, fmtINR, fmtNum,
 } from './shared';
 
@@ -35,7 +35,7 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false, sho
             {form._inventory ? `${form._inventory.inventory_code || ''} · ${form._inventory.plot_no || form._inventory.sl_no || ''}`.trim().replace(/^·\s*/, '') : (form.inventory_id ? `INV-${String(form.inventory_id).padStart(4,'0')}` : <span className="text-gray-300">—</span>)}
           </div>
         ) : (
-          <InventoryPicker
+          <InventoryPickerModal
             value={form._inventory}
             onPick={(u) => setForm(p => ({
               ...p,

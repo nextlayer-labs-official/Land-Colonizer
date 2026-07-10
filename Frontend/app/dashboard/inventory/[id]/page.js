@@ -16,10 +16,12 @@ const STATUS_STYLE = {
   REGISTERED: { bg: 'bg-violet-50',  text: 'text-violet-700',  dot: 'bg-violet-500',  ring: 'ring-violet-200', boxBg: 'bg-violet-500'  },
 };
 const TYPE_STYLE = {
-  PLOT: { label: 'Plot',  color: '#875A7B', bg: '#875A7B15' },
-  SHOP: { label: 'Shop',  color: '#3b82f6', bg: '#3b82f615' },
-  LAND: { label: 'Land',  color: '#10b981', bg: '#10b98115' },
-  FLAT: { label: 'Flat',  color: '#f97316', bg: '#f9731615' },
+  PLOT:      { label: 'Plot',      color: '#875A7B', bg: '#875A7B15' },
+  SHOP:      { label: 'Shop',      color: '#3b82f6', bg: '#3b82f615' },
+  LAND:      { label: 'Land',      color: '#10b981', bg: '#10b98115' },
+  FLAT:      { label: 'Flat',      color: '#f97316', bg: '#f9731615' },
+  PLOT_WIRE: { label: 'Plot Wire', color: '#7c3aed', bg: '#7c3aed15' },
+  SHOP_WIRE: { label: 'Shop Wire', color: '#4f46e5', bg: '#4f46e515' },
 };
 const POSS_LABEL = { PENDING: 'Pending', SYMBOLIC: 'Symbolic', PHYSICAL: 'Physical' };
 const POSS_STYLE = {
@@ -382,6 +384,8 @@ export default function InventoryRecordPage() {
                     <option value="SHOP">Shop</option>
                     <option value="LAND">Land</option>
                     <option value="FLAT">Flat</option>
+                    <option value="PLOT_WIRE">Plot Wire</option>
+                    <option value="SHOP_WIRE">Shop Wire</option>
                   </FSel>
 
                   <div>
@@ -552,6 +556,9 @@ export default function InventoryRecordPage() {
                         <option value="PLOT">Plot</option>
                         <option value="SHOP">Shop</option>
                         <option value="LAND">Land</option>
+                        <option value="FLAT">Flat</option>
+                        <option value="PLOT_WIRE">Plot Wire</option>
+                        <option value="SHOP_WIRE">Shop Wire</option>
                       </FSel>
                       <FIn label="SL No" value={form.sl_no} onChange={set('sl_no')} placeholder="Survey / serial no" readOnly={!editing} />
                       <FIn label="Plot No" value={form.plot_no} onChange={set('plot_no')} placeholder="e.g. A-125" readOnly={!editing} />

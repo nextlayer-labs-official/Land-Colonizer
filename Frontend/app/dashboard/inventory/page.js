@@ -194,7 +194,7 @@ export default function InventoryPage() {
               ))}
               <div className="border-t border-gray-100 my-1" />
               <p className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Unit Type</p>
-              {[['', 'All Types'], ['PLOT', 'Plot'], ['SHOP', 'Shop'], ['LAND', 'Land'], ['FLAT', 'Flat']].map(([v, label]) => (
+              {[['', 'All Types'], ['PLOT', 'Plot'], ['SHOP', 'Shop'], ['LAND', 'Land'], ['FLAT', 'Flat'], ['PLOT_WIRE', 'Plot Wire'], ['SHOP_WIRE', 'Shop Wire']].map(([v, label]) => (
                 <button key={v} onClick={() => setTypeFilter(v)}
                   className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${typeFilter === v ? 'text-[#875A7B] font-medium' : 'text-gray-700'}`}>
                   {label}

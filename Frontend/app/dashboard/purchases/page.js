@@ -34,8 +34,9 @@ async function dlXlsx(rows, sheet, name) {
 
 const TYPE_BADGE = {
   LAND: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',
-  SHOP: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200',
-  PLOT: 'bg-violet-50 text-violet-700 ring-1 ring-violet-200',
+  SHOP: 'bg-blue-50    text-blue-700    ring-1 ring-blue-200',
+  PLOT: 'bg-violet-50  text-violet-700  ring-1 ring-violet-200',
+  FLAT: 'bg-orange-50  text-orange-700  ring-1 ring-orange-200',
 };
 
 function getStage(row) {
@@ -508,7 +509,7 @@ export default function PurchasesPage() {
           {showFilter && (
             <div className="absolute left-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-30 py-1">
               <p className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Type</p>
-              {[['', 'All Types'], ['PLOT', 'Plot'], ['LAND', 'Land'], ['SHOP', 'Shop']].map(([v, label]) => (
+              {[['', 'All Types'], ['PLOT', 'Plot'], ['LAND', 'Land'], ['SHOP', 'Shop'], ['FLAT', 'Flat']].map(([v, label]) => (
                 <button key={v} onClick={() => { setTypeFilter(v); setShowFilter(false); }}
                   className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${typeFilter === v ? 'text-[#875A7B] font-medium' : 'text-gray-700'}`}>
                   {label}

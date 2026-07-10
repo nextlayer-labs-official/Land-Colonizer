@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { apiGet, apiPost } from '@/lib/api';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
-export const SALE_TYPES       = ['PLOT', 'SHOP', 'LAND', 'FLAT'];
+export const SALE_TYPES       = ['PLOT', 'SHOP', 'LAND', 'FLAT', 'PLOT_WIRE', 'SHOP_WIRE'];
 export const POSSESSION_STATES = ['PENDING', 'SYMBOLIC', 'PHYSICAL'];
 
 export const EMPTY = {
@@ -59,7 +59,7 @@ export const fmtNum  = (n) => n != null && n !== '' ? Number(n).toLocaleString('
 export const fmtDate = (d) =>
   d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
-export const TYPE_LABEL = { PLOT: 'Plot', SHOP: 'Shop', LAND: 'Land', FLAT: 'Flat' };
+export const TYPE_LABEL = { PLOT: 'Plot', SHOP: 'Shop', LAND: 'Land', FLAT: 'Flat', PLOT_WIRE: 'Plot Wire', SHOP_WIRE: 'Shop Wire' };
 export const POSS_LABEL = { PENDING: 'Pending', SYMBOLIC: 'Symbolic', PHYSICAL: 'Physical' };
 export const POSS_COLOR = {
   PENDING:  'bg-amber-50 text-amber-700 ring-amber-200',
@@ -283,23 +283,166 @@ export function BrokerPicker({ value, onPick, onClear, readOnly }) {
   );
 }
 
-export function InventoryPicker({ value, onPick, onClear, readOnly }) {
+const INV_TYPE_BADGE = {
+  PLOT:      'bg-violet-50 text-violet-700',
+  SHOP:      'bg-blue-50   text-blue-700',
+  LAND:      'bg-emerald-50 text-emerald-700',
+  FLAT:      'bg-orange-50 text-orange-700',
+  PLOT_WIRE: 'bg-purple-50 text-purple-700',
+  SHOP_WIRE: 'bg-indigo-50 text-indigo-700',
+};
+const INV_TYPE_LABEL = { PLOT: 'Plot', SHOP: 'Shop', LAND: 'Land', FLAT: 'Flat', PLOT_WIRE: 'Plot Wire', SHOP_WIRE: 'Shop Wire' };
+const INV_STATUS_BADGE = {
+  AVAILABLE:  'bg-emerald-50 text-emerald-700',
+  RESERVED:   'bg-amber-50   text-amber-700',
+  SOLD:       'bg-blue-50    text-blue-700',
+  REGISTERED: 'bg-violet-50  text-violet-700',
+};
+
+export function InventoryPickerModal({ value, onPick, onClear, readOnly }) {
+  const [open,       setOpen]       = useState(false);
+  const [search,     setSearch]     = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
+  const [items,      setItems]      = useState([]);
+  const [loading,    setLoading]    = useState(false);
+  const tmr = useRef(null);
+
+  const load = useCallback(async (q = '') => {
+    setLoading(true);
+    try {
+      const data = await apiGet(`/lookup/inventory?search=${encodeURIComponent(q)}&limit=40`);
+      setItems(Array.isArray(data) ? data : []);
+    } catch { setItems([]); }
+    finally  { setLoading(false); }
+  }, []);
+
+  useEffect(() => { if (open) load(''); }, [open, load]);
+
+  useEffect(() => {
+    clearTimeout(tmr.current);
+    if (!open) return;
+    tmr.current = setTimeout(() => load(search), 300);
+    return () => clearTimeout(tmr.current);
+  }, [search, open, load]);
+
+  const close = () => { setOpen(false); setSearch(''); setTypeFilter(''); };
+
+  const filtered = typeFilter ? items.filter(u => u.type === typeFilter) : items;
+
+  if (readOnly) {
+    return (
+      <div className="min-h-[36px] px-3 py-[7px] bg-gray-50 rounded border border-gray-100 text-sm text-gray-700">
+        {value ? `${value.inventory_code || ''} · ${value.plot_no || value.sl_no || ''}`.replace(/^·\s*/, '') : <span className="text-gray-300">—</span>}
+      </div>
+    );
+  }
+
   return (
-    <BasePicker
-      value={value?.id ? value : null}
-      onPick={onPick} onClear={onClear} readOnly={readOnly}
-      label="Inventory Unit" endpoint="inventory" placeholder="Search inventory unit…"
-      renderSelected={v => v ? `${v.inventory_code || ''} · ${v.plot_no || v.sl_no || ''} ${v.location ? `(${v.location})` : ''}`.trim() : ''}
-      renderItem={u => (
-        <div>
-          <div className="font-medium text-gray-800 flex items-center gap-1.5">
-            <span className="font-mono text-xs text-[#875A7B]">{u.inventory_code}</span>
-            <span className="text-xs px-1 py-0.5 bg-violet-50 text-violet-700 rounded">{u.type}</span>
-            {u.plot_no && <span>Plot {u.plot_no}</span>}
+    <>
+      {value ? (
+        <div className="flex items-center gap-2 border border-gray-200 rounded px-3 py-2 bg-white">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${INV_TYPE_BADGE[value.type] || 'bg-gray-50 text-gray-600'}`}>{INV_TYPE_LABEL[value.type] || value.type}</span>
+              <span className="text-sm font-semibold text-[#875A7B]">{value.inventory_code}</span>
+              {(value.plot_no || value.sl_no) && <span className="text-sm text-gray-600">· {value.plot_no || value.sl_no}</span>}
+            </div>
+            {value.location && <p className="text-xs text-gray-400 mt-0.5 truncate">{value.location}</p>}
           </div>
-          {u.location && <div className="text-xs text-gray-400">{u.location}</div>}
+          <button type="button" onClick={() => setOpen(true)} className="text-xs text-[#875A7B] hover:underline shrink-0">Change</button>
+          <button type="button" onClick={onClear} className="text-gray-300 hover:text-gray-500 shrink-0">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+      ) : (
+        <button type="button" onClick={() => setOpen(true)}
+          className="w-full flex items-center gap-2 border border-dashed border-[#875A7B]/40 rounded px-3 py-[7px] text-sm text-[#875A7B]/70 bg-white hover:border-[#875A7B] hover:text-[#875A7B] transition text-left">
+          <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          Search &amp; select inventory unit…
+        </button>
+      )}
+
+      {open && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/40" onClick={close} />
+          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col" style={{ maxHeight: '82vh' }}>
+
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
+              <h3 className="text-base font-semibold text-gray-900">Select Inventory Unit</h3>
+              <button type="button" onClick={close} className="text-gray-400 hover:text-gray-600">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            <div className="px-5 py-3 border-b border-gray-100 flex gap-3 shrink-0">
+              <div className="flex-1 relative">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                <input autoFocus value={search} onChange={e => setSearch(e.target.value)}
+                  placeholder="Search by code, plot no, location, purchase…"
+                  className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/20" />
+              </div>
+              <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
+                className="text-sm border border-gray-200 rounded-lg px-3 py-2 text-gray-700 focus:outline-none focus:border-[#875A7B] bg-white">
+                <option value="">All Types</option>
+                <option value="PLOT">Plot</option>
+                <option value="SHOP">Shop</option>
+                <option value="LAND">Land</option>
+                <option value="FLAT">Flat</option>
+                <option value="PLOT_WIRE">Plot Wire</option>
+                <option value="SHOP_WIRE">Shop Wire</option>
+              </select>
+            </div>
+
+            <div className="overflow-y-auto flex-1">
+              {loading ? (
+                <div className="flex items-center justify-center py-16 text-sm text-gray-400">Loading…</div>
+              ) : filtered.length === 0 ? (
+                <div className="flex items-center justify-center py-16 text-sm text-gray-400">No units found</div>
+              ) : (
+                <div className="divide-y divide-gray-50">
+                  {filtered.map(u => {
+                    const fa   = parseFloat(u.front_area || 0);
+                    const ba   = parseFloat(u.back_area  || 0);
+                    const area = fa && ba ? parseFloat((fa * (ba / 9)).toFixed(2)) : parseFloat(u.area || 0);
+                    const areaUnit = u.front_area_details || u.area_unit || 'gaj';
+                    return (
+                      <button key={u.id} type="button"
+                        onClick={() => { onPick(u); close(); }}
+                        className="w-full text-left px-5 py-3.5 hover:bg-[#875A7B]/5 transition flex items-center gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono text-sm font-bold text-[#875A7B]">{u.inventory_code}</span>
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${INV_TYPE_BADGE[u.type] || 'bg-gray-50 text-gray-600'}`}>{INV_TYPE_LABEL[u.type] || u.type}</span>
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${INV_STATUS_BADGE[u.status] || 'bg-gray-50 text-gray-600'}`}>{u.status}</span>
+                          </div>
+                          <div className="mt-1 flex items-center gap-3 text-xs text-gray-500 flex-wrap">
+                            {(u.plot_no || u.sl_no) && <span>Plot: <span className="font-medium text-gray-700">{u.plot_no || u.sl_no}</span></span>}
+                            {u.location && <span>{u.location}</span>}
+                            {area > 0 && <span>Area: <span className="font-medium text-gray-700">{area} {areaUnit}</span></span>}
+                            {u.purchase?.purchase_code && <span>Purchase: <span className="font-medium text-gray-700">{u.purchase.purchase_code}</span></span>}
+                          </div>
+                        </div>
+                        {u.rate && (
+                          <div className="shrink-0 text-right">
+                            <p className="text-sm font-bold text-gray-800">₹{Number(u.rate).toLocaleString('en-IN')}</p>
+                            <p className="text-[10px] text-gray-400">/unit</p>
+                          </div>
+                        )}
+                        <svg className="w-4 h-4 text-gray-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="px-5 py-2.5 border-t border-gray-100 shrink-0 flex items-center justify-between">
+              <span className="text-xs text-gray-400">{!loading && `${filtered.length} unit${filtered.length !== 1 ? 's' : ''} found`}</span>
+              <span className="text-xs text-gray-400">Only available &amp; reserved units shown</span>
+            </div>
+          </div>
         </div>
       )}
-    />
+    </>
   );
 }

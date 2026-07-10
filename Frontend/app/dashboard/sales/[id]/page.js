@@ -572,7 +572,7 @@ function SaleDetailView({ form, linkedProject }) {
       )}
 
       {/* Other Financial */}
-      {(form.discount || form.brokerage || form.incentive || form.extra_income || form.net_amount) && (
+      {(form.discount || form.brokerage || form.incentive || form.extra_income) && (
         <Section title="Other Financial">
           {form.discount    && <Cell label="Discount"     value={money(form.discount)}    money />}
           {form.brokerage   && <Cell label="Brokerage"    value={money(form.brokerage)}   money />}
@@ -582,7 +582,6 @@ function SaleDetailView({ form, linkedProject }) {
           {form.brokerage_details  && <Cell label="Brokerage Details"  value={v(form.brokerage_details)} />}
           {form.incentive_details  && <Cell label="Incentive Details"  value={v(form.incentive_details)} />}
           {form.extra_income_details && <Cell label="Extra Income Details" value={v(form.extra_income_details)} />}
-          <Cell label="Net Amount" value={money(form.net_amount ?? c.net_amount)} money accent />
         </Section>
       )}
 
@@ -768,15 +767,15 @@ function FinancialsTab({ form, instPaid = 0 }) {
         <Hdr>Other Charges</Hdr>
         {(() => {
           const cols = [
-            { key: 'ei',  label: 'Extra Income', val: Number(form.extra_income || 0) },
-            { key: 'dis', label: 'Discount',      val: Number(form.discount    || 0) },
-            { key: 'brk', label: 'Brokerage',     val: Number(form.brokerage   || 0) },
-            { key: 'inc', label: 'Incentive',      val: Number(form.incentive   || 0) },
+            { key: 'ei',  label: 'Extra Income', val: Number(form.extra_income || 0), sign:  1 },
+            { key: 'dis', label: 'Discount',      val: Number(form.discount    || 0), sign: -1 },
+            { key: 'brk', label: 'Brokerage',     val: Number(form.brokerage   || 0), sign: -1 },
+            { key: 'inc', label: 'Incentive',      val: Number(form.incentive   || 0), sign: -1 },
           ].filter(c => c.val > 0);
 
           if (cols.length === 0) return <p className="text-xs text-gray-400 py-1">—</p>;
 
-          const total    = cols.reduce((s, c) => s + c.val, 0);
+          const total    = cols.reduce((s, c) => s + c.sign * c.val, 0);
           const gridCols = `5rem 1fr ${cols.map(() => '1fr').join(' ')}`;
 
           return (
@@ -788,10 +787,10 @@ function FinancialsTab({ form, instPaid = 0 }) {
               </div>
               <div className="grid gap-x-3 py-1.5 items-center" style={{ gridTemplateColumns: gridCols }}>
                 <span className="text-gray-500">Paid for</span>
-                <span className="text-right font-bold text-gray-900">{fmtINR(total)}</span>
+                <span className={`text-right font-bold ${total >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{total >= 0 ? fmtINR(total) : `-${fmtINR(-total)}`}</span>
                 {cols.map(c => <span key={c.key} className="text-right font-semibold text-gray-700">{fmtINR(c.val)}</span>)}
               </div>
-              <p className="text-[10px] text-gray-400 mt-1">{cols.map(c => c.label).join(' - ')}</p>
+              <p className="text-[10px] text-gray-400 mt-1">Extra Income − Discount − Brokerage − Incentive</p>
             </div>
           );
         })()}
@@ -822,8 +821,6 @@ function FinancialsTab({ form, instPaid = 0 }) {
         <Row label="Total Cost for Customer (with Additional Costs)"    value={fmtINR(totalCostWith)}    sub="Booking Amount + Advance + Installment Paid + Additional Costs" />
         <Row label="Net Income (Self)" value={<span className={netIncomeSelf >= 0 ? 'text-emerald-600' : 'text-red-500'}>{fmtINR(netIncomeSelf)}</span>} sub="Booking + Advance + Installment Paid + Income/Loss from Additional Costs + Income from Booking" accent />
 
-        <Hdr>Net</Hdr>
-        <Row label="Net Amount (Received)" value={net ? fmtINR(net) : '—'} sub={bookingInReceived ? 'Booking + Advance + Charges' : 'Advance + Charges'} accent />
 
         {(form.date_of_registration || form.intkaal_number || form.vasika) && (
           <>

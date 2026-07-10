@@ -268,6 +268,8 @@ function InventoryReport() {
               <option value="SHOP">Shop</option>
               <option value="LAND">Land</option>
               <option value="FLAT">Flat</option>
+              <option value="PLOT_WIRE">Plot Wire</option>
+              <option value="SHOP_WIRE">Shop Wire</option>
             </select>
           </Field>
           <RunBtn onClick={run} loading={loading} />

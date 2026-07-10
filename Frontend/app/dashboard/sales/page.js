@@ -30,8 +30,10 @@ import NProgress from 'nprogress';
 import Pagination from '@/components/Pagination';
 
 function effBalance(r) {
-  const bal = Number(r.balance_amount || 0);
-  const bk  = Number(r.booking_amount || 0);
+  const actual  = Number(r.actual_price    || 0);
+  const advance = Number(r.advance_payment || 0);
+  const bk      = Number(r.booking_amount  || 0);
+  const bal     = actual - advance;
   return Math.max(0, bal - (r.booking_in_received !== false ? bk : 0));
 }
 
@@ -249,7 +251,7 @@ export default function SalesPage() {
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="border-b border-gray-200 bg-white">
-              {['Sale ID', 'Inventory', 'Project', 'Customer', 'Broker', 'Actual Price', 'Booking', 'Balance', 'Possession', 'Status', 'Date', ''].map(h => (
+              {['Sale Code', 'Inventory', 'Project', 'Customer', 'Broker', 'Actual Price', 'Balance', 'Possession', 'Status', 'Date', ''].map(h => (
                 <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
               ))}
             </tr>
@@ -258,14 +260,14 @@ export default function SalesPage() {
             {loading ? (
               Array(7).fill(0).map((_, i) => (
                 <tr key={i} className="border-b border-gray-100">
-                  {Array(12).fill(0).map((__, j) => (
+                  {Array(11).fill(0).map((__, j) => (
                     <td key={j} className="px-3 py-3"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td>
                   ))}
                 </tr>
               ))
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={12} className="px-4 py-20 text-center">
+                <td colSpan={11} className="px-4 py-20 text-center">
                   <div className="flex flex-col items-center gap-3 text-gray-400">
                     <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" /></svg>
                     <p className="text-sm font-medium text-gray-500">No sales found</p>
@@ -299,7 +301,6 @@ export default function SalesPage() {
                 </td>
                 <td className="px-3 py-2.5 text-gray-600">{row.broker?.name || row.broker_name || '—'}</td>
                 <td className="px-3 py-2.5 font-semibold text-gray-900">{row.actual_price ? fmtINR(row.actual_price) : '—'}</td>
-                <td className="px-3 py-2.5 text-gray-700">{row.booking_amount ? fmtINR(row.booking_amount) : '—'}</td>
                 <td className="px-3 py-2.5 text-gray-700">{effBalance(row) > 0 ? fmtINR(effBalance(row)) : '—'}</td>
                 <td className="px-3 py-2.5">
                   <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ring-1 ${POSS_COLOR[row.possession] || 'bg-gray-50 text-gray-500 ring-gray-200'}`}>
