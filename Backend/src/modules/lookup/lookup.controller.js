@@ -147,9 +147,9 @@ const getInventoryUnits = async (req, res) => {
     return res.json(unit ? [unit] : []);
   }
 
-  // Exclude SOLD and REGISTERED only for sale picker; show all statuses for project linking
+  // Only AVAILABLE for sale picker; show all statuses for project linking
   const where = {
-    ...(no_project ? { project_id: null } : { status: { notIn: ['SOLD', 'REGISTERED'] } }),
+    ...(no_project ? { project_id: null } : { status: 'AVAILABLE' }),
     ...(purchase_id ? { purchase_id: Number(purchase_id) } : {}),
     ...(search.trim() ? {
       OR: [

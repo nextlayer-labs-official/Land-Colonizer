@@ -438,7 +438,7 @@ export function InventoryPickerModal({ value, onPick, onClear, readOnly }) {
 
             <div className="px-5 py-2.5 border-t border-gray-100 shrink-0 flex items-center justify-between">
               <span className="text-xs text-gray-400">{!loading && `${filtered.length} unit${filtered.length !== 1 ? 's' : ''} found`}</span>
-              <span className="text-xs text-gray-400">Only available &amp; reserved units shown</span>
+              <span className="text-xs text-gray-400">Only available units shown</span>
             </div>
           </div>
         </div>
