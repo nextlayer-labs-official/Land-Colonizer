@@ -39,8 +39,14 @@ const TYPE_BADGE = {
   FLAT: 'bg-orange-50  text-orange-700  ring-1 ring-orange-200',
 };
 
+function effPct(row) {
+  const total  = Number(row.total_amount || 0);
+  const effBal = Number(row.effective_balance ?? row.balance_to_pay ?? 0);
+  return total > 0 ? Math.min(100, Math.max(0, ((total - effBal) / total) * 100)) : 0;
+}
+
 function getStage(row) {
-  const pct = Number(row.percentage_paid || 0);
+  const pct = effPct(row);
   if (row.registration_completed && pct >= 100) return 'Completed';
   if (row.registration_completed) return 'Registered';
   if (pct > 0) return 'In Progress';
@@ -380,7 +386,7 @@ export default function PurchasesPage() {
       r.purchase_code || '', r.purchase_category || '', r.type || '', r.plot_no || '',
       r.location || '', r.purchased_area || '', r.purchased_area_details || '',
       r.rate || '', r.total_amount || '', r.effective_balance ?? r.balance_to_pay ?? '',
-      Number(r.percentage_paid || 0).toFixed(1), r.registration_date ? fmtDate(r.registration_date) : '',
+      effPct(r).toFixed(1), r.registration_date ? fmtDate(r.registration_date) : '',
       getStage(r), r.seller_details || '', r.purchase_broker_name || '', r.sell_broker_name || '',
     ];
     if (format === 'csv') {
@@ -618,7 +624,7 @@ export default function PurchasesPage() {
             ) : (
               rows.map(row => {
                 const stage   = getStage(row);
-                const pct     = Math.min(100, Math.max(0, row.percentage_paid || 0));
+                const pct     = effPct(row);
                 const barColor = pct >= 100 ? 'bg-emerald-500' : pct >= 50 ? 'bg-amber-400' : 'bg-[#875A7B]';
                 const isSel   = selected.includes(row.id);
 
