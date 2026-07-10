@@ -33,8 +33,14 @@ function effBalance(r) {
   const actual  = Number(r.actual_price    || 0);
   const advance = Number(r.advance_payment || 0);
   const bk      = Number(r.booking_amount  || 0);
-  const bal     = actual - advance;
-  return Math.max(0, bal - (r.booking_in_received !== false ? bk : 0));
+  let instPaid  = 0;
+  if (r.installment) {
+    for (let n = 1; n <= 20; n++) {
+      if (r.installment[`inst_${n}_paid`]) instPaid += Number(r.installment[`inst_${n}_amount`] || 0);
+    }
+  }
+  const bal = actual - advance - (r.booking_in_received !== false ? bk : 0);
+  return Math.max(0, bal - instPaid);
 }
 
 function ArchiveModal({ item, onClose, onConfirm, archiving }) {
