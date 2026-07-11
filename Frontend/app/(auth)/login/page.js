@@ -1,8 +1,8 @@
 'use client';
 
-import { Suspense, useState, useEffect } from 'react';
+import { Suspense, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { apiGet, apiPost } from '@/lib/api';
+import { apiPost } from '@/lib/api';
 
 function LoginForm() {
   const router = useRouter();
@@ -74,19 +74,6 @@ function LoginForm() {
 }
 
 export default function LoginPage() {
-  const [companyName, setCompanyName] = useState('');
-
-  useEffect(() => {
-    apiGet('/settings/public')
-      .then(d => {
-        if (d.company_name) {
-          setCompanyName(d.company_name);
-          document.title = d.company_name;
-        }
-      })
-      .catch(() => {});
-  }, []);
-
   return (
     <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: 'var(--ams-bg)' }}>
       <div className="w-full max-w-sm">
@@ -101,9 +88,7 @@ export default function LoginPage() {
               A
             </div>
             <h1 className="text-xl font-bold text-gray-800">Welcome back</h1>
-            <p className="text-xs text-gray-400 mt-0.5">
-              {companyName ? `Sign in to your ${companyName} account` : 'Sign in to your account'}
-            </p>
+            <p className="text-xs text-gray-400 mt-0.5">Sign in to your account</p>
           </div>
 
           <div className="px-8 py-6">
