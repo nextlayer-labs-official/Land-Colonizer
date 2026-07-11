@@ -1261,8 +1261,11 @@ export default function PurchaseRecordPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                          {inv.sales?.length > 0 ? (
-                            <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-2 py-1 rounded whitespace-nowrap">Sale exists</span>
+                          {(inv.status === 'SOLD' || inv.status === 'RESERVED' || inv.status === 'REGISTERED') ? (
+                            <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded whitespace-nowrap flex items-center gap-1 w-fit">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                              Locked — {inv.status}
+                            </span>
                           ) : (
                             <div className="flex items-center gap-1.5">
                               {canEditInventory && (

@@ -160,8 +160,9 @@ export default function InventoryRecordPage() {
   const [instData, setInstData] = useState(null);
   const [instLoading, setInstLoading] = useState(false);
 
-  const canEdit   = can('INVENTORY_EDIT')   || me?.is_system;
-  const canDelete = (can('INVENTORY_DELETE') || me?.is_system) && inv?.status !== 'SOLD' && inv?.status !== 'REGISTERED';
+  const isSaleActive = inv?.status === 'SOLD' || inv?.status === 'RESERVED' || inv?.status === 'REGISTERED';
+  const canEdit   = (can('INVENTORY_EDIT')   || me?.is_system) && !isSaleActive;
+  const canDelete = (can('INVENTORY_DELETE') || me?.is_system) && !isSaleActive;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -299,7 +300,12 @@ export default function InventoryRecordPage() {
               </>
             ) : (
               <>
-                {canEdit && (
+                {isSaleActive ? (
+                  <span className="h-8 px-3 text-xs border border-amber-200 bg-amber-50 rounded-lg text-amber-700 flex items-center gap-1.5 font-medium">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                    Locked — {inv?.status}
+                  </span>
+                ) : canEdit && (
                   <button onClick={handleEdit}
                     className="h-8 px-4 text-sm rounded-lg font-semibold text-white flex items-center gap-1.5" style={{ backgroundColor: '#875A7B' }}>
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
