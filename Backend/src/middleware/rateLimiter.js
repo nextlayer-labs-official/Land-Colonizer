@@ -3,20 +3,36 @@ const prisma = require('../lib/prisma');
 // In-memory store: key → { count, resetAt }
 const store = new Map();
 
-// Dynamic rate limiter that reads config from CompanySettings on each request
-async function loginRateLimiter(req, res, next) {
+// Cache settings so we don't hit DB on every login attempt
+let cachedSettings = null;
+let settingsCachedAt = 0;
+const SETTINGS_TTL = 60_000; // refresh every 60s
+
+async function getSettings() {
+  if (cachedSettings && Date.now() - settingsCachedAt < SETTINGS_TTL) return cachedSettings;
   try {
     const settings = await prisma.companySettings.findFirst();
-    const maxAttempts  = settings?.login_max_attempts   ?? 5;
-    const windowMs     = (settings?.login_window_minutes ?? 15) * 60 * 1000;
+    cachedSettings = {
+      maxAttempts: settings?.login_max_attempts   ?? 5,
+      windowMs:    (settings?.login_window_minutes ?? 15) * 60 * 1000,
+    };
+    settingsCachedAt = Date.now();
+  } catch {
+    // If DB is down fall back to defaults
+    cachedSettings = { maxAttempts: 5, windowMs: 15 * 60 * 1000 };
+  }
+  return cachedSettings;
+}
+
+async function loginRateLimiter(req, res, next) {
+  try {
+    const { maxAttempts, windowMs } = await getSettings();
 
     const key = req.ip || 'unknown';
     const now = Date.now();
-
     const entry = store.get(key);
 
     if (!entry || now > entry.resetAt) {
-      // Fresh window
       store.set(key, { count: 1, resetAt: now + windowMs });
       return next();
     }
@@ -33,13 +49,11 @@ async function loginRateLimiter(req, res, next) {
     }
 
     next();
-  } catch (err) {
-    // If DB is down, don't block login
+  } catch {
     next();
   }
 }
 
-// Reset attempts on successful login (call after successful auth)
 function resetLoginAttempts(ip) {
   store.delete(ip);
 }
