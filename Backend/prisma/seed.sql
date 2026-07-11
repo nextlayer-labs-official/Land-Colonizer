@@ -16,7 +16,8 @@ INSERT IGNORE INTO `Module` (`name`, `slug`, `description`, `created_at`, `updat
   ('BROKER',    'broker',    'Broker management',        NOW(), NOW()),
   ('CUSTOMER',  'customer',  'Customer management',      NOW(), NOW()),
   ('REPORTS',   'reports',   'Reports & analytics',      NOW(), NOW()),
-  ('SETTINGS',  'settings',  'System settings',          NOW(), NOW());
+  ('SETTINGS',  'settings',  'System settings',          NOW(), NOW()),
+  ('AUDIT',     'audit',     'Audit logs',               NOW(), NOW());
 
 -- Permissions: USER
 INSERT IGNORE INTO `Permission` (`module_id`, `action`, `code`, `created_at`)
@@ -84,6 +85,10 @@ SELECT m.id, 'VIEW', 'REPORTS_VIEW', NOW() FROM `Module` m WHERE m.slug = 'repor
 INSERT IGNORE INTO `Permission` (`module_id`, `action`, `code`, `created_at`)
 SELECT m.id, 'VIEW', 'SETTINGS_VIEW', NOW() FROM `Module` m WHERE m.slug = 'settings' UNION ALL
 SELECT m.id, 'EDIT', 'SETTINGS_EDIT', NOW() FROM `Module` m WHERE m.slug = 'settings';
+
+-- Permissions: AUDIT
+INSERT IGNORE INTO `Permission` (`module_id`, `action`, `code`, `created_at`)
+SELECT m.id, 'VIEW', 'AUDIT_VIEW', NOW() FROM `Module` m WHERE m.slug = 'audit';
 
 -- Super Admin & Admin: all permissions
 INSERT IGNORE INTO `RolePermission` (`role_id`, `permission_id`, `allowed`)
