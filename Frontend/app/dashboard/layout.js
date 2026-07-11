@@ -18,6 +18,60 @@ function WaffleIcon() {
   );
 }
 
+function NavDropdown({ label, items, pathname, isVisible, isActive }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  const visibleItems = items.filter((item) => isVisible(item.perm));
+  if (visibleItems.length === 0) return null;
+
+  const groupActive = visibleItems.some((item) => isActive(item.href, item.exact));
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  return (
+    <div className="relative shrink-0" ref={ref}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1 px-3 py-1 rounded text-sm transition-colors whitespace-nowrap"
+        style={groupActive || open
+          ? { backgroundColor: 'rgba(255,255,255,0.18)', color: '#fff', fontWeight: 500 }
+          : { color: 'rgba(255,255,255,0.65)' }}
+      >
+        {label}
+        <svg className="w-3 h-3 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-full mt-1.5 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden min-w-[160px]">
+          {visibleItems.map((item) => {
+            const active = isActive(item.href, item.exact);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setOpen(false)}
+                className="block px-4 py-2.5 text-sm transition-colors whitespace-nowrap"
+                style={active
+                  ? { backgroundColor: '#f3eef6', color: '#714B67', fontWeight: 500 }
+                  : { color: '#374151' }}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function DashboardLayout({ children }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -45,19 +99,25 @@ export default function DashboardLayout({ children }) {
     return () => document.removeEventListener('mousedown', onClick);
   }, []);
 
-  const navItems = [
-    { label: 'Dashboard',  href: '/dashboard',           perm: null,             exact: true },
-    { label: 'Purchases',  href: '/dashboard/purchases', perm: 'PURCHASE_VIEW'  },
-    { label: 'Inventory',  href: '/dashboard/inventory', perm: 'INVENTORY_VIEW' },
-    { label: 'Sales',      href: '/dashboard/sales',     perm: 'SALE_VIEW'      },
-    { label: 'Projects',   href: '/dashboard/projects',  perm: 'PROJECT_VIEW'   },
-    { label: 'Brokers',    href: '/dashboard/brokers',   perm: 'BROKER_VIEW'    },
-    { label: 'Customers',  href: '/dashboard/customers', perm: 'CUSTOMER_VIEW'  },
-    { label: 'Reports',    href: '/dashboard/reports',   perm: 'REPORTS_VIEW'   },
-    { label: 'Users',      href: '/dashboard/users',     perm: 'USER_VIEW'      },
-    { label: 'Roles',      href: '/dashboard/roles',     perm: 'ROLE_VIEW'      },
-    { label: 'Settings',    href: '/dashboard/settings',    perm: 'SETTINGS_VIEW'  },
-    { label: 'Audit Logs', href: '/dashboard/audit-logs', perm: 'AUDIT_VIEW'     },
+  const singleItems = [
+    { label: 'Dashboard', href: '/dashboard',           perm: null,            exact: true },
+    { label: 'Purchases', href: '/dashboard/purchases', perm: 'PURCHASE_VIEW'  },
+    { label: 'Inventory', href: '/dashboard/inventory', perm: 'INVENTORY_VIEW' },
+    { label: 'Sales',     href: '/dashboard/sales',     perm: 'SALE_VIEW'      },
+    { label: 'Projects',  href: '/dashboard/projects',  perm: 'PROJECT_VIEW'   },
+    { label: 'Reports',   href: '/dashboard/reports',   perm: 'REPORTS_VIEW'   },
+  ];
+
+  const peopleItems = [
+    { label: 'Customers', href: '/dashboard/customers', perm: 'CUSTOMER_VIEW' },
+    { label: 'Brokers',   href: '/dashboard/brokers',   perm: 'BROKER_VIEW'   },
+  ];
+
+  const adminItems = [
+    { label: 'Users',      href: '/dashboard/users',       perm: 'USER_VIEW'     },
+    { label: 'Roles',      href: '/dashboard/roles',       perm: 'ROLE_VIEW'     },
+    { label: 'Settings',   href: '/dashboard/settings',    perm: 'SETTINGS_VIEW' },
+    { label: 'Audit Logs', href: '/dashboard/audit-logs',  perm: 'AUDIT_VIEW'    },
   ];
 
   const isVisible = (perm) => {
@@ -88,8 +148,8 @@ export default function DashboardLayout({ children }) {
         <div className="w-px h-5 bg-white/20 mr-2 shrink-0" />
 
         {!permLoading && (
-          <nav className="flex items-center gap-0.5 flex-1 min-w-0 overflow-x-auto scrollbar-hide">
-            {navItems.filter((item) => isVisible(item.perm)).map((item) => {
+          <nav className="flex items-center gap-0.5 flex-1 min-w-0">
+            {singleItems.filter((item) => isVisible(item.perm)).map((item) => {
               const active = isActive(item.href, item.exact);
               return (
                 <Link
@@ -102,6 +162,9 @@ export default function DashboardLayout({ children }) {
                 </Link>
               );
             })}
+
+            <NavDropdown label="People" items={peopleItems} pathname={pathname} isVisible={isVisible} isActive={isActive} />
+            <NavDropdown label="Admin"  items={adminItems}  pathname={pathname} isVisible={isVisible} isActive={isActive} />
           </nav>
         )}
 
