@@ -154,7 +154,9 @@ function PermissionPanel({ role, onClose, canEdit }) {
                         } ${!canEdit ? 'cursor-default' : ''}`}
                         style={rp.allowed ? { backgroundColor: 'var(--ams-primary-mid)' } : {}}>
                         <div>
-                          <span className="text-sm font-medium text-gray-700">{rp.permission.action}</span>
+                          <span className="text-sm font-medium text-gray-700">
+                            {rp.permission.code.split('_').slice(1).map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' ')}
+                          </span>
                           <span className="ml-2 text-xs text-gray-400 font-mono">{rp.permission.code}</span>
                         </div>
                         <input type="checkbox" checked={rp.allowed}

@@ -4,7 +4,6 @@ const { auditLog } = require('../../lib/audit');
 const permissionSelect = {
   id: true,
   code: true,
-  action: true,
   module: { select: { name: true, slug: true } },
 };
 
