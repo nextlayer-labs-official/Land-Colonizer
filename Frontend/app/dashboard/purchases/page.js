@@ -60,7 +60,7 @@ const STAGE_COLOR = {
   Completed:   'text-emerald-600',
 };
 
-// ─── Archive confirm ───────────────────────────────────────────────────────────
+// ─── Archive / Unarchive confirm ──────────────────────────────────────────────
 function ArchiveModal({ item, onClose, onConfirm, archiving }) {
   if (!item) return null;
   const count = item.items?.length ?? 0;
@@ -76,6 +76,28 @@ function ArchiveModal({ item, onClose, onConfirm, archiving }) {
           <button onClick={onClose} className="btn-secondary text-sm">Cancel</button>
           <button onClick={onConfirm} disabled={archiving} className="px-4 h-8 text-sm rounded-lg text-white bg-amber-500 hover:bg-amber-600 min-w-[90px]">
             {archiving ? 'Archiving…' : 'Archive'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UnarchiveModal({ item, onClose, onConfirm, unarchiving }) {
+  if (!item) return null;
+  const count = item.items?.length ?? 0;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="fixed inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4">
+        <h3 className="text-base font-semibold text-gray-900 mb-2">Unarchive {count === 1 ? 'purchase' : `${count} purchases`}?</h3>
+        <p className="text-sm text-gray-500 mb-4">
+          {count === 1 ? 'This purchase' : `These ${count} purchases`} will be restored to the active list.
+        </p>
+        <div className="flex justify-end gap-2 mt-4">
+          <button onClick={onClose} className="btn-secondary text-sm">Cancel</button>
+          <button onClick={onConfirm} disabled={unarchiving} className="px-4 h-8 text-sm rounded-lg text-white bg-sky-600 hover:bg-sky-700 min-w-[90px]">
+            {unarchiving ? 'Unarchiving…' : 'Unarchive'}
           </button>
         </div>
       </div>
@@ -348,10 +370,12 @@ export default function PurchasesPage() {
 
   const LIMIT = 15;
 
+  const [showArchived, setShowArchived] = useState(false);
+
   const load = useCallback(async (p = 1) => {
     setLoading(true);
     try {
-      const q = new URLSearchParams({ page: p, limit: LIMIT });
+      const q = new URLSearchParams({ page: p, limit: LIMIT, archived: showArchived ? 'true' : 'false' });
       if (search)     q.set('search', search);
       if (typeFilter) q.set('type',   typeFilter);
       const data = await apiGet(`/purchases?${q}`);
@@ -360,9 +384,9 @@ export default function PurchasesPage() {
       setPage(p);
       setSelected([]);
     } finally { setLoading(false); }
-  }, [search, typeFilter]);
+  }, [search, typeFilter, showArchived]);
 
-  useEffect(() => { load(1); }, [search, typeFilter]);
+  useEffect(() => { load(1); }, [search, typeFilter, showArchived]);
 
   useEffect(() => {
     const h = (e) => {
@@ -373,9 +397,23 @@ export default function PurchasesPage() {
     return () => document.removeEventListener('mousedown', h);
   }, []);
 
+  const [unarchiving, setUnarchiving] = useState(false);
+  const [unarchModal, setUnarchModal] = useState(null);
+
+  const handleUnarchive = async () => {
+    setUnarchiving(true);
+    const ids = unarchModal.items.map(r => r.id);
+    try {
+      await Promise.all(ids.map(id => apiPatch(`/purchases/${id}/unarchive`)));
+      setUnarchModal(null);
+      setSelected([]);
+      load(rows.length <= ids.length && page > 1 ? page - 1 : page);
+    } finally { setUnarchiving(false); }
+  };
+
   const handleExport = async (format) => {
     setExportOpen(false);
-    const q = new URLSearchParams({ page: 1, limit: 9999 });
+    const q = new URLSearchParams({ page: 1, limit: 9999, archived: showArchived ? 'true' : 'false' });
     if (search)     q.set('search', search);
     if (typeFilter) q.set('type',   typeFilter);
     const data  = await apiGet(`/purchases?${q}`);
@@ -430,9 +468,10 @@ export default function PurchasesPage() {
   const toggleSelect  = (id) => setSelected(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
   const toggleAll     = () => setSelected(selected.length === rows.length ? [] : rows.map(r => r.id));
   const totalPages    = Math.ceil(total / LIMIT);
-  const canCreate     = can('PURCHASE_CREATE') || me?.is_system;
-  const canEdit       = can('PURCHASE_EDIT')   || me?.is_system;
-  const canDelete     = can('PURCHASE_DELETE') || me?.is_system;
+  const canCreate     = can('PURCHASE_CREATE')  || me?.is_system;
+  const canEdit       = can('PURCHASE_EDIT')    || me?.is_system;
+  const canArchive    = can('PURCHASE_ARCHIVE') || me?.is_system;
+  const canDelete     = can('PURCHASE_DELETE')  || me?.is_system;
 
   const from = total === 0 ? 0 : (page - 1) * LIMIT + 1;
   const to   = Math.min(page * LIMIT, total);
@@ -444,7 +483,7 @@ export default function PurchasesPage() {
       <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-center gap-2 flex-wrap">
 
         {/* Action buttons */}
-        {canCreate && (
+        {canCreate && !showArchived && (
           <button
             onClick={() => router.push('/dashboard/purchases/new')}
             className="btn-primary text-sm h-8 px-4"
@@ -452,7 +491,7 @@ export default function PurchasesPage() {
             New
           </button>
         )}
-        {canCreate && (
+        {canCreate && !showArchived && (
           <button onClick={() => setShowImport(true)}
             className="flex items-center gap-1.5 h-8 px-3 text-sm border border-gray-200 rounded text-gray-600 hover:bg-gray-50 transition font-medium">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
@@ -460,12 +499,30 @@ export default function PurchasesPage() {
           </button>
         )}
 
-        {selected.length > 0 && canDelete && (
+        {/* Archived toggle */}
+        <button
+          onClick={() => { setShowArchived(v => !v); setSearch(''); setTypeFilter(''); setSelected([]); }}
+          className={`flex items-center gap-1.5 h-8 px-3 text-sm border rounded transition-colors font-medium ${showArchived ? 'bg-amber-50 border-amber-200 text-amber-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12"/>
+          </svg>
+          {showArchived ? 'Archived' : 'Archive'}
+        </button>
+
+        {selected.length > 0 && canArchive && !showArchived && (
           <button
             onClick={() => setArchModal({ items: rows.filter(r => selected.includes(r.id)) })}
             className="h-8 px-3 text-sm rounded border border-amber-200 text-amber-600 hover:bg-amber-50 transition font-medium"
           >
             Archive ({selected.length})
+          </button>
+        )}
+        {selected.length > 0 && canArchive && showArchived && (
+          <button
+            onClick={() => setUnarchModal({ items: rows.filter(r => selected.includes(r.id)) })}
+            className="h-8 px-3 text-sm rounded border border-sky-200 text-sky-600 hover:bg-sky-50 transition font-medium"
+          >
+            Unarchive ({selected.length})
           </button>
         )}
         {selected.length > 0 && me?.is_system && (
@@ -612,8 +669,8 @@ export default function PurchasesPage() {
                     <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    <p className="text-sm font-medium text-gray-500">No records found</p>
-                    {canCreate && (
+                    <p className="text-sm font-medium text-gray-500">{showArchived ? 'No archived purchases' : 'No records found'}</p>
+                    {canCreate && !showArchived && (
                       <button onClick={() => router.push('/dashboard/purchases/new')} className="btn-primary text-sm mt-1">
                         New Purchase
                       </button>
@@ -688,6 +745,7 @@ export default function PurchasesPage() {
       </div>
 
       <ArchiveModal item={archModal} onClose={() => setArchModal(null)} onConfirm={handleArchive} archiving={archiving} />
+      <UnarchiveModal item={unarchModal} onClose={() => setUnarchModal(null)} onConfirm={handleUnarchive} unarchiving={unarchiving} />
       <DeleteModal item={delModal} onClose={() => { setDelModal(null); setDelError(''); }} onConfirm={handleDelete} deleting={deleting} error={delError} />
       <ImportModal open={showImport} onClose={() => setShowImport(false)} onImported={() => { load(1); }} />
     </div>

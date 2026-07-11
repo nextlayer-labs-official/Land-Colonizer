@@ -176,6 +176,14 @@ async function archivePurchase(req, res) {
   res.json({ message: 'Archived' });
 }
 
+async function unarchivePurchase(req, res) {
+  const id = Number(req.params.id);
+  const p  = await prisma.purchase.findUnique({ where: { id } });
+  await prisma.purchase.update({ where: { id }, data: { archived: false } });
+  auditLog({ req, action: 'UNARCHIVE', entity: 'purchase', entityId: id, entityCode: p?.purchase_code });
+  res.json({ message: 'Unarchived' });
+}
+
 async function deletePurchase(req, res) {
   const id = Number(req.params.id);
 
@@ -254,4 +262,4 @@ async function importPurchases(req, res) {
   res.json({ created: created.length, errors, codes: created, brokersCreated: [...brokersCreated] });
 }
 
-module.exports = { getPurchases, getPurchaseById, createPurchase, updatePurchase, archivePurchase, deletePurchase, importPurchases };
+module.exports = { getPurchases, getPurchaseById, createPurchase, updatePurchase, archivePurchase, unarchivePurchase, deletePurchase, importPurchases };

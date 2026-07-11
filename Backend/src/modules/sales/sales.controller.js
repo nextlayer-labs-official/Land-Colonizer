@@ -175,6 +175,15 @@ async function archiveSale(req, res) {
   res.json({ message: 'Archived' });
 }
 
+async function unarchiveSale(req, res) {
+  const id = Number(req.params.id);
+  const s  = await prisma.sale.findUnique({ where: { id } });
+  await prisma.sale.update({ where: { id }, data: { archived: false } });
+  if (s?.inventory_id) syncInventoryStatus(s.inventory_id);
+  auditLog({ req, action: 'UNARCHIVE', entity: 'sale', entityId: id, entityCode: s?.sale_code });
+  res.json({ message: 'Unarchived' });
+}
+
 async function deleteSale(req, res) {
   const id = Number(req.params.id);
   const s  = await prisma.sale.findUnique({ where: { id } });
@@ -184,4 +193,4 @@ async function deleteSale(req, res) {
   res.json({ message: 'Deleted' });
 }
 
-module.exports = { getSales, getSaleById, createSale, updateSale, archiveSale, deleteSale };
+module.exports = { getSales, getSaleById, createSale, updateSale, archiveSale, unarchiveSale, deleteSale };

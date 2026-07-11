@@ -11,13 +11,14 @@ const ACTION_COLORS = {
   UPDATE:          { bg: '#dbeafe', color: '#1d4ed8' },
   DELETE:          { bg: '#fee2e2', color: '#b91c1c' },
   ARCHIVE:         { bg: '#fef9c3', color: '#a16207' },
+  UNARCHIVE:       { bg: '#e0f2fe', color: '#0369a1' },
   LOGIN:           { bg: '#f3e8ff', color: '#7e22ce' },
   LOGIN_FAILED:    { bg: '#fee2e2', color: '#b91c1c' },
   PASSWORD_CHANGE: { bg: '#ffedd5', color: '#c2410c' },
 };
 
 const ENTITIES = ['sale', 'purchase', 'inventory', 'customer', 'broker', 'project', 'user', 'role', 'settings', 'auth'];
-const ACTIONS  = ['CREATE', 'UPDATE', 'DELETE', 'ARCHIVE', 'LOGIN', 'LOGIN_FAILED', 'PASSWORD_CHANGE'];
+const ACTIONS  = ['CREATE', 'UPDATE', 'DELETE', 'ARCHIVE', 'UNARCHIVE', 'LOGIN', 'LOGIN_FAILED', 'PASSWORD_CHANGE'];
 
 function ActionBadge({ action }) {
   const style = ACTION_COLORS[action] || { bg: '#f3f4f6', color: '#374151' };

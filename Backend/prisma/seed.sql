@@ -37,7 +37,8 @@ INSERT IGNORE INTO `Permission` (`module_id`, `action`, `code`, `created_at`)
 SELECT m.id, 'VIEW',   'PURCHASE_VIEW',   NOW() FROM `Module` m WHERE m.slug = 'purchase' UNION ALL
 SELECT m.id, 'CREATE', 'PURCHASE_CREATE', NOW() FROM `Module` m WHERE m.slug = 'purchase' UNION ALL
 SELECT m.id, 'EDIT',   'PURCHASE_EDIT',   NOW() FROM `Module` m WHERE m.slug = 'purchase' UNION ALL
-SELECT m.id, 'DELETE', 'PURCHASE_DELETE', NOW() FROM `Module` m WHERE m.slug = 'purchase';
+SELECT m.id, 'DELETE',  'PURCHASE_DELETE',  NOW() FROM `Module` m WHERE m.slug = 'purchase' UNION ALL
+SELECT m.id, 'ARCHIVE', 'PURCHASE_ARCHIVE', NOW() FROM `Module` m WHERE m.slug = 'purchase';
 
 -- Permissions: INVENTORY
 INSERT IGNORE INTO `Permission` (`module_id`, `action`, `code`, `created_at`)
@@ -51,7 +52,8 @@ INSERT IGNORE INTO `Permission` (`module_id`, `action`, `code`, `created_at`)
 SELECT m.id, 'VIEW',   'SALE_VIEW',   NOW() FROM `Module` m WHERE m.slug = 'sale' UNION ALL
 SELECT m.id, 'CREATE', 'SALE_CREATE', NOW() FROM `Module` m WHERE m.slug = 'sale' UNION ALL
 SELECT m.id, 'EDIT',   'SALE_EDIT',   NOW() FROM `Module` m WHERE m.slug = 'sale' UNION ALL
-SELECT m.id, 'DELETE', 'SALE_DELETE', NOW() FROM `Module` m WHERE m.slug = 'sale';
+SELECT m.id, 'DELETE',  'SALE_DELETE',  NOW() FROM `Module` m WHERE m.slug = 'sale' UNION ALL
+SELECT m.id, 'ARCHIVE', 'SALE_ARCHIVE', NOW() FROM `Module` m WHERE m.slug = 'sale';
 
 -- Permissions: PROJECT
 INSERT IGNORE INTO `Permission` (`module_id`, `action`, `code`, `created_at`)

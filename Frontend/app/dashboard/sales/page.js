@@ -43,34 +43,19 @@ function effBalance(r) {
   return Math.max(0, bal - instPaid);
 }
 
-function ArchiveModal({ item, onClose, onConfirm, archiving }) {
+function ConfirmModal({ title, message, confirmLabel, confirmClass, item, onClose, onConfirm, busy }) {
   if (!item) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/40" onClick={onClose} />
       <div className="relative bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4">
-        <h3 className="text-base font-semibold text-gray-900 mb-1">Archive sale?</h3>
-        <p className="text-sm text-gray-500 mb-5"><strong>{item.sale_code || `Sale #${item.id}`}</strong> will be hidden from the list.</p>
+        <h3 className="text-base font-semibold text-gray-900 mb-1">{title}</h3>
+        <p className="text-sm text-gray-500 mb-5">{message}</p>
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="px-4 h-8 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
-          <button onClick={onConfirm} disabled={archiving} className="px-4 h-8 text-sm rounded-lg text-white bg-amber-500 hover:bg-amber-600 min-w-[90px]">{archiving ? 'Archiving…' : 'Archive'}</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DeleteModal({ item, onClose, onConfirm, deleting }) {
-  if (!item) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4">
-        <h3 className="text-base font-semibold text-gray-900 mb-1">Delete sale?</h3>
-        <p className="text-sm text-gray-500 mb-5"><strong>{item.sale_code || `Sale #${item.id}`}</strong> will be permanently deleted.</p>
-        <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="px-4 h-8 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
-          <button onClick={onConfirm} disabled={deleting} className="px-4 h-8 text-sm rounded-lg text-white bg-red-500 hover:bg-red-600 min-w-[90px]">{deleting ? 'Deleting…' : 'Delete'}</button>
+          <button onClick={onConfirm} disabled={busy} className={`px-4 h-8 text-sm rounded-lg text-white min-w-[90px] ${confirmClass}`}>
+            {busy ? `${confirmLabel}…` : confirmLabel}
+          </button>
         </div>
       </div>
     </div>
@@ -87,10 +72,13 @@ export default function SalesPage() {
   const [total,   setTotal]   = useState(0);
   const [page,    setPage]    = useState(1);
   const [loading, setLoading] = useState(true);
-  const [delModal,  setDelModal]  = useState(null);
-  const [deleting,  setDeleting]  = useState(false);
-  const [archModal, setArchModal] = useState(null);
-  const [archiving, setArchiving] = useState(false);
+  const [delModal,       setDelModal]       = useState(null);
+  const [deleting,       setDeleting]       = useState(false);
+  const [archModal,      setArchModal]      = useState(null);
+  const [archiving,      setArchiving]      = useState(false);
+  const [unarchModal,    setUnarchModal]    = useState(null);
+  const [unarchiving,    setUnarchiving]    = useState(false);
+  const [showArchived,   setShowArchived]   = useState(false);
 
   const [search,       setSearch]       = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -104,7 +92,7 @@ export default function SalesPage() {
   const load = useCallback(async (p = 1) => {
     setLoading(true);
     try {
-      const q = new URLSearchParams({ page: p, limit: LIMIT });
+      const q = new URLSearchParams({ page: p, limit: LIMIT, archived: showArchived ? 'true' : 'false' });
       if (search)       q.set('search', search);
       if (statusFilter) q.set('status', statusFilter);
       const data = await apiGet(`/sales?${q}`);
@@ -112,9 +100,9 @@ export default function SalesPage() {
       setTotal(data.total || 0);
       setPage(p);
     } finally { setLoading(false); }
-  }, [search, statusFilter]);
+  }, [search, statusFilter, showArchived]);
 
-  useEffect(() => { load(1); }, [search, statusFilter]);
+  useEffect(() => { load(1); }, [search, statusFilter, showArchived]);
 
   useEffect(() => {
     const h = (e) => {
@@ -127,7 +115,7 @@ export default function SalesPage() {
 
   const handleExport = async (format) => {
     setExportOpen(false);
-    const q = new URLSearchParams({ page: 1, limit: 9999 });
+    const q = new URLSearchParams({ page: 1, limit: 9999, archived: showArchived ? 'true' : 'false' });
     if (search)       q.set('search', search);
     if (statusFilter) q.set('status', statusFilter);
     const data  = await apiGet(`/sales?${q}`);
@@ -165,6 +153,15 @@ export default function SalesPage() {
     } finally { setArchiving(false); }
   };
 
+  const handleUnarchive = async () => {
+    setUnarchiving(true);
+    try {
+      await apiPatch(`/sales/${unarchModal.id}/unarchive`);
+      setUnarchModal(null);
+      load(rows.length === 1 && page > 1 ? page - 1 : page);
+    } finally { setUnarchiving(false); }
+  };
+
   const handleDelete = async () => {
     setDeleting(true);
     try {
@@ -176,7 +173,7 @@ export default function SalesPage() {
 
   const totalPages = Math.ceil(total / LIMIT);
   const canCreate  = can('SALE_CREATE')  || me?.is_system;
-  const canDelete  = can('SALE_DELETE')  || me?.is_system;
+  const canArchive = can('SALE_ARCHIVE') || me?.is_system;
   const from = total === 0 ? 0 : (page - 1) * LIMIT + 1;
   const to   = Math.min(page * LIMIT, total);
 
@@ -185,9 +182,19 @@ export default function SalesPage() {
 
       {/* Control panel */}
       <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-center gap-2 flex-wrap">
-        {canCreate && (
+        {canCreate && !showArchived && (
           <button onClick={() => router.push('/dashboard/sales/new')} className="btn-primary text-sm h-8 px-4">New</button>
         )}
+
+        {/* Archived toggle */}
+        <button
+          onClick={() => { setShowArchived(v => !v); setSearch(''); setStatusFilter(''); }}
+          className={`flex items-center gap-1.5 h-8 px-3 text-sm border rounded transition-colors font-medium ${showArchived ? 'bg-amber-50 border-amber-200 text-amber-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12"/>
+          </svg>
+          {showArchived ? 'Archived' : 'Archive'}
+        </button>
 
         {/* Export */}
         <div className="relative" ref={exportRef}>
@@ -211,26 +218,28 @@ export default function SalesPage() {
 
         <div className="w-px h-5 bg-gray-200 mx-1" />
 
-        {/* Filter dropdown */}
-        <div className="relative" ref={filterRef}>
-          <button onClick={() => setShowFilter(v => !v)}
-            className={`flex items-center gap-1 text-sm h-8 px-3 rounded border transition-colors ${statusFilter ? 'bg-[#875A7B]/10 border-[#875A7B]/30 text-[#875A7B] font-medium' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-            Filters {statusFilter && '(1)'}
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-          </button>
-          {showFilter && (
-            <div className="absolute left-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-30 py-1">
-              <p className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</p>
-              {[['', 'All'], ['ACTIVE', 'Active'], ['INACTIVE', 'Inactive']].map(([v, label]) => (
-                <button key={v} onClick={() => { setStatusFilter(v); setShowFilter(false); }}
-                  className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${statusFilter === v ? 'text-[#875A7B] font-medium' : 'text-gray-700'}`}>
-                  {label}
-                  {statusFilter === v && <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Filter dropdown (only when not in archived view) */}
+        {!showArchived && (
+          <div className="relative" ref={filterRef}>
+            <button onClick={() => setShowFilter(v => !v)}
+              className={`flex items-center gap-1 text-sm h-8 px-3 rounded border transition-colors ${statusFilter ? 'bg-[#875A7B]/10 border-[#875A7B]/30 text-[#875A7B] font-medium' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+              Filters {statusFilter && '(1)'}
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+            </button>
+            {showFilter && (
+              <div className="absolute left-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-30 py-1">
+                <p className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</p>
+                {[['', 'All'], ['ACTIVE', 'Active'], ['INACTIVE', 'Inactive']].map(([v, label]) => (
+                  <button key={v} onClick={() => { setStatusFilter(v); setShowFilter(false); }}
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${statusFilter === v ? 'text-[#875A7B] font-medium' : 'text-gray-700'}`}>
+                    {label}
+                    {statusFilter === v && <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {statusFilter && (
           <span className="inline-flex items-center gap-1 bg-[#875A7B]/10 text-[#875A7B] text-xs font-medium px-2 py-1 rounded-full">
@@ -276,8 +285,8 @@ export default function SalesPage() {
                 <td colSpan={11} className="px-4 py-20 text-center">
                   <div className="flex flex-col items-center gap-3 text-gray-400">
                     <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" /></svg>
-                    <p className="text-sm font-medium text-gray-500">No sales found</p>
-                    {canCreate && <button onClick={() => router.push('/dashboard/sales/new')} className="btn-primary text-sm mt-1">New Sale</button>}
+                    <p className="text-sm font-medium text-gray-500">{showArchived ? 'No archived sales' : 'No sales found'}</p>
+                    {canCreate && !showArchived && <button onClick={() => router.push('/dashboard/sales/new')} className="btn-primary text-sm mt-1">New Sale</button>}
                   </div>
                 </td>
               </tr>
@@ -325,10 +334,13 @@ export default function SalesPage() {
                     <svg className="w-4 h-4 animate-spin text-[#875A7B] inline-block" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z"/></svg>
                   ) : (
                     <div className="flex items-center justify-end gap-1">
-                      {canDelete && (
+                      {canArchive && !showArchived && (
                         <button onClick={() => setArchModal(row)} className="text-amber-500 hover:text-amber-700 text-xs hover:bg-amber-50 px-2 py-1 rounded transition">Archive</button>
                       )}
-                      {me?.is_system && (
+                      {canArchive && showArchived && (
+                        <button onClick={() => setUnarchModal(row)} className="text-sky-600 hover:text-sky-800 text-xs hover:bg-sky-50 px-2 py-1 rounded transition">Unarchive</button>
+                      )}
+                      {me?.is_system && showArchived && (
                         <button onClick={() => setDelModal(row)} className="text-red-400 hover:text-red-600 text-xs hover:bg-red-50 px-2 py-1 rounded transition">Delete</button>
                       )}
                     </div>
@@ -340,8 +352,36 @@ export default function SalesPage() {
         </table>
       </div>
 
-      <ArchiveModal item={archModal} onClose={() => setArchModal(null)} onConfirm={handleArchive} archiving={archiving} />
-      <DeleteModal item={delModal} onClose={() => setDelModal(null)} onConfirm={handleDelete} deleting={deleting} />
+      <ConfirmModal
+        title="Archive sale?"
+        message={archModal ? `${archModal.sale_code || `Sale #${archModal.id}`} will be hidden from the active list.` : ''}
+        confirmLabel="Archive"
+        confirmClass="bg-amber-500 hover:bg-amber-600"
+        item={archModal}
+        onClose={() => setArchModal(null)}
+        onConfirm={handleArchive}
+        busy={archiving}
+      />
+      <ConfirmModal
+        title="Unarchive sale?"
+        message={unarchModal ? `${unarchModal.sale_code || `Sale #${unarchModal.id}`} will be restored to the active list.` : ''}
+        confirmLabel="Unarchive"
+        confirmClass="bg-sky-600 hover:bg-sky-700"
+        item={unarchModal}
+        onClose={() => setUnarchModal(null)}
+        onConfirm={handleUnarchive}
+        busy={unarchiving}
+      />
+      <ConfirmModal
+        title="Delete sale?"
+        message={delModal ? `${delModal.sale_code || `Sale #${delModal.id}`} will be permanently deleted.` : ''}
+        confirmLabel="Delete"
+        confirmClass="bg-red-500 hover:bg-red-600"
+        item={delModal}
+        onClose={() => setDelModal(null)}
+        onConfirm={handleDelete}
+        busy={deleting}
+      />
     </div>
   );
 }

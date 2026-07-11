@@ -68,6 +68,7 @@ enum PermissionAction {
   DELETE
   APPROVE
   FINANCE
+  ARCHIVE
 }
 
 model RolePermission {
