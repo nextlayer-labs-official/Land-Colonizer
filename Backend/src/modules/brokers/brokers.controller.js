@@ -1,4 +1,5 @@
 const prisma = require('../../lib/prisma');
+const { auditLog, diff } = require('../../lib/audit');
 
 function sanitize(body) {
   const str = (v) => (v !== undefined && v !== '' && v !== null ? String(v).trim() : null);
@@ -65,20 +66,24 @@ async function createBroker(req, res) {
     where: { id: b.id },
     data:  { broker_code: `${prefix}-${String(b.id).padStart(4, '0')}` },
   });
+  auditLog({ req, action: 'CREATE', entity: 'broker', entityId: updated.id, entityCode: updated.broker_code });
   res.status(201).json(updated);
 }
 
 async function updateBroker(req, res) {
   if (!req.body.name?.trim()) return res.status(400).json({ message: 'Name is required' });
-  const b = await prisma.broker.update({
-    where: { id: Number(req.params.id) },
-    data:  sanitize(req.body),
-  });
+  const id   = Number(req.params.id);
+  const prev = await prisma.broker.findUnique({ where: { id } });
+  const b    = await prisma.broker.update({ where: { id }, data: sanitize(req.body) });
+  auditLog({ req, action: 'UPDATE', entity: 'broker', entityId: b.id, entityCode: b.broker_code, changes: diff(prev, b) });
   res.json(b);
 }
 
 async function deleteBroker(req, res) {
-  await prisma.broker.delete({ where: { id: Number(req.params.id) } });
+  const id = Number(req.params.id);
+  const b  = await prisma.broker.findUnique({ where: { id } });
+  await prisma.broker.delete({ where: { id } });
+  auditLog({ req, action: 'DELETE', entity: 'broker', entityId: id, entityCode: b?.broker_code });
   res.json({ message: 'Deleted' });
 }
 

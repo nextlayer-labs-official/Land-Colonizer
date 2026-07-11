@@ -1,5 +1,6 @@
 const bcrypt = require('bcrypt');
 const prisma  = require('../../lib/prisma');
+const { auditLog, diff } = require('../../lib/audit');
 
 const userSelect = {
   id: true, name: true, email: true, phone: true,
@@ -50,7 +51,7 @@ const createUser = async (req, res) => {
     data: { name, email, phone, password: hashed, role_id: Number(role_id), status: status || 'ACTIVE' },
     select: userSelect,
   });
-
+  auditLog({ req, action: 'CREATE', entity: 'user', entityId: user.id, entityCode: user.email });
   res.status(201).json(user);
 };
 
@@ -82,7 +83,8 @@ const updateUser = async (req, res) => {
     },
     select: userSelect,
   });
-
+  auditLog({ req, action: 'UPDATE', entity: 'user', entityId: id, entityCode: user.email,
+    changes: diff({ name: exists.name, email: exists.email, phone: exists.phone, status: exists.status }, user) });
   res.json(user);
 };
 
@@ -91,6 +93,7 @@ const deleteUser = async (req, res) => {
   const exists = await prisma.user.findUnique({ where: { id } });
   if (!exists) return res.status(404).json({ message: 'User not found' });
   await prisma.user.delete({ where: { id } });
+  auditLog({ req, action: 'DELETE', entity: 'user', entityId: id, entityCode: exists.email });
   res.json({ message: 'User deleted successfully' });
 };
 

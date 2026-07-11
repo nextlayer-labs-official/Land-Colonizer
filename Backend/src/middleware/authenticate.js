@@ -17,6 +17,7 @@ module.exports = async (req, res, next) => {
       where: { id: decoded.id },
       select: {
         id: true,
+        name: true,
         email: true,
         status: true,
         role: {
@@ -37,6 +38,7 @@ module.exports = async (req, res, next) => {
 
     req.user = {
       id:          user.id,
+      name:        user.name,
       email:       user.email,
       role:        user.role.slug,
       is_system:   user.role.is_system,

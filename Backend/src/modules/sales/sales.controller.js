@@ -1,5 +1,6 @@
 const prisma = require('../../lib/prisma');
 const { syncInventoryStatus } = require('../inventory/inventory.controller');
+const { auditLog, diff } = require('../../lib/audit');
 
 const SALE_TYPES        = ['PLOT', 'SHOP', 'LAND', 'FLAT'];
 const POSSESSION_STATES = ['PENDING', 'SYMBOLIC', 'PHYSICAL'];
@@ -151,32 +152,35 @@ async function createSale(req, res) {
     include: INCLUDE,
   });
   if (data.inventory_id) syncInventoryStatus(data.inventory_id);
+  auditLog({ req, action: 'CREATE', entity: 'sale', entityId: updated.id, entityCode: updated.sale_code });
   res.status(201).json(updated);
 }
 
 async function updateSale(req, res) {
+  const id   = Number(req.params.id);
+  const prev = await prisma.sale.findUnique({ where: { id } });
   const data = sanitize(req.body);
-  const s = await prisma.sale.update({
-    where:   { id: Number(req.params.id) },
-    data,
-    include: INCLUDE,
-  });
+  const s = await prisma.sale.update({ where: { id }, data, include: INCLUDE });
   if (s.inventory_id) syncInventoryStatus(s.inventory_id);
+  auditLog({ req, action: 'UPDATE', entity: 'sale', entityId: s.id, entityCode: s.sale_code, changes: diff(prev, s) });
   res.json(s);
 }
 
 async function archiveSale(req, res) {
   const id = Number(req.params.id);
-  const s  = await prisma.sale.findUnique({ where: { id }, select: { inventory_id: true } });
+  const s  = await prisma.sale.findUnique({ where: { id } });
   await prisma.sale.update({ where: { id }, data: { archived: true } });
   if (s?.inventory_id) syncInventoryStatus(s.inventory_id);
+  auditLog({ req, action: 'ARCHIVE', entity: 'sale', entityId: id, entityCode: s?.sale_code });
   res.json({ message: 'Archived' });
 }
 
 async function deleteSale(req, res) {
-  const s = await prisma.sale.findUnique({ where: { id: Number(req.params.id) }, select: { inventory_id: true } });
-  await prisma.sale.delete({ where: { id: Number(req.params.id) } });
+  const id = Number(req.params.id);
+  const s  = await prisma.sale.findUnique({ where: { id } });
+  await prisma.sale.delete({ where: { id } });
   if (s?.inventory_id) syncInventoryStatus(s.inventory_id);
+  auditLog({ req, action: 'DELETE', entity: 'sale', entityId: id, entityCode: s?.sale_code });
   res.json({ message: 'Deleted' });
 }
 

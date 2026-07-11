@@ -1,4 +1,5 @@
 const prisma = require('../../lib/prisma');
+const { auditLog, diff } = require('../../lib/audit');
 
 function sanitize(body) {
   const str = (v) => (v !== undefined && v !== '' && v !== null ? String(v).trim() : null);
@@ -76,20 +77,24 @@ async function createCustomer(req, res) {
     where: { id: c.id },
     data:  { customer_code: `${prefix}-${String(c.id).padStart(4, '0')}` },
   });
+  auditLog({ req, action: 'CREATE', entity: 'customer', entityId: updated.id, entityCode: updated.customer_code });
   res.status(201).json(updated);
 }
 
 async function updateCustomer(req, res) {
   if (!req.body.name?.trim()) return res.status(400).json({ message: 'Name is required' });
-  const c = await prisma.customer.update({
-    where: { id: Number(req.params.id) },
-    data:  sanitize(req.body),
-  });
+  const id   = Number(req.params.id);
+  const prev = await prisma.customer.findUnique({ where: { id } });
+  const c    = await prisma.customer.update({ where: { id }, data: sanitize(req.body) });
+  auditLog({ req, action: 'UPDATE', entity: 'customer', entityId: c.id, entityCode: c.customer_code, changes: diff(prev, c) });
   res.json(c);
 }
 
 async function deleteCustomer(req, res) {
-  await prisma.customer.delete({ where: { id: Number(req.params.id) } });
+  const id = Number(req.params.id);
+  const c  = await prisma.customer.findUnique({ where: { id } });
+  await prisma.customer.delete({ where: { id } });
+  auditLog({ req, action: 'DELETE', entity: 'customer', entityId: id, entityCode: c?.customer_code });
   res.json({ message: 'Deleted' });
 }
 

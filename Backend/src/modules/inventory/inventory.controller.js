@@ -1,4 +1,5 @@
 const prisma = require('../../lib/prisma');
+const { auditLog, diff } = require('../../lib/audit');
 
 async function getPrefix() {
   const s = await prisma.companySettings.findFirst();
@@ -123,41 +124,36 @@ async function createInventory(req, res) {
   const inv = await prisma.inventory.create({ data, include: INCLUDE });
 
   const inventory_code = `${prefix}-${String(inv.id).padStart(4, '0')}`;
-  const updated = await prisma.inventory.update({
-    where: { id: inv.id },
-    data:  { inventory_code },
-    include: INCLUDE,
-  });
-
+  const updated = await prisma.inventory.update({ where: { id: inv.id }, data: { inventory_code }, include: INCLUDE });
+  auditLog({ req, action: 'CREATE', entity: 'inventory', entityId: updated.id, entityCode: updated.inventory_code });
   res.status(201).json(withComputed(updated));
 }
 
 async function updateInventory(req, res) {
+  const id   = Number(req.params.id);
+  const prev = await prisma.inventory.findUnique({ where: { id } });
   const data = sanitize(req.body);
-
-  const inv = await prisma.inventory.update({
-    where: { id: Number(req.params.id) },
-    data,
-    include: INCLUDE,
-  });
+  const inv  = await prisma.inventory.update({ where: { id }, data, include: INCLUDE });
+  auditLog({ req, action: 'UPDATE', entity: 'inventory', entityId: inv.id, entityCode: inv.inventory_code, changes: diff(prev, inv) });
   res.json(withComputed(inv));
 }
 
 async function patchInventory(req, res) {
+  const id   = Number(req.params.id);
   const data = {};
   if (req.body.project_id !== undefined)
     data.project_id = req.body.project_id === null ? null : Number(req.body.project_id);
 
-  const inv = await prisma.inventory.update({
-    where: { id: Number(req.params.id) },
-    data,
-    include: INCLUDE,
-  });
+  const inv = await prisma.inventory.update({ where: { id }, data, include: INCLUDE });
+  auditLog({ req, action: 'UPDATE', entity: 'inventory', entityId: inv.id, entityCode: inv.inventory_code, changes: data });
   res.json(withComputed(inv));
 }
 
 async function deleteInventory(req, res) {
-  await prisma.inventory.delete({ where: { id: Number(req.params.id) } });
+  const id  = Number(req.params.id);
+  const inv = await prisma.inventory.findUnique({ where: { id } });
+  await prisma.inventory.delete({ where: { id } });
+  auditLog({ req, action: 'DELETE', entity: 'inventory', entityId: id, entityCode: inv?.inventory_code });
   res.json({ message: 'Deleted' });
 }
 

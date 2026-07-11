@@ -1,4 +1,5 @@
 const prisma = require('../../lib/prisma');
+const { auditLog } = require('../../lib/audit');
 
 const permissionSelect = {
   id: true,
@@ -101,6 +102,7 @@ const createRole = async (req, res) => {
     }),
   ]);
 
+  auditLog({ req, action: 'CREATE', entity: 'role', entityId: created.id, entityCode: slug });
   res.status(201).json(mergePermissions(role, allPermissions));
 };
 
@@ -128,6 +130,7 @@ const updateRolePermissions = async (req, res) => {
     )
   );
 
+  auditLog({ req, action: 'UPDATE', entity: 'role', entityId: roleId, entityCode: role.slug });
   res.json({ message: 'Permissions updated successfully' });
 };
 
@@ -147,7 +150,7 @@ const deleteRole = async (req, res) => {
 
   await prisma.rolePermission.deleteMany({ where: { role_id: roleId } });
   await prisma.role.delete({ where: { id: roleId } });
-
+  auditLog({ req, action: 'DELETE', entity: 'role', entityId: roleId, entityCode: role.slug });
   res.json({ message: 'Role deleted successfully' });
 };
 

@@ -1,4 +1,5 @@
 const prisma = require('../../lib/prisma');
+const { auditLog, diff } = require('../../lib/audit');
 
 // Compute formula fields from stored values
 function withComputed(p) {
@@ -153,45 +154,40 @@ async function createPurchase(req, res) {
   const prefix = await getPurchasePrefix();
   const p = await prisma.purchase.create({ data: sanitize(req.body) });
 
-  // Auto-generate purchase_code using the new record's ID
   const purchase_code = `${prefix}-${String(p.id).padStart(4, '0')}`;
-  const updated = await prisma.purchase.update({
-    where: { id: p.id },
-    data:  { purchase_code },
-  });
-
+  const updated = await prisma.purchase.update({ where: { id: p.id }, data: { purchase_code } });
+  auditLog({ req, action: 'CREATE', entity: 'purchase', entityId: updated.id, entityCode: updated.purchase_code });
   res.status(201).json(withComputed(updated));
 }
 
 async function updatePurchase(req, res) {
-  const p = await prisma.purchase.update({
-    where: { id: Number(req.params.id) },
-    data:  sanitize(req.body),
-  });
-
+  const id   = Number(req.params.id);
+  const prev = await prisma.purchase.findUnique({ where: { id } });
+  const p    = await prisma.purchase.update({ where: { id }, data: sanitize(req.body) });
+  auditLog({ req, action: 'UPDATE', entity: 'purchase', entityId: p.id, entityCode: p.purchase_code, changes: diff(prev, p) });
   res.json(withComputed(p));
 }
 
 async function archivePurchase(req, res) {
   const id = Number(req.params.id);
+  const p  = await prisma.purchase.findUnique({ where: { id } });
   await prisma.purchase.update({ where: { id }, data: { archived: true } });
+  auditLog({ req, action: 'ARCHIVE', entity: 'purchase', entityId: id, entityCode: p?.purchase_code });
   res.json({ message: 'Archived' });
 }
 
 async function deletePurchase(req, res) {
   const id = Number(req.params.id);
 
-  // Block delete if any linked inventory unit has a sale
-  const saleExists = await prisma.sale.findFirst({
-    where: { inventory: { purchase_id: id } },
-  });
+  const saleExists = await prisma.sale.findFirst({ where: { inventory: { purchase_id: id } } });
   if (saleExists) {
     return res.status(400).json({ message: 'Cannot delete: one or more inventory units linked to this purchase have an existing sale.' });
   }
 
-  // Delete linked inventory units first, then the purchase
+  const p = await prisma.purchase.findUnique({ where: { id } });
   await prisma.inventory.deleteMany({ where: { purchase_id: id } });
   await prisma.purchase.deleteMany({ where: { id } });
+  auditLog({ req, action: 'DELETE', entity: 'purchase', entityId: id, entityCode: p?.purchase_code });
   res.json({ message: 'Deleted' });
 }
 

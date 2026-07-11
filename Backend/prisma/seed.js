@@ -16,8 +16,9 @@ async function main() {
 
   // ── Modules & Permissions ─────────────────────────────────────────────────────
   const moduleDefs = [
-    { name: 'USER', slug: 'user', description: 'User management' },
-    { name: 'ROLE', slug: 'role', description: 'Roles & permissions' },
+    { name: 'USER',  slug: 'user',  description: 'User management' },
+    { name: 'ROLE',  slug: 'role',  description: 'Roles & permissions' },
+    { name: 'AUDIT', slug: 'audit', description: 'Audit logs' },
   ];
 
   for (const mod of moduleDefs) {
@@ -33,10 +34,11 @@ async function main() {
     { module: 'user', action: 'CREATE', code: 'USER_CREATE' },
     { module: 'user', action: 'EDIT',   code: 'USER_EDIT'   },
     { module: 'user', action: 'DELETE', code: 'USER_DELETE' },
-    { module: 'role', action: 'VIEW',   code: 'ROLE_VIEW'   },
-    { module: 'role', action: 'CREATE', code: 'ROLE_CREATE' },
-    { module: 'role', action: 'EDIT',   code: 'ROLE_EDIT'   },
-    { module: 'role', action: 'DELETE', code: 'ROLE_DELETE' },
+    { module: 'role',  action: 'VIEW',   code: 'ROLE_VIEW'   },
+    { module: 'role',  action: 'CREATE', code: 'ROLE_CREATE' },
+    { module: 'role',  action: 'EDIT',   code: 'ROLE_EDIT'   },
+    { module: 'role',  action: 'DELETE', code: 'ROLE_DELETE' },
+    { module: 'audit', action: 'VIEW',   code: 'AUDIT_VIEW'  },
   ];
 
   for (const pd of permissionDefs) {

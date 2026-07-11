@@ -1,5 +1,6 @@
 const prisma = require('../../lib/prisma');
 const { sendMail } = require('../../lib/mailer');
+const { auditLog, diff } = require('../../lib/audit');
 
 // ── Get settings (always returns one row) ─────────────────────────────────────
 const getSettings = async (req, res) => {
@@ -37,6 +38,7 @@ const updateCompanyInfo = async (req, res) => {
   });
 
   const { smtp_pass, ...safe } = updated;
+  auditLog({ req, action: 'UPDATE', entity: 'settings', entityCode: 'company_info' });
   res.json({ ...safe, smtp_pass_set: !!smtp_pass });
 };
 
@@ -67,6 +69,7 @@ const updateEmailSettings = async (req, res) => {
 
   const updated = await prisma.companySettings.update({ where: { id: settings.id }, data });
   const { smtp_pass: _, ...safe } = updated;
+  auditLog({ req, action: 'UPDATE', entity: 'settings', entityCode: 'email_settings' });
   res.json({ ...safe, smtp_pass_set: !!updated.smtp_pass });
 };
 
@@ -99,6 +102,7 @@ const updateSecuritySettings = async (req, res) => {
   });
 
   const { smtp_pass, ...safe } = updated;
+  auditLog({ req, action: 'UPDATE', entity: 'settings', entityCode: 'security_settings' });
   res.json({ ...safe, smtp_pass_set: !!smtp_pass });
 };
 

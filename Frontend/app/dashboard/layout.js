@@ -56,7 +56,8 @@ export default function DashboardLayout({ children }) {
     { label: 'Reports',    href: '/dashboard/reports',   perm: 'REPORTS_VIEW'   },
     { label: 'Users',      href: '/dashboard/users',     perm: 'USER_VIEW'      },
     { label: 'Roles',      href: '/dashboard/roles',     perm: 'ROLE_VIEW'      },
-    { label: 'Settings',   href: '/dashboard/settings',  perm: 'SETTINGS_VIEW'  },
+    { label: 'Settings',    href: '/dashboard/settings',    perm: 'SETTINGS_VIEW'  },
+    { label: 'Audit Logs', href: '/dashboard/audit-logs', perm: 'AUDIT_VIEW'     },
   ];
 
   const isVisible = (perm) => {

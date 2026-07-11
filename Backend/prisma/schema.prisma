@@ -539,3 +539,21 @@ enum InventoryStatus {
   SOLD
   REGISTERED
 }
+
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  user_id     Int?
+  user_name   String?
+  user_email  String?
+  action      String
+  entity      String
+  entity_id   Int?
+  entity_code String?
+  changes     Json?
+  ip_address  String?
+  created_at  DateTime @default(now())
+
+  @@index([entity, entity_id])
+  @@index([user_id])
+  @@index([created_at])
+}

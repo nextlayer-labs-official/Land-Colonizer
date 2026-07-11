@@ -2,6 +2,7 @@ const bcrypt = require('bcrypt');
 const jwt    = require('jsonwebtoken');
 const prisma  = require('../../lib/prisma');
 const { resetLoginAttempts } = require('../../middleware/rateLimiter');
+const { auditLog } = require('../../lib/audit');
 
 
 const login = async (req, res) => {
@@ -19,19 +20,23 @@ const login = async (req, res) => {
   });
 
   if (!user) {
+    auditLog({ req, action: 'LOGIN_FAILED', entity: 'auth', userEmail: email });
     return res.status(401).json({ message: 'Invalid credentials' });
   }
 
   if (user.status === 'INACTIVE') {
+    auditLog({ req, action: 'LOGIN_FAILED', entity: 'auth', userId: user.id, userName: user.name, userEmail: user.email });
     return res.status(403).json({ message: 'Account is inactive' });
   }
 
   const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) {
+    auditLog({ req, action: 'LOGIN_FAILED', entity: 'auth', userId: user.id, userName: user.name, userEmail: user.email });
     return res.status(401).json({ message: 'Invalid credentials' });
   }
 
   resetLoginAttempts(req.ip || 'unknown');
+  auditLog({ req, action: 'LOGIN', entity: 'auth', userId: user.id, userName: user.name, userEmail: user.email });
 
   const token = jwt.sign(
     { id: user.id, email: user.email, role: user.role.slug },
@@ -139,6 +144,7 @@ const changePassword = async (req, res) => {
 
   const hashed = await bcrypt.hash(new_password, 10);
   await prisma.user.update({ where: { id: req.user.id }, data: { password: hashed } });
+  auditLog({ req, action: 'PASSWORD_CHANGE', entity: 'auth', userId: req.user.id });
   res.json({ message: 'Password updated successfully' });
 };
 

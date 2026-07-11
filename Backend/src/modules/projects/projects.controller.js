@@ -1,4 +1,5 @@
 const prisma = require('../../lib/prisma');
+const { auditLog, diff } = require('../../lib/audit');
 
 async function getPrefix() {
   const s = await prisma.companySettings.findFirst();
@@ -81,26 +82,25 @@ async function createProject(req, res) {
   const project = await prisma.project.create({ data, include: INCLUDE });
   const prefix = await getPrefix();
   const project_code = `${prefix}-${String(project.id).padStart(4, '0')}`;
-  const updated = await prisma.project.update({
-    where: { id: project.id },
-    data: { project_code },
-    include: INCLUDE,
-  });
+  const updated = await prisma.project.update({ where: { id: project.id }, data: { project_code }, include: INCLUDE });
+  auditLog({ req, action: 'CREATE', entity: 'project', entityId: updated.id, entityCode: updated.project_code });
   res.status(201).json(withComputed(updated));
 }
 
 async function updateProject(req, res) {
+  const id   = Number(req.params.id);
+  const prev = await prisma.project.findUnique({ where: { id } });
   const data = sanitize(req.body);
-  const p = await prisma.project.update({
-    where: { id: Number(req.params.id) },
-    data,
-    include: INCLUDE,
-  });
+  const p    = await prisma.project.update({ where: { id }, data, include: INCLUDE });
+  auditLog({ req, action: 'UPDATE', entity: 'project', entityId: p.id, entityCode: p.project_code, changes: diff(prev, p) });
   res.json(withComputed(p));
 }
 
 async function deleteProject(req, res) {
-  await prisma.project.delete({ where: { id: Number(req.params.id) } });
+  const id = Number(req.params.id);
+  const p  = await prisma.project.findUnique({ where: { id } });
+  await prisma.project.delete({ where: { id } });
+  auditLog({ req, action: 'DELETE', entity: 'project', entityId: id, entityCode: p?.project_code });
   res.json({ message: 'Deleted' });
 }
 
