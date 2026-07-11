@@ -94,18 +94,24 @@ function DeleteRoleModal({ role, onClose, onDeleted }) {
   );
 }
 
-// ── Permission Toggle Panel ───────────────────────────────────────────────────
+// ── Permission Matrix Panel ───────────────────────────────────────────────────
+const MODULE_ORDER = ['USER','ROLE','PURCHASE','CUSTOMER','SALE','INVENTORY','BROKER','PROJECT','SETTINGS','REPORTS','AUDIT'];
+const ACTION_ORDER = ['VIEW','CREATE','EDIT','DELETE','ARCHIVE','APPROVE','FINANCE'];
+const ACTION_COLORS = {
+  VIEW:    { on: '#dbeafe', text: '#1d4ed8', border: '#93c5fd' },
+  CREATE:  { on: '#dcfce7', text: '#15803d', border: '#86efac' },
+  EDIT:    { on: '#fef9c3', text: '#a16207', border: '#fde047' },
+  DELETE:  { on: '#fee2e2', text: '#b91c1c', border: '#fca5a5' },
+  ARCHIVE: { on: '#ffedd5', text: '#c2410c', border: '#fdba74' },
+  APPROVE: { on: '#f3e8ff', text: '#7e22ce', border: '#d8b4fe' },
+  FINANCE: { on: '#d1fae5', text: '#065f46', border: '#6ee7b7' },
+};
+
 function PermissionPanel({ role, onClose, canEdit }) {
   const [permissions, setPermissions] = useState(role.rolePermissions);
   const [saving, setSaving]           = useState(false);
   const [saved, setSaved]             = useState(false);
   const [error, setError]             = useState('');
-
-  const groupByModule = (perms) => perms.reduce((g, rp) => {
-    const mod = rp.permission.module.name;
-    (g[mod] = g[mod] || []).push(rp);
-    return g;
-  }, {});
 
   const toggle = (permId) => {
     setPermissions((prev) => prev.map((rp) => rp.permission.id === permId ? { ...rp, allowed: !rp.allowed } : rp));
@@ -123,59 +129,171 @@ function PermissionPanel({ role, onClose, canEdit }) {
     finally { setSaving(false); }
   };
 
-  const groups = groupByModule(permissions);
+  // Build matrix: { MODULE: { ACTION: rolePermission } }
+  const matrix = {};
+  const actionsPresent = new Set();
+  for (const rp of permissions) {
+    const parts  = rp.permission.code.split('_');
+    const action = parts[parts.length - 1];
+    const mod    = rp.permission.module.name;
+    actionsPresent.add(action);
+    if (!matrix[mod]) matrix[mod] = {};
+    matrix[mod][action] = rp;
+  }
+  const cols = ACTION_ORDER.filter(a => actionsPresent.has(a));
+  const rows = MODULE_ORDER.filter(m => matrix[m]);
+
+  // Column "select all" toggle
+  const toggleCol = (action) => {
+    const colPerms = rows.map(m => matrix[m]?.[action]).filter(Boolean);
+    const allOn    = colPerms.every(rp => rp.allowed);
+    const ids      = new Set(colPerms.map(rp => rp.permission.id));
+    setPermissions(prev => prev.map(rp =>
+      ids.has(rp.permission.id) ? { ...rp, allowed: !allOn } : rp
+    ));
+    setSaved(false);
+  };
+
+  // Row "select all" toggle
+  const toggleRow = (mod) => {
+    const rowPerms = Object.values(matrix[mod] || {});
+    const allOn    = rowPerms.every(rp => rp.allowed);
+    const ids      = new Set(rowPerms.map(rp => rp.permission.id));
+    setPermissions(prev => prev.map(rp =>
+      ids.has(rp.permission.id) ? { ...rp, allowed: !allOn } : rp
+    ));
+    setSaved(false);
+  };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="w-full max-w-lg bg-white rounded-lg shadow-xl flex flex-col max-h-[85vh]">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <div>
-            <h2 className="text-base font-semibold text-gray-800">{role.name}</h2>
-            <p className="text-xs text-gray-400 mt-0.5">Permissions</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
+      <div className="w-full bg-white rounded-xl shadow-2xl flex flex-col" style={{ maxWidth: 900, maxHeight: '92vh' }}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center text-white text-sm font-bold shrink-0"
+              style={{ backgroundColor: '#714B67' }}>
+              {role.name.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-gray-800">{role.name}</h2>
+              <p className="text-xs text-gray-400">
+                {role.is_system ? 'System role — full access' : `${permissions.filter(rp => rp.allowed).length} of ${permissions.length} permissions granted`}
+              </p>
+            </div>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition text-xl leading-none">&times;</button>
         </div>
 
         {role.is_system ? (
-          <div className="px-6 py-8 text-center text-sm text-gray-500">
-            System roles have full access and cannot be modified.
+          <div className="flex-1 flex flex-col items-center justify-center gap-3 py-12 text-center px-6">
+            <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: '#f3eef6' }}>
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: '#714B67' }}>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+              </svg>
+            </div>
+            <p className="text-sm font-semibold text-gray-700">System Role</p>
+            <p className="text-sm text-gray-400 max-w-xs">This role has unrestricted access to all modules and cannot be modified.</p>
           </div>
         ) : (
           <>
-            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
-              {Object.entries(groups).map(([module, perms]) => (
-                <div key={module}>
-                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">{module}</h3>
-                  <div className="space-y-1.5">
-                    {perms.map((rp) => (
-                      <label key={rp.permission.id}
-                        className={`flex items-center justify-between px-4 py-2.5 rounded border cursor-pointer transition-colors ${
-                          rp.allowed ? 'border-[#c9afc3]' : 'border-gray-200 hover:bg-gray-50'
-                        } ${!canEdit ? 'cursor-default' : ''}`}
-                        style={rp.allowed ? { backgroundColor: 'var(--ams-primary-mid)' } : {}}>
-                        <div>
-                          <span className="text-sm font-medium text-gray-700">
-                            {rp.permission.code.split('_').slice(1).map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' ')}
-                          </span>
-                          <span className="ml-2 text-xs text-gray-400 font-mono">{rp.permission.code}</span>
-                        </div>
-                        <input type="checkbox" checked={rp.allowed}
-                          onChange={() => canEdit && toggle(rp.permission.id)}
-                          className="w-4 h-4" style={{ accentColor: 'var(--ams-primary)' }}
-                          disabled={!canEdit} />
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              ))}
+            {/* Matrix */}
+            <div className="flex-1 overflow-auto px-6 py-4">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr>
+                    <th className="text-left pb-3 pr-4 text-xs font-semibold text-gray-400 uppercase tracking-wider w-32">Module</th>
+                    {cols.map(action => {
+                      const c = ACTION_COLORS[action] || {};
+                      const colPerms = rows.map(m => matrix[m]?.[action]).filter(Boolean);
+                      const allOn    = colPerms.length > 0 && colPerms.every(rp => rp.allowed);
+                      return (
+                        <th key={action} className="pb-3 px-2 text-center">
+                          <div className="flex flex-col items-center gap-1.5">
+                            <span className="text-[10px] font-bold uppercase tracking-wider"
+                              style={{ color: c.text || '#6b7280' }}>
+                              {action.charAt(0) + action.slice(1).toLowerCase()}
+                            </span>
+                            {canEdit && colPerms.length > 0 && (
+                              <button onClick={() => toggleCol(action)}
+                                title={allOn ? `Revoke all ${action}` : `Grant all ${action}`}
+                                className="w-5 h-5 rounded border-2 flex items-center justify-center transition-colors"
+                                style={allOn
+                                  ? { backgroundColor: c.on, borderColor: c.border }
+                                  : { backgroundColor: '#f9fafb', borderColor: '#d1d5db' }}>
+                                {allOn && <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" style={{ color: c.text }}><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>}
+                              </button>
+                            )}
+                          </div>
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((mod, ri) => {
+                    const rowPerms = Object.values(matrix[mod] || {});
+                    const rowAllOn = rowPerms.length > 0 && rowPerms.every(rp => rp.allowed);
+                    return (
+                      <tr key={mod} className={`border-t border-gray-100 ${ri % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}`}>
+                        <td className="py-3 pr-4">
+                          <div className="flex items-center gap-2">
+                            {canEdit && (
+                              <button onClick={() => toggleRow(mod)}
+                                title={rowAllOn ? `Revoke all for ${mod}` : `Grant all for ${mod}`}
+                                className="w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors"
+                                style={rowAllOn
+                                  ? { backgroundColor: '#714B67', borderColor: '#714B67' }
+                                  : { backgroundColor: '#f9fafb', borderColor: '#d1d5db' }}>
+                                {rowAllOn && <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>}
+                              </button>
+                            )}
+                            <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">{mod}</span>
+                          </div>
+                        </td>
+                        {cols.map(action => {
+                          const rp = matrix[mod]?.[action];
+                          const c  = ACTION_COLORS[action] || {};
+                          if (!rp) return (
+                            <td key={action} className="py-3 px-2 text-center">
+                              <span className="text-gray-200 text-base">—</span>
+                            </td>
+                          );
+                          return (
+                            <td key={action} className="py-3 px-2 text-center">
+                              <button
+                                onClick={() => canEdit && toggle(rp.permission.id)}
+                                disabled={!canEdit}
+                                className="w-8 h-8 rounded-lg border-2 flex items-center justify-center mx-auto transition-all"
+                                style={rp.allowed
+                                  ? { backgroundColor: c.on || '#f3f4f6', borderColor: c.border || '#d1d5db' }
+                                  : { backgroundColor: '#f9fafb', borderColor: '#e5e7eb' }}
+                                title={`${rp.permission.code} — ${rp.allowed ? 'Allowed (click to revoke)' : 'Denied (click to grant)'}`}>
+                                {rp.allowed
+                                  ? <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" style={{ color: c.text || '#374151' }}><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
+                                  : <svg className="w-3.5 h-3.5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+                                }
+                              </button>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-            <div className="px-6 py-4 border-t border-gray-100 flex items-center gap-3">
-              {error && <p className="flex-1 text-sm text-red-600">{error}</p>}
-              {saved && !error && <p className="flex-1 text-sm text-green-600">Saved.</p>}
-              {!error && !saved && <span className="flex-1" />}
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-gray-100 flex items-center gap-3 shrink-0 bg-gray-50/50 rounded-b-xl">
+              <div className="flex-1">
+                {error && <p className="text-sm text-red-600">{error}</p>}
+                {saved && !error && <p className="text-sm text-emerald-600 font-medium">Changes saved.</p>}
+              </div>
               <button onClick={onClose} className="btn-secondary">Close</button>
               {canEdit && (
-                <button onClick={handleSave} disabled={saving} className="btn-primary">
+                <button onClick={handleSave} disabled={saving} className="btn-primary min-w-[110px]">
                   {saving ? 'Saving…' : 'Save Changes'}
                 </button>
               )}

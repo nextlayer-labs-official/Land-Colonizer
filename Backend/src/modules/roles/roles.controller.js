@@ -31,7 +31,7 @@ const getRoles = async (_req, res) => {
     }),
     prisma.permission.findMany({
       select: permissionSelect,
-      orderBy: [{ module_id: 'asc' }, { action: 'asc' }],
+      orderBy: [{ module_id: 'asc' }, { code: 'asc' }],
     }),
   ]);
 
@@ -51,7 +51,7 @@ const getRoleById = async (req, res) => {
     }),
     prisma.permission.findMany({
       select: permissionSelect,
-      orderBy: [{ module_id: 'asc' }, { action: 'asc' }],
+      orderBy: [{ module_id: 'asc' }, { code: 'asc' }],
     }),
   ]);
   if (!role) return res.status(404).json({ message: 'Role not found' });
@@ -97,7 +97,7 @@ const createRole = async (req, res) => {
     }),
     prisma.permission.findMany({
       select: permissionSelect,
-      orderBy: [{ module_id: 'asc' }, { action: 'asc' }],
+      orderBy: [{ module_id: 'asc' }, { code: 'asc' }],
     }),
   ]);
 
