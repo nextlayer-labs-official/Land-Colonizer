@@ -405,6 +405,11 @@ function InstallmentPanel({ saleId, canEdit, onTotalPaidChange }) {
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>Saved
                   </span>
                 )}
+                <button onClick={handleExportPDF}
+                  className="h-8 px-3 text-xs border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 font-medium flex items-center gap-1.5 transition">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                  PDF
+                </button>
                 <button onClick={() => { setEditing(true); setSaved(false); setSaveError(''); }}
                   className="h-8 px-3 text-xs border border-[#875A7B] rounded-lg text-[#875A7B] hover:bg-[#875A7B]/5 font-medium flex items-center gap-1.5 transition">
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
@@ -1237,6 +1242,277 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
   );
 }
 
+// ── PDF Report Generator ──────────────────────────────────────────────────────
+function generateSaleReportHTML(form, effectiveInstPaid, effectiveBalance) {
+  const f = (n) => n != null && n !== '' ? `&#8377;${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '&mdash;';
+  const d = (v) => v ? new Date(v).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '&mdash;';
+  const s = (v) => (v && String(v).trim()) ? String(v).trim() : '&mdash;';
+
+  const inv  = form._inventory || form.inventory || {};
+  const cust = form.customer   || {};
+  const brok = form.broker     || {};
+
+  const bookingInReceived = form.booking_in_received !== false;
+  const bookingAmt  = Number(form.booking_amount    || 0);
+  const advanceAmt  = Number(form.advance_payment   || 0);
+  const actualAmt   = Number(form.actual_price      || 0);
+  const totalV      = Number(form.total_value       || 0);
+
+  // Installment rows
+  const instRec = form.installment || null;
+  const instRows = [];
+  if (instRec) {
+    for (let n = 1; n <= 20; n++) {
+      const amt = instRec[`inst_${n}_amount`];
+      const dt  = instRec[`inst_${n}_date`];
+      const pd  = instRec[`inst_${n}_paid`];
+      if (amt != null && Number(amt) > 0) {
+        instRows.push({ n, amt: Number(amt), dt, pd });
+      }
+    }
+  }
+
+  // Additional costs
+  const addlRows = [
+    { label: 'Registration Charges', charged: form.registration_charges, paid: form.registration_paid },
+    { label: 'Intkaal Charges',      charged: form.intkaal_charges,      paid: form.intkaal_paid },
+    { label: 'Water Connection',     charged: form.water_connection_charges, paid: form.water_connection_paid },
+    { label: 'Electricity Meter',    charged: form.electricity_meter_charges, paid: form.electricity_meter_paid },
+  ].filter(r => r.charged && Number(r.charged) > 0);
+
+  // Other charges
+  const otherRows = [
+    { label: 'Extra Income',  amt: form.extra_income, sign:  1 },
+    { label: 'Discount',      amt: form.discount,     sign: -1 },
+    { label: 'Brokerage',     amt: form.brokerage,    sign: -1 },
+    { label: 'Incentive',     amt: form.incentive,    sign: -1 },
+  ].filter(r => r.amt && Number(r.amt) > 0);
+  const otherNet = otherRows.reduce((s, r) => s + r.sign * Number(r.amt), 0);
+
+  // Bookings
+  const bookings = (form.bookings || []).filter(b => b.income_amount && Number(b.income_amount) > 0);
+
+  const TYPE_LABEL_MAP = { PLOT: 'Plot', SHOP: 'Shop', LAND: 'Land', FLAT: 'Flat', PLOT_WIRE: 'Plot Wire', SHOP_WIRE: 'Shop Wire' };
+  const POSS_LABEL_MAP = { PENDING: 'Pending', SYMBOLIC: 'Symbolic', PHYSICAL: 'Physical' };
+
+  const purple   = '#875A7B';
+  const purpleL  = '#f5f0f4';
+  const now      = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+  const sectionTitle = (t) =>
+    `<div style="background:${purple};color:#fff;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;margin-bottom:0;border-radius:4px 4px 0 0;">${t}</div>`;
+
+  const infoBox = (rows) =>
+    `<table style="width:100%;border-collapse:collapse;font-size:11px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 4px 4px;overflow:hidden;">` +
+    rows.map(([l, v]) =>
+      `<tr><td style="padding:5px 10px;color:#6b7280;width:42%;border-bottom:1px solid #f3f4f6;font-size:10px;">${l}</td>` +
+      `<td style="padding:5px 10px;color:#111827;font-weight:600;border-bottom:1px solid #f3f4f6;">${v}</td></tr>`
+    ).join('') + `</table>`;
+
+  const finRow = (label, value, highlight = false) =>
+    `<tr style="${highlight ? `background:${purpleL};` : ''}">` +
+    `<td style="padding:6px 10px;color:${highlight ? purple : '#374151'};font-weight:${highlight ? '700' : '500'};border-bottom:1px solid #f3f4f6;font-size:11px;">${label}</td>` +
+    `<td style="padding:6px 10px;text-align:right;font-family:monospace;font-size:11px;color:${highlight ? purple : '#111827'};font-weight:${highlight ? '700' : '600'};border-bottom:1px solid #f3f4f6;">${value}</td></tr>`;
+
+  const areaDisplay = () => {
+    const fa = Number(inv.front_area || 0), ba = Number(inv.back_area || 0);
+    if (fa && ba) return `${fa} &times; ${ba} = ${parseFloat((fa * ba / 9).toFixed(4))} ${s(inv.front_area_details || inv.area_unit)}`;
+    if (inv.area) return `${inv.area} ${s(inv.area_unit)}`;
+    return '&mdash;';
+  };
+
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/>
+<title>Sale Report &ndash; ${s(form.sale_code)}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+@page{size:A4;margin:14mm 14mm 18mm;}
+body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#1f2937;background:#fff;line-height:1.5;}
+.page-break{page-break-before:always;}
+@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
+</style></head><body>
+
+<!-- HEADER -->
+<div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:12px;border-bottom:3px solid ${purple};">
+  <div>
+    <div style="font-size:20px;font-weight:900;color:${purple};letter-spacing:-.5px;">SALE REPORT</div>
+    <div style="font-size:10px;color:#9ca3af;margin-top:2px;">Generated on ${now}</div>
+  </div>
+  <div style="text-align:right;">
+    <div style="font-size:18px;font-weight:800;color:#111827;">${s(form.sale_code)}</div>
+    <div style="font-size:10px;color:#9ca3af;margin-top:2px;">Sale Date: ${d(form.sale_date)}</div>
+  </div>
+</div>
+
+<!-- OVERVIEW PILLS -->
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;margin-bottom:14px;">
+  ${[
+    ['Type',        TYPE_LABEL_MAP[form.type] || form.type || '—'],
+    ['Possession',  POSS_LABEL_MAP[form.possession] || form.possession || '—'],
+    ['Status',      form.status || '—'],
+    ['Reg. Date',   form.date_of_registration ? d(form.date_of_registration) : 'Not Registered'],
+    ['Booking',     bookingInReceived ? 'Received' : 'Not in Received'],
+  ].map(([l,v]) =>
+    `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:4px 10px;display:inline-block;">
+      <span style="font-size:9px;color:#9ca3af;text-transform:uppercase;letter-spacing:.06em;">${l}: </span>
+      <span style="font-size:10px;font-weight:700;color:#374151;">${v}</span>
+    </div>`
+  ).join('')}
+</div>
+
+<!-- CUSTOMER + PROPERTY (2-col) -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+  <div>
+    ${sectionTitle('Customer')}
+    ${infoBox([
+      ['Name',         s(cust.name)],
+      ['Code',         s(cust.customer_code)],
+      ['Phone',        s(cust.phone)],
+      ['Email',        s(cust.email)],
+    ])}
+    ${(brok.name || form.broker_name) ? `<div style="margin-top:8px;">${sectionTitle('Broker')}${infoBox([
+      ['Name',  s(brok.name || form.broker_name)],
+      ['Code',  s(brok.broker_code || '—')],
+      ['Phone', s(brok.phone || '—')],
+    ])}</div>` : ''}
+  </div>
+  <div>
+    ${sectionTitle('Property / Inventory')}
+    ${infoBox([
+      ['Inventory Code', s(inv.inventory_code)],
+      ['Type',           s(TYPE_LABEL_MAP[inv.type] || inv.type)],
+      ['Plot No',        s(inv.plot_no)],
+      ['SL No',          s(inv.sl_no)],
+      ['Location',       s(inv.location || form.details)],
+      ['Area',           areaDisplay()],
+      ['Rate (per unit)',f(inv.rate || form.plot_rate)],
+      ['Purchase Code',  s((inv.purchase || {}).purchase_code)],
+    ])}
+  </div>
+</div>
+
+<!-- FINANCIAL SUMMARY -->
+<div style="margin-bottom:14px;">
+  ${sectionTitle('Financial Summary')}
+  <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-top:none;">
+    ${totalV > 0 ? finRow('Total Value (Plot Rate × Area)', f(totalV)) : ''}
+    ${finRow('Actual Price (Selling Rate × Area)', f(actualAmt))}
+    ${bookingAmt > 0 ? finRow(`Booking Amount${bookingInReceived ? ' (included in received)' : ' (not in received)'}`, f(bookingAmt)) : ''}
+    ${advanceAmt > 0 ? finRow('Advance Payment', f(advanceAmt)) : ''}
+    ${effectiveInstPaid > 0 ? finRow('Installments Paid', f(effectiveInstPaid)) : ''}
+    ${finRow('Balance Remaining', f(effectiveBalance), true)}
+  </table>
+</div>
+
+${addlRows.length > 0 ? `
+<!-- ADDITIONAL COSTS -->
+<div style="margin-bottom:14px;">
+  ${sectionTitle('Additional Costs')}
+  <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-top:none;font-size:11px;">
+    <tr style="background:#f9fafb;">
+      <th style="padding:5px 10px;text-align:left;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Item</th>
+      <th style="padding:5px 10px;text-align:right;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Charged</th>
+      <th style="padding:5px 10px;text-align:right;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Paid</th>
+      <th style="padding:5px 10px;text-align:right;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Income (Self)</th>
+    </tr>
+    ${addlRows.map(r => {
+      const income = Number(r.charged || 0) - Number(r.paid || 0);
+      return `<tr>
+        <td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;color:#374151;">${r.label}</td>
+        <td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;text-align:right;font-family:monospace;">${f(r.charged)}</td>
+        <td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;text-align:right;font-family:monospace;color:#059669;">${f(r.paid)}</td>
+        <td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;text-align:right;font-family:monospace;color:${income >= 0 ? '#059669' : '#dc2626'};">${f(income)}</td>
+      </tr>`;
+    }).join('')}
+  </table>
+</div>` : ''}
+
+${otherRows.length > 0 ? `
+<!-- OTHER CHARGES -->
+<div style="margin-bottom:14px;">
+  ${sectionTitle('Other Charges')}
+  <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-top:none;font-size:11px;">
+    <tr style="background:#f9fafb;">
+      <th style="padding:5px 10px;text-align:left;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Item</th>
+      <th style="padding:5px 10px;text-align:right;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Amount</th>
+      <th style="padding:5px 10px;text-align:right;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Effect</th>
+    </tr>
+    ${otherRows.map(r =>
+      `<tr>
+        <td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;color:#374151;">${r.label}</td>
+        <td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;text-align:right;font-family:monospace;">${f(r.amt)}</td>
+        <td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;text-align:right;font-size:10px;color:${r.sign > 0 ? '#059669' : '#dc2626'};">${r.sign > 0 ? 'Income' : 'Expense'}</td>
+      </tr>`
+    ).join('')}
+    <tr style="background:${purpleL};">
+      <td colspan="2" style="padding:6px 10px;font-weight:700;color:${purple};">Net Other Charges</td>
+      <td style="padding:6px 10px;text-align:right;font-family:monospace;font-weight:700;color:${otherNet >= 0 ? '#059669' : '#dc2626'};">${f(otherNet)}</td>
+    </tr>
+  </table>
+</div>` : ''}
+
+${instRows.length > 0 ? `
+<!-- INSTALLMENTS -->
+<div style="margin-bottom:14px;">
+  ${sectionTitle(`Installments (${instRows.filter(r => r.pd).length}/${instRows.length} paid &middot; Total paid: ${f(effectiveInstPaid)})`)}
+  <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-top:none;font-size:11px;">
+    <tr style="background:#f9fafb;">
+      <th style="padding:5px 10px;text-align:left;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">#</th>
+      <th style="padding:5px 10px;text-align:right;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Amount</th>
+      <th style="padding:5px 10px;text-align:left;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Due Date</th>
+      <th style="padding:5px 10px;text-align:center;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Status</th>
+    </tr>
+    ${instRows.map(r =>
+      `<tr style="${r.pd ? `background:#f0fdf4;` : ''}">
+        <td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;color:#6b7280;">${r.n}</td>
+        <td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;text-align:right;font-family:monospace;font-weight:600;">${f(r.amt)}</td>
+        <td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;color:#374151;">${d(r.dt)}</td>
+        <td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;text-align:center;font-weight:700;color:${r.pd ? '#059669' : '#f59e0b'};">${r.pd ? '&#10003; Paid' : 'Pending'}</td>
+      </tr>`
+    ).join('')}
+  </table>
+</div>` : ''}
+
+${bookings.length > 0 ? `
+<!-- BOOKINGS -->
+<div style="margin-bottom:14px;">
+  ${sectionTitle('Bookings')}
+  <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-top:none;font-size:11px;">
+    <tr style="background:#f9fafb;">
+      <th style="padding:5px 10px;text-align:left;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Customer</th>
+      <th style="padding:5px 10px;text-align:right;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Income Amount</th>
+      <th style="padding:5px 10px;text-align:left;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Status</th>
+    </tr>
+    ${bookings.map(b =>
+      `<tr>
+        <td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;">${s((b.customer || {}).name || b.customer_name)}</td>
+        <td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;text-align:right;font-family:monospace;font-weight:600;">${f(b.income_amount)}</td>
+        <td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;color:#374151;">${s(b.status)}</td>
+      </tr>`
+    ).join('')}
+  </table>
+</div>` : ''}
+
+${(form.details || form.balance_amount_details || form.advance_payment_details) ? `
+<!-- NOTES -->
+<div style="margin-bottom:14px;">
+  ${sectionTitle('Notes & Details')}
+  <div style="border:1px solid #e5e7eb;border-top:none;padding:10px;font-size:11px;color:#374151;line-height:1.7;">
+    ${form.details              ? `<p><strong>Details:</strong> ${s(form.details)}</p>` : ''}
+    ${form.advance_payment_details ? `<p><strong>Advance Details:</strong> ${s(form.advance_payment_details)}</p>` : ''}
+    ${form.balance_amount_details  ? `<p><strong>Balance Details:</strong> ${s(form.balance_amount_details)}</p>` : ''}
+  </div>
+</div>` : ''}
+
+<!-- FOOTER -->
+<div style="margin-top:20px;padding-top:8px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;color:#9ca3af;font-size:9px;">
+  <span>This is a system-generated report. ${s(form.sale_code)}</span>
+  <span>Confidential &middot; AMS</span>
+</div>
+
+<script>window.onload=function(){window.print();}</script>
+</body></html>`;
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function SaleDetailPage() {
   useAuth();
@@ -1347,6 +1623,14 @@ export default function SaleDetailPage() {
   const effectiveInstPaid   = totalInstPaid || instPaidAmt;
   const effectiveBalance    = Math.max(0, balanceP - (bookingInReceived ? bookingP : 0) - effectiveInstPaid);
   const effectiveReceivedP  = receivedP + effectiveInstPaid;
+
+  const handleExportPDF = () => {
+    const html = generateSaleReportHTML(form, effectiveInstPaid, effectiveBalance);
+    const w = window.open('', '_blank');
+    if (!w) return;
+    w.document.write(html);
+    w.document.close();
+  };
 
   const confirmed = !!form.sale_confirmed;
   const TABS = [
