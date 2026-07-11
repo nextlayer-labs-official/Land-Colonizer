@@ -1238,7 +1238,7 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
 }
 
 // ── PDF Report Generator ──────────────────────────────────────────────────────
-function generateSaleReportHTML(form, effectiveInstPaid, effectiveBalance) {
+function generateSaleReportHTML(form, effectiveInstPaid, effectiveBalance, companyName = 'Company') {
   const f = (n) => n != null && n !== '' ? `&#8377;${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '&mdash;';
   const d = (v) => v ? new Date(v).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '&mdash;';
   const s = (v) => (v && String(v).trim()) ? String(v).trim() : '&mdash;';
@@ -1329,8 +1329,9 @@ body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#1f2937;backgro
 <!-- HEADER -->
 <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:12px;border-bottom:3px solid ${purple};">
   <div>
-    <div style="font-size:20px;font-weight:900;color:${purple};letter-spacing:-.5px;">SALE REPORT</div>
-    <div style="font-size:10px;color:#9ca3af;margin-top:2px;">Generated on ${now}</div>
+    <div style="font-size:18px;font-weight:900;color:${purple};letter-spacing:-.5px;">${companyName}</div>
+    <div style="font-size:11px;font-weight:700;color:#374151;margin-top:2px;">SALE REPORT</div>
+    <div style="font-size:10px;color:#9ca3af;margin-top:1px;">Generated on ${now}</div>
   </div>
   <div style="text-align:right;">
     <div style="font-size:18px;font-weight:800;color:#111827;">${s(form.sale_code)}</div>
@@ -1501,7 +1502,7 @@ ${(form.details || form.balance_amount_details || form.advance_payment_details) 
 <!-- FOOTER -->
 <div style="margin-top:20px;padding-top:8px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;color:#9ca3af;font-size:9px;">
   <span>This is a system-generated report. ${s(form.sale_code)}</span>
-  <span>Confidential &middot; AMS</span>
+  <span>Confidential &middot; ${companyName}</span>
 </div>
 
 <script>window.onload=function(){window.print();}</script>
@@ -1619,8 +1620,13 @@ export default function SaleDetailPage() {
   const effectiveBalance    = Math.max(0, balanceP - (bookingInReceived ? bookingP : 0) - effectiveInstPaid);
   const effectiveReceivedP  = receivedP + effectiveInstPaid;
 
-  const handleExportPDF = () => {
-    const html = generateSaleReportHTML(form, effectiveInstPaid, effectiveBalance);
+  const handleExportPDF = async () => {
+    let companyName = 'Company';
+    try {
+      const s = await apiGet('/settings/public');
+      if (s?.company_name) companyName = s.company_name;
+    } catch { /* use default */ }
+    const html = generateSaleReportHTML(form, effectiveInstPaid, effectiveBalance, companyName);
     const w = window.open('', '_blank');
     if (!w) return;
     w.document.write(html);
