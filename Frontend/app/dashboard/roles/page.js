@@ -199,18 +199,18 @@ function PermissionPanel({ role, onClose, canEdit }) {
         ) : (
           <>
             {/* Matrix */}
-            <div className="flex-1 overflow-auto px-6 py-4">
+            <div className="flex-1 overflow-auto">
               <table className="w-full text-sm border-collapse">
                 <thead>
-                  <tr>
-                    <th className="text-left pb-3 pr-4 text-xs font-semibold text-gray-400 uppercase tracking-wider w-32">Module</th>
+                  <tr className="sticky top-0 z-10 bg-white border-b-2 border-gray-100 shadow-sm">
+                    <th className="text-left py-2.5 px-6 text-xs font-semibold text-gray-400 uppercase tracking-wider w-36">Module</th>
                     {cols.map(action => {
                       const c = ACTION_COLORS[action] || {};
                       const colPerms = rows.map(m => matrix[m]?.[action]).filter(Boolean);
                       const allOn    = colPerms.length > 0 && colPerms.every(rp => rp.allowed);
                       return (
-                        <th key={action} className="pb-3 px-2 text-center">
-                          <div className="flex flex-col items-center gap-1.5">
+                        <th key={action} className="py-2.5 px-3 text-center min-w-[70px]">
+                          <div className="flex flex-col items-center gap-1">
                             <span className="text-[10px] font-bold uppercase tracking-wider"
                               style={{ color: c.text || '#6b7280' }}>
                               {action.charAt(0) + action.slice(1).toLowerCase()}
@@ -218,11 +218,11 @@ function PermissionPanel({ role, onClose, canEdit }) {
                             {canEdit && colPerms.length > 0 && (
                               <button onClick={() => toggleCol(action)}
                                 title={allOn ? `Revoke all ${action}` : `Grant all ${action}`}
-                                className="w-5 h-5 rounded border-2 flex items-center justify-center transition-colors"
+                                className="w-4 h-4 rounded border-2 flex items-center justify-center transition-colors"
                                 style={allOn
                                   ? { backgroundColor: c.on, borderColor: c.border }
                                   : { backgroundColor: '#f9fafb', borderColor: '#d1d5db' }}>
-                                {allOn && <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" style={{ color: c.text }}><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>}
+                                {allOn && <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20" style={{ color: c.text }}><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>}
                               </button>
                             )}
                           </div>
@@ -236,8 +236,8 @@ function PermissionPanel({ role, onClose, canEdit }) {
                     const rowPerms = Object.values(matrix[mod] || {});
                     const rowAllOn = rowPerms.length > 0 && rowPerms.every(rp => rp.allowed);
                     return (
-                      <tr key={mod} className={`border-t border-gray-100 ${ri % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}`}>
-                        <td className="py-3 pr-4">
+                      <tr key={mod} className={`border-b border-gray-50 ${ri % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
+                        <td className="py-2 px-6">
                           <div className="flex items-center gap-2">
                             {canEdit && (
                               <button onClick={() => toggleRow(mod)}
@@ -256,23 +256,23 @@ function PermissionPanel({ role, onClose, canEdit }) {
                           const rp = matrix[mod]?.[action];
                           const c  = ACTION_COLORS[action] || {};
                           if (!rp) return (
-                            <td key={action} className="py-3 px-2 text-center">
-                              <span className="text-gray-200 text-base">—</span>
+                            <td key={action} className="py-2 px-3 text-center">
+                              <span className="text-gray-200">—</span>
                             </td>
                           );
                           return (
-                            <td key={action} className="py-3 px-2 text-center">
+                            <td key={action} className="py-2 px-3 text-center">
                               <button
                                 onClick={() => canEdit && toggle(rp.permission.id)}
                                 disabled={!canEdit}
-                                className="w-8 h-8 rounded-lg border-2 flex items-center justify-center mx-auto transition-all"
+                                className="w-7 h-7 rounded-lg border-2 flex items-center justify-center mx-auto transition-all"
                                 style={rp.allowed
                                   ? { backgroundColor: c.on || '#f3f4f6', borderColor: c.border || '#d1d5db' }
                                   : { backgroundColor: '#f9fafb', borderColor: '#e5e7eb' }}
-                                title={`${rp.permission.code} — ${rp.allowed ? 'Allowed (click to revoke)' : 'Denied (click to grant)'}`}>
+                                title={`${rp.permission.code} — ${rp.allowed ? 'Allowed' : 'Denied'}`}>
                                 {rp.allowed
-                                  ? <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" style={{ color: c.text || '#374151' }}><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
-                                  : <svg className="w-3.5 h-3.5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+                                  ? <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20" style={{ color: c.text || '#374151' }}><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
+                                  : <svg className="w-3 h-3 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
                                 }
                               </button>
                             </td>
