@@ -1284,7 +1284,7 @@ export default function SaleDetailPage() {
     if (!form._inventory?.id) return;
     setProjectSaving(true);
     try {
-      await apiPut(`/inventory/${form._inventory.id}`, { project_id: project.id });
+      await apiPatch(`/inventory/${form._inventory.id}`, { project_id: project.id });
       setLinkedProject(project);
     } catch (e) { setError(e.message); }
     finally { setProjectSaving(false); }

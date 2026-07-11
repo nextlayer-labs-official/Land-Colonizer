@@ -5,6 +5,7 @@ const {
   getInventoryById,
   createInventory,
   updateInventory,
+  patchInventory,
   deleteInventory,
 } = require('./inventory.controller');
 
@@ -13,7 +14,8 @@ const router = Router();
 router.get('/',    authenticate, getInventory);
 router.get('/:id', authenticate, getInventoryById);
 router.post('/',   authenticate, createInventory);
-router.put('/:id', authenticate, updateInventory);
+router.put('/:id',   authenticate, updateInventory);
+router.patch('/:id', authenticate, patchInventory);
 router.delete('/:id', authenticate, deleteInventory);
 
 module.exports = router;

@@ -143,6 +143,19 @@ async function updateInventory(req, res) {
   res.json(withComputed(inv));
 }
 
+async function patchInventory(req, res) {
+  const data = {};
+  if (req.body.project_id !== undefined)
+    data.project_id = req.body.project_id === null ? null : Number(req.body.project_id);
+
+  const inv = await prisma.inventory.update({
+    where: { id: Number(req.params.id) },
+    data,
+    include: INCLUDE,
+  });
+  res.json(withComputed(inv));
+}
+
 async function deleteInventory(req, res) {
   await prisma.inventory.delete({ where: { id: Number(req.params.id) } });
   res.json({ message: 'Deleted' });
@@ -162,4 +175,4 @@ async function syncInventoryStatus(inventoryId) {
   } catch { /* non-critical */ }
 }
 
-module.exports = { getInventory, getInventoryById, createInventory, updateInventory, deleteInventory, syncInventoryStatus };
+module.exports = { getInventory, getInventoryById, createInventory, updateInventory, patchInventory, deleteInventory, syncInventoryStatus };
