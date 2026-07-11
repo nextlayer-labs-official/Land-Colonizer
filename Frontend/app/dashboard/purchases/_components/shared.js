@@ -52,10 +52,13 @@ export function computed(f) {
   };
 }
 
-export function getStageIndex(form, c) {
-  if (form.registration_completed && c.percentage_paid >= 100) return 3;
+export function getStageIndex(form, c, instPaid = 0) {
+  const total  = c.total_amount || 0;
+  const effBal = Math.max(0, c.balance_to_pay - instPaid);
+  const effPct = total > 0 ? Math.min(100, ((total - effBal) / total) * 100) : c.percentage_paid;
+  if (form.registration_completed && effPct >= 100) return 3;
   if (form.registration_completed) return 2;
-  if (c.percentage_paid > 0) return 1;
+  if (effPct > 0) return 1;
   return 0;
 }
 

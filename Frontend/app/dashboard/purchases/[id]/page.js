@@ -824,7 +824,7 @@ export default function PurchaseRecordPage() {
   };
 
   const c        = computed(form);
-  const stageIdx = getStageIndex(form, c);
+  const stageIdx = getStageIndex(form, c, totalInstPaid);
   const title    = form.plot_no ? `Plot ${form.plot_no}` : form.sl_no ? `SL ${form.sl_no}` : `Purchase #${params.id}`;
   // Include paid installments in balance, progress, and total cost
   const effectiveBalance  = Math.max(0, c.balance_to_pay - totalInstPaid);

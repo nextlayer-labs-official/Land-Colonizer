@@ -667,9 +667,10 @@ function FinancialsTab({ form, instPaid = 0 }) {
   const addlReceived      = Number(form.registration_charges||0) + Number(form.intkaal_charges||0) + Number(form.water_connection_charges||0) + Number(form.electricity_meter_charges||0);
   const addlIncomeSelf    = (Number(form.registration_charges||0) - Number(form.registration_paid||0)) + (Number(form.intkaal_charges||0) - Number(form.intkaal_paid||0)) + (Number(form.water_connection_charges||0) - Number(form.water_connection_paid||0)) + (Number(form.electricity_meter_charges||0) - Number(form.electricity_meter_paid||0));
   const bookingIncomeSelf = (form.bookings || []).reduce((s, b) => s + Number(b.income_amount || 0), 0);
+  const otherChargesNet   = Number(form.extra_income||0) - Number(form.discount||0) - Number(form.brokerage||0) - Number(form.incentive||0);
   const totalCostWithout  = bookingAmt + Number(form.advance_payment||0) + instPaid;
   const totalCostWith     = totalCostWithout + addlReceived;
-  const netIncomeSelf     = totalCostWithout + addlIncomeSelf + bookingIncomeSelf;
+  const netIncomeSelf     = totalCostWithout + addlIncomeSelf + bookingIncomeSelf + otherChargesNet;
 
   const Row = ({ label, value, sub, accent }) => (
     <div className={`flex items-center justify-between py-2.5 border-b border-gray-50 last:border-b-0 ${accent?'bg-[#875A7B]/3 -mx-4 px-4 rounded':''}`}>
@@ -819,7 +820,7 @@ function FinancialsTab({ form, instPaid = 0 }) {
         <Hdr>Customer Cost Summary</Hdr>
         <Row label="Total Cost for Customer (without Additional Costs)" value={fmtINR(totalCostWithout)} sub="Booking Amount + Advance + Installment Paid" />
         <Row label="Total Cost for Customer (with Additional Costs)"    value={fmtINR(totalCostWith)}    sub="Booking Amount + Advance + Installment Paid + Additional Costs" />
-        <Row label="Net Income (Self)" value={<span className={netIncomeSelf >= 0 ? 'text-emerald-600' : 'text-red-500'}>{fmtINR(netIncomeSelf)}</span>} sub="Booking + Advance + Installment Paid + Income/Loss from Additional Costs + Income from Booking" accent />
+        <Row label="Net Income (Self)" value={<span className={netIncomeSelf >= 0 ? 'text-emerald-600' : 'text-red-500'}>{fmtINR(netIncomeSelf)}</span>} sub="Booking + Advance + Installment Paid + Income/Loss from Additional Costs + Income/Loss from Other Charges + Income from Booking" accent />
 
 
         {(form.date_of_registration || form.intkaal_number || form.vasika) && (
