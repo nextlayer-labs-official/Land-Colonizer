@@ -10,6 +10,8 @@ const {
   updateEmailSettings,
   updateSecuritySettings,
   updatePrefixSettings,
+  updateDriveSettings,
+  updateDriveJson,
   testEmail,
   uploadLogo,
 } = require('./settings.controller');
@@ -36,6 +38,16 @@ const logoUpload = multer({
   },
 });
 
+// JSON file upload storage (memory, 1 MB max)
+const jsonUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 1 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/json' || file.originalname.endsWith('.json')) cb(null, true);
+    else cb(new Error('Only .json files are allowed'));
+  },
+});
+
 router.get('/public',            getPublicSettings);
 
 // All settings routes require authentication
@@ -45,6 +57,8 @@ router.put('/company',           authenticate, updateCompanyInfo);
 router.put('/email',             authenticate, updateEmailSettings);
 router.put('/security',          authenticate, updateSecuritySettings);
 router.put('/prefixes',          authenticate, updatePrefixSettings);
+router.put('/drive',             authenticate, updateDriveSettings);
+router.post('/drive/json',       authenticate, jsonUpload.single('json'), updateDriveJson);
 router.post('/test-email',       authenticate, testEmail);
 router.post('/logo',             authenticate, logoUpload.single('logo'), uploadLogo);
 

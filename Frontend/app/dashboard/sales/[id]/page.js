@@ -1534,6 +1534,7 @@ export default function SaleDetailPage() {
   const [archiving, setArchiving] = useState(false);
   const [tab,           setTab]           = useState('details');
   const [totalInstPaid, setTotalInstPaid] = useState(0);
+  const [driveActive,   setDriveActive]   = useState(false);
   const [projectOpen,   setProjectOpen]   = useState(false);
   const [linkedProject, setLinkedProject] = useState(null);
   const [projectSaving, setProjectSaving] = useState(false);
@@ -1553,6 +1554,11 @@ export default function SaleDetailPage() {
   }, [params.id]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    apiGet('/settings/public')
+      .then(s => setDriveActive(!!(s?.google_drive_enabled && s?.google_drive_configured)))
+      .catch(() => {});
+  }, []);
 
   const set = (key) => (e) => { setForm(p => ({ ...p, [key]: e.target.value })); setError(''); };
 
@@ -1645,7 +1651,7 @@ export default function SaleDetailPage() {
     { id: 'bookings',     label: 'Bookings' + (form.bookings?.length ? ` (${form.bookings.length})` : '') },
     { id: 'installments', label: 'Installments', locked: !confirmed },
     { id: 'financials',   label: 'Financials',   locked: !confirmed },
-    { id: 'documents',    label: 'Documents' },
+    ...(driveActive ? [{ id: 'documents', label: 'Documents' }] : []),
   ];
 
   return (
@@ -2004,7 +2010,7 @@ export default function SaleDetailPage() {
             )}
 
             {/* Tab: Documents */}
-            {tab === 'documents' && (
+            {tab === 'documents' && driveActive && (
               <DocumentsPanel
                 entityType="sale"
                 entityId={Number(params.id)}

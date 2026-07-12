@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import useAuth from '@/lib/useAuth';
 import usePermissions from '@/lib/usePermissions';
-import { apiGet, apiPut, apiPost } from '@/lib/api';
+import { apiGet, apiPut, apiPost, apiPostForm } from '@/lib/api';
 import { UPLOADS_URL } from '@/lib/config';
 
 // ── Shared UI ─────────────────────────────────────────────────────────────────
@@ -573,6 +573,184 @@ function SecurityTab() {
   );
 }
 
+// ── Integrations Tab (Google Drive) ───────────────────────────────────────────
+function IntegrationsTab() {
+  const [drive, setDrive] = useState({
+    google_drive_enabled:            false,
+    google_drive_purchase_folder_id: '',
+    google_drive_sale_folder_id:     '',
+  });
+  const [jsonSet,    setJsonSet]    = useState(false);
+  const [jsonEmail,  setJsonEmail]  = useState('');
+  const [driveMsg,   setDriveMsg]   = useState({ type: '', text: '' });
+  const [driveSave,  setDriveSave]  = useState(false);
+
+  const [jsonFile,      setJsonFile]      = useState(null);
+  const [jsonUploading, setJsonUploading] = useState(false);
+  const [jsonMsg,       setJsonMsg]       = useState({ type: '', text: '' });
+  const jsonRef = useRef(null);
+
+  useEffect(() => {
+    apiGet('/settings').then((s) => {
+      setDrive({
+        google_drive_enabled:            s.google_drive_enabled            || false,
+        google_drive_purchase_folder_id: s.google_drive_purchase_folder_id || '',
+        google_drive_sale_folder_id:     s.google_drive_sale_folder_id     || '',
+      });
+      setJsonSet(s.google_drive_json_set || false);
+    }).catch(() => {});
+  }, []);
+
+  const handleSaveDrive = async (e) => {
+    e.preventDefault(); setDriveSave(true); setDriveMsg({ type: '', text: '' });
+    try {
+      await apiPut('/settings/drive', drive);
+      setDriveMsg({ type: 'success', text: 'Google Drive settings saved' });
+    } catch (err) { setDriveMsg({ type: 'error', text: err.message }); }
+    finally { setDriveSave(false); }
+  };
+
+  const handleJsonChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) setJsonFile(file);
+  };
+
+  const handleJsonUpload = async () => {
+    if (!jsonFile) return;
+    setJsonUploading(true); setJsonMsg({ type: '', text: '' });
+    try {
+      const fd = new FormData();
+      fd.append('json', jsonFile);
+      const res = await apiPostForm('/settings/drive/json', fd);
+      setJsonSet(true);
+      setJsonEmail(res.client_email || '');
+      setJsonMsg({ type: 'success', text: 'Service account JSON saved successfully' });
+      setJsonFile(null);
+      if (jsonRef.current) jsonRef.current.value = '';
+    } catch (err) { setJsonMsg({ type: 'error', text: err.message }); }
+    finally { setJsonUploading(false); }
+  };
+
+  const configured = jsonSet &&
+    drive.google_drive_purchase_folder_id.trim() &&
+    drive.google_drive_sale_folder_id.trim();
+
+  return (
+    <div className="space-y-5">
+      {/* Status card */}
+      <div className="flex items-center gap-3 px-4 py-3 rounded-lg border"
+        style={{ backgroundColor: configured ? '#f0fdf4' : '#fafafa', borderColor: configured ? '#bbf7d0' : '#e5e7eb' }}>
+        <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${configured ? 'bg-green-400' : 'bg-gray-300'}`} />
+        <div>
+          <p className="text-sm font-medium" style={{ color: configured ? '#15803d' : '#6b7280' }}>
+            {configured ? 'Google Drive is configured and ready' : 'Google Drive is not fully configured'}
+          </p>
+          <p className="text-xs mt-0.5" style={{ color: configured ? '#16a34a' : '#9ca3af' }}>
+            {configured
+              ? `Enabled: ${drive.google_drive_enabled ? 'Yes' : 'No'} · Documents will ${drive.google_drive_enabled ? '' : 'not '}appear on purchase and sale pages`
+              : 'Upload a service account JSON and set both folder IDs below'}
+          </p>
+        </div>
+      </div>
+
+      {/* Enable toggle + folder IDs */}
+      <Section title="Google Drive Settings" description="Control document storage via Google Drive">
+        <form onSubmit={handleSaveDrive} className="space-y-5">
+          <Alert type={driveMsg.type} message={driveMsg.text} />
+
+          <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer">
+            <div>
+              <p className="text-sm font-medium text-gray-700">Enable Google Drive</p>
+              <p className="text-xs text-gray-400 mt-0.5">Show the Documents section on purchase and sale records</p>
+            </div>
+            <div
+              onClick={() => setDrive(p => ({ ...p, google_drive_enabled: !p.google_drive_enabled }))}
+              className="relative w-11 h-6 rounded-full cursor-pointer transition-colors shrink-0"
+              style={{ backgroundColor: drive.google_drive_enabled ? 'var(--ams-primary)' : '#d1d5db' }}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${drive.google_drive_enabled ? 'translate-x-5' : 'translate-x-0'}`} />
+            </div>
+          </label>
+
+          <div className="space-y-4">
+            <Field label="Purchase Folder ID" hint="Google Drive folder ID for purchase documents">
+              <input type="text"
+                value={drive.google_drive_purchase_folder_id}
+                onChange={(e) => setDrive(p => ({ ...p, google_drive_purchase_folder_id: e.target.value }))}
+                placeholder="e.g. 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms"
+                className="ams-input font-mono text-xs" />
+            </Field>
+            <Field label="Sale Folder ID" hint="Google Drive folder ID for sale documents">
+              <input type="text"
+                value={drive.google_drive_sale_folder_id}
+                onChange={(e) => setDrive(p => ({ ...p, google_drive_sale_folder_id: e.target.value }))}
+                placeholder="e.g. 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms"
+                className="ams-input font-mono text-xs" />
+            </Field>
+          </div>
+
+          <p className="text-xs text-gray-400 bg-gray-50 rounded px-3 py-2 border border-gray-100">
+            Copy the folder ID from the Google Drive URL: drive.google.com/drive/folders/<strong>FOLDER_ID</strong>
+          </p>
+
+          <div className="flex justify-end pt-1"><SaveBtn saving={driveSave} /></div>
+        </form>
+      </Section>
+
+      {/* Service account JSON upload */}
+      <Section title="Service Account Credentials" description="Upload the Google service account JSON key file">
+        <div className="space-y-4">
+          <Alert type={jsonMsg.type} message={jsonMsg.text} />
+
+          {jsonSet && (
+            <div className="flex items-center gap-2.5 px-3 py-2.5 bg-green-50 border border-green-200 rounded-lg">
+              <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              <div>
+                <p className="text-sm font-medium text-green-700">Service account JSON is configured</p>
+                {jsonEmail && <p className="text-xs text-green-600 mt-0.5 font-mono">{jsonEmail}</p>}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+              {jsonSet ? 'Replace JSON file' : 'Upload JSON file'}
+            </p>
+            <div className="flex items-center gap-3">
+              <label className="btn-secondary cursor-pointer text-sm">
+                Choose File
+                <input
+                  ref={jsonRef}
+                  type="file"
+                  accept=".json,application/json"
+                  onChange={handleJsonChange}
+                  className="hidden"
+                />
+              </label>
+              {jsonFile && (
+                <>
+                  <span className="text-xs text-gray-500 truncate max-w-44">{jsonFile.name}</span>
+                  <button
+                    type="button"
+                    onClick={handleJsonUpload}
+                    disabled={jsonUploading}
+                    className="btn-primary text-sm"
+                  >
+                    {jsonUploading ? 'Uploading…' : 'Upload'}
+                  </button>
+                </>
+              )}
+            </div>
+            <p className="text-xs text-gray-400 mt-2">
+              Download this from Google Cloud Console → IAM & Admin → Service Accounts → your service account → Keys → Add Key → JSON.
+            </p>
+          </div>
+        </div>
+      </Section>
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function SettingsPage() {
   useAuth();
@@ -582,8 +760,9 @@ export default function SettingsPage() {
   const tabs = [
     { key: 'profile', label: 'My Profile' },
     ...(isSystemAdmin ? [
-      { key: 'company',  label: 'Company'  },
-      { key: 'security', label: 'Security' },
+      { key: 'company',      label: 'Company'      },
+      { key: 'security',     label: 'Security'     },
+      { key: 'integrations', label: 'Integrations' },
     ] : []),
   ];
 
@@ -621,9 +800,10 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {activeTab === 'profile'  && <ProfileTab  me={me} />}
-      {activeTab === 'company'  && <CompanyTab  />}
-      {activeTab === 'security' && <SecurityTab />}
+      {activeTab === 'profile'       && <ProfileTab       me={me} />}
+      {activeTab === 'company'       && <CompanyTab       />}
+      {activeTab === 'security'      && <SecurityTab      />}
+      {activeTab === 'integrations'  && <IntegrationsTab  />}
     </div>
   );
 }

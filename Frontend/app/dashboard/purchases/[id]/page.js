@@ -886,6 +886,7 @@ export default function PurchaseRecordPage() {
   const [unitDeleting,  setUnitDeleting]  = useState(false);
   const [actMenu,       setActMenu]       = useState(false);
   const [totalInstPaid, setTotalInstPaid] = useState(0);
+  const [driveActive,   setDriveActive]   = useState(false);
 
   const canEdit            = can('PURCHASE_EDIT')   || me?.is_system;
   const canDelete          = can('PURCHASE_DELETE') || me?.is_system;
@@ -924,6 +925,11 @@ export default function PurchaseRecordPage() {
   }, [params.id]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    apiGet('/settings/public')
+      .then(s => setDriveActive(!!(s?.google_drive_enabled && s?.google_drive_configured)))
+      .catch(() => {});
+  }, []);
 
   const set = (key) => (e) => { setForm(p => ({ ...p, [key]: e.target.value })); setError(''); };
 
@@ -1466,14 +1472,16 @@ export default function PurchaseRecordPage() {
           )}
 
           {/* ── Documents ── */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            <DocumentsPanel
-              entityType="purchase"
-              entityId={Number(params.id)}
-              canUpload={canEdit}
-              canDelete={canDelete}
-            />
-          </div>
+          {driveActive && (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+              <DocumentsPanel
+                entityType="purchase"
+                entityId={Number(params.id)}
+                canUpload={canEdit}
+                canDelete={canDelete}
+              />
+            </div>
+          )}
 
         </div>
       </div>

@@ -2,15 +2,24 @@ const prisma = require('../../lib/prisma');
 const { sendMail } = require('../../lib/mailer');
 const { auditLog, diff } = require('../../lib/audit');
 
+// Strip sensitive fields before sending settings to the client
+function safeSettings(s) {
+  if (!s) return s;
+  const { smtp_pass, google_drive_service_account_json, ...rest } = s;
+  return {
+    ...rest,
+    smtp_pass_set:       !!smtp_pass,
+    google_drive_json_set: !!google_drive_service_account_json,
+  };
+}
+
 // ── Get settings (always returns one row) ─────────────────────────────────────
 const getSettings = async (req, res) => {
   let settings = await prisma.companySettings.findFirst();
   if (!settings) {
     settings = await prisma.companySettings.create({ data: {} });
   }
-  // Never expose smtp_pass to the client
-  const { smtp_pass, ...safe } = settings;
-  res.json({ ...safe, smtp_pass_set: !!smtp_pass });
+  res.json(safeSettings(settings));
 };
 
 // ── Update company info ────────────────────────────────────────────────────────
@@ -37,9 +46,8 @@ const updateCompanyInfo = async (req, res) => {
     },
   });
 
-  const { smtp_pass, ...safe } = updated;
   auditLog({ req, action: 'UPDATE', entity: 'settings', entityCode: 'company_info' });
-  res.json({ ...safe, smtp_pass_set: !!smtp_pass });
+  res.json(safeSettings(updated));
 };
 
 // ── Update SMTP / email settings ──────────────────────────────────────────────
@@ -68,9 +76,8 @@ const updateEmailSettings = async (req, res) => {
   }
 
   const updated = await prisma.companySettings.update({ where: { id: settings.id }, data });
-  const { smtp_pass: _, ...safe } = updated;
   auditLog({ req, action: 'UPDATE', entity: 'settings', entityCode: 'email_settings' });
-  res.json({ ...safe, smtp_pass_set: !!updated.smtp_pass });
+  res.json(safeSettings(updated));
 };
 
 // ── Update security settings (rate limiting, upload size) ─────────────────────
@@ -101,9 +108,8 @@ const updateSecuritySettings = async (req, res) => {
     },
   });
 
-  const { smtp_pass, ...safe } = updated;
   auditLog({ req, action: 'UPDATE', entity: 'settings', entityCode: 'security_settings' });
-  res.json({ ...safe, smtp_pass_set: !!smtp_pass });
+  res.json(safeSettings(updated));
 };
 
 // ── Test email connection ──────────────────────────────────────────────────────
@@ -160,14 +166,75 @@ const updatePrefixSettings = async (req, res) => {
     },
   });
 
-  const { smtp_pass, ...safe } = updated;
-  res.json({ ...safe, smtp_pass_set: !!smtp_pass });
+  res.json(safeSettings(updated));
 };
 
-// ── Public: company name only (no auth required) ──────────────────────────────
+// ── Update Google Drive settings ───────────────────────────────────────────────
+const updateDriveSettings = async (req, res) => {
+  const { google_drive_enabled, google_drive_purchase_folder_id, google_drive_sale_folder_id } = req.body;
+
+  let settings = await prisma.companySettings.findFirst();
+  if (!settings) {
+    settings = await prisma.companySettings.create({ data: {} });
+  }
+
+  const updated = await prisma.companySettings.update({
+    where: { id: settings.id },
+    data: {
+      ...(google_drive_enabled              !== undefined ? { google_drive_enabled: Boolean(google_drive_enabled) }       : {}),
+      ...(google_drive_purchase_folder_id   !== undefined ? { google_drive_purchase_folder_id: String(google_drive_purchase_folder_id).trim() || null } : {}),
+      ...(google_drive_sale_folder_id       !== undefined ? { google_drive_sale_folder_id:     String(google_drive_sale_folder_id).trim()     || null } : {}),
+    },
+  });
+
+  auditLog({ req, action: 'UPDATE', entity: 'settings', entityCode: 'drive_settings' });
+  res.json(safeSettings(updated));
+};
+
+// ── Upload Google Drive service account JSON ───────────────────────────────────
+const updateDriveJson = async (req, res) => {
+  if (!req.file) return res.status(400).json({ message: 'No JSON file provided' });
+
+  let parsed;
+  try {
+    parsed = JSON.parse(req.file.buffer.toString('utf-8'));
+  } catch {
+    return res.status(400).json({ message: 'Invalid JSON file' });
+  }
+
+  if (parsed.type !== 'service_account') {
+    return res.status(400).json({ message: 'File must be a Google service account JSON (type: service_account)' });
+  }
+  if (!parsed.client_email || !parsed.private_key) {
+    return res.status(400).json({ message: 'JSON is missing required fields (client_email, private_key)' });
+  }
+
+  let settings = await prisma.companySettings.findFirst();
+  if (!settings) {
+    settings = await prisma.companySettings.create({ data: {} });
+  }
+
+  await prisma.companySettings.update({
+    where: { id: settings.id },
+    data:  { google_drive_service_account_json: JSON.stringify(parsed) },
+  });
+
+  auditLog({ req, action: 'UPDATE', entity: 'settings', entityCode: 'drive_json' });
+  res.json({ message: 'Service account JSON saved', client_email: parsed.client_email });
+};
+
+// ── Public: company name + drive status (no auth required) ────────────────────
 const getPublicSettings = async (req, res) => {
   const settings = await prisma.companySettings.findFirst();
-  res.json({ company_name: settings?.company_name || null });
+  res.json({
+    company_name:           settings?.company_name || null,
+    google_drive_enabled:   settings?.google_drive_enabled || false,
+    google_drive_configured: !!(
+      settings?.google_drive_service_account_json &&
+      settings?.google_drive_purchase_folder_id   &&
+      settings?.google_drive_sale_folder_id
+    ),
+  });
 };
 
 module.exports = {
@@ -177,6 +244,8 @@ module.exports = {
   updateEmailSettings,
   updateSecuritySettings,
   updatePrefixSettings,
+  updateDriveSettings,
+  updateDriveJson,
   testEmail,
   uploadLogo,
 };

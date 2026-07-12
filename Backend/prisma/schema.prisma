@@ -104,6 +104,10 @@ model CompanySettings {
   max_upload_mb        Int      @default(5)
   project_prefix       String   @default("PRJ")
   purchase_prefix      String   @default("PUR")
+  google_drive_enabled              Boolean @default(false)
+  google_drive_service_account_json String? @db.Text
+  google_drive_purchase_folder_id   String?
+  google_drive_sale_folder_id       String?
   inventory_prefix     String   @default("INV")
   sale_prefix          String   @default("SAL")
   customer_prefix      String   @default("CUS")
