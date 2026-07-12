@@ -122,7 +122,7 @@ async function getPurchases(req, res) {
       const comp = withComputed(p);
       let instPaid = 0;
       if (p.purchaseInstallment) {
-        for (let n = 1; n <= 20; n++) {
+        for (let n = 1; n <= 24; n++) {
           if (p.purchaseInstallment[`inst_${n}_paid`])
             instPaid += Number(p.purchaseInstallment[`inst_${n}_amount`] || 0);
         }

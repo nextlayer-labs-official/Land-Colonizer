@@ -70,17 +70,17 @@ function Card({ title, children, action }) {
 }
 
 // ── Installment helpers ────────────────────────────────────────────────────────
-const ORDINALS = ['1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th','11th','12th','13th','14th','15th','16th','17th','18th','19th','20th'];
+const ORDINALS = ['1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th','11th','12th','13th','14th','15th','16th','17th','18th','19th','20th','21st','22nd','23rd','24th'];
 function fmtDate(s) { if (!s) return ''; const d = new Date(s); return d.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }); }
 function emptyInst() {
   const d = { sl_no: '', installment_details: '' };
-  for (let n = 1; n <= 20; n++) { d[`inst_${n}_amount`] = ''; d[`inst_${n}_date`] = ''; d[`inst_${n}_paid`] = false; }
+  for (let n = 1; n <= 24; n++) { d[`inst_${n}_amount`] = ''; d[`inst_${n}_date`] = ''; d[`inst_${n}_paid`] = false; }
   return d;
 }
 function instFromApi(inst) {
   if (!inst) return emptyInst();
   const d = { sl_no: inst.sl_no || '', installment_details: inst.installment_details || '' };
-  for (let n = 1; n <= 20; n++) {
+  for (let n = 1; n <= 24; n++) {
     d[`inst_${n}_amount`] = inst[`inst_${n}_amount`] != null ? String(inst[`inst_${n}_amount`]) : '';
     d[`inst_${n}_date`]   = inst[`inst_${n}_date`]?.split?.('T')?.[0] || '';
     d[`inst_${n}_paid`]   = Boolean(inst[`inst_${n}_paid`]);
@@ -161,7 +161,7 @@ function PurchaseInstallmentPanel({ purchaseId, canEdit, onTotalPaidChange }) {
     setSaveError('');
     if (balanceAmt > 0) {
       let totalInstAmt = 0;
-      for (let n = 1; n <= 20; n++) totalInstAmt += Number(form[`inst_${n}_amount`] || 0);
+      for (let n = 1; n <= 24; n++) totalInstAmt += Number(form[`inst_${n}_amount`] || 0);
       if (totalInstAmt > balanceAmt) {
         setSaveError(`Total instalment amount (${fmtINR(totalInstAmt)}) exceeds the Instalment Balance (${fmtINR(balanceAmt)}). Please reduce the amounts.`);
         return;
@@ -767,7 +767,7 @@ function generatePurchaseReportHTML(form, c, totalInstPaid, inventory, companyNa
   const instRows = [];
   let instPaidCount = 0;
   if (inst) {
-    for (let n = 1; n <= 20; n++) {
+    for (let n = 1; n <= 24; n++) {
       const amt = inst[`inst_${n}_amount`];
       const dt  = inst[`inst_${n}_date`];
       const pd  = inst[`inst_${n}_paid`];

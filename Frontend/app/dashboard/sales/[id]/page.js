@@ -119,6 +119,7 @@ function ProjectPicker({ current, onPick, onClose }) {
 const ORDINALS = [
   '1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th',
   '11th','12th','13th','14th','15th','16th','17th','18th','19th','20th',
+  '21st','22nd','23rd','24th',
 ];
 const TYPE_ICON_COLOR = { PLOT: '#875A7B', SHOP: '#3b82f6', SHOP_WIRE: '#6366f1', PLOT_WIRE: '#8b5cf6' };
 const TYPE_ICON_BG    = { PLOT: '#875A7B15', SHOP: '#3b82f615', SHOP_WIRE: '#6366f115', PLOT_WIRE: '#8b5cf615' };
@@ -131,7 +132,7 @@ const POSS_RING = {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function emptyInst() {
   const d = { sl_no: '', installment_details: '' };
-  for (let n = 1; n <= 20; n++) {
+  for (let n = 1; n <= 24; n++) {
     d[`inst_${n}_amount`] = '';
     d[`inst_${n}_date`]   = '';
     d[`inst_${n}_paid`]   = false;
@@ -141,7 +142,7 @@ function emptyInst() {
 function instFromApi(inst) {
   if (!inst) return emptyInst();
   const d = { sl_no: inst.sl_no || '', installment_details: inst.installment_details || '' };
-  for (let n = 1; n <= 20; n++) {
+  for (let n = 1; n <= 24; n++) {
     d[`inst_${n}_amount`] = inst[`inst_${n}_amount`] != null ? String(inst[`inst_${n}_amount`]) : '';
     d[`inst_${n}_date`]   = inst[`inst_${n}_date`]?.split?.('T')?.[0] || '';
     d[`inst_${n}_paid`]   = Boolean(inst[`inst_${n}_paid`]);
@@ -320,7 +321,7 @@ function InstallmentPanel({ saleId, canEdit, onTotalPaidChange }) {
     setSaveError('');
     if (netAmt > 0) {
       let totalInstAmt = 0;
-      for (let n = 1; n <= 20; n++) totalInstAmt += Number(form[`inst_${n}_amount`] || 0);
+      for (let n = 1; n <= 24; n++) totalInstAmt += Number(form[`inst_${n}_amount`] || 0);
       if (totalInstAmt > netAmt) {
         setSaveError(`Total instalment amount (${fmtINR(totalInstAmt)}) exceeds the Net Amount (${fmtINR(netAmt)}). Please reduce the amounts.`);
         return;
@@ -1262,7 +1263,7 @@ function generateSaleReportHTML(form, effectiveInstPaid, effectiveBalance, compa
   const instRec = form.installment || null;
   const instRows = [];
   if (instRec) {
-    for (let n = 1; n <= 20; n++) {
+    for (let n = 1; n <= 24; n++) {
       const amt = instRec[`inst_${n}_amount`];
       const dt  = instRec[`inst_${n}_date`];
       const pd  = instRec[`inst_${n}_paid`];
@@ -1622,7 +1623,7 @@ export default function SaleDetailPage() {
   const instRec   = form.installment || null;
   let instPaidCount = 0, instTotalCount = 0, instPaidAmt = 0;
   if (instRec) {
-    for (let n = 1; n <= 20; n++) {
+    for (let n = 1; n <= 24; n++) {
       if (instRec[`inst_${n}_amount`] != null) instTotalCount++;
       if (instRec[`inst_${n}_paid`]) { instPaidCount++; instPaidAmt += Number(instRec[`inst_${n}_amount`] || 0); }
     }

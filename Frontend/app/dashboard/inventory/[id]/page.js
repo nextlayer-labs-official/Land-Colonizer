@@ -30,7 +30,8 @@ const POSS_STYLE = {
   PHYSICAL: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
 };
 const ORDINALS = ['1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th',
-                  '11th','12th','13th','14th','15th','16th','17th','18th','19th','20th'];
+                  '11th','12th','13th','14th','15th','16th','17th','18th','19th','20th',
+                  '21st','22nd','23rd','24th'];
 
 // ── Field atoms ───────────────────────────────────────────────────────────────
 function FL({ children }) { return <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{children}</p>; }
@@ -178,7 +179,7 @@ function generateInventoryReportHTML(form, inv, activeSale, companyName = 'Compa
   let   instPaidAmt  = 0;
   let   instPaidCnt  = 0;
   if (inst) {
-    for (let n = 1; n <= 20; n++) {
+    for (let n = 1; n <= 24; n++) {
       const amt = inst[`inst_${n}_amount`];
       const dt  = inst[`inst_${n}_date`];
       const pd  = inst[`inst_${n}_paid`];
@@ -388,7 +389,7 @@ export default function InventoryRecordPage() {
   let instPaidCount  = 0;
   let instTotalCount = 0;
   if (inst) {
-    for (let n = 1; n <= 20; n++) {
+    for (let n = 1; n <= 24; n++) {
       if (inst[`inst_${n}_amount`] != null) instTotalCount++;
       if (inst[`inst_${n}_paid`]) { instPaidCount++; instTotalPaid += Number(inst[`inst_${n}_amount`] || 0); }
     }

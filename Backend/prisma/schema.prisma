@@ -349,6 +349,18 @@ model Installment {
   inst_20_amount  Decimal?  @db.Decimal(12, 2)
   inst_20_date    DateTime?
   inst_20_paid    Boolean   @default(false)
+  inst_21_amount  Decimal?  @db.Decimal(12, 2)
+  inst_21_date    DateTime?
+  inst_21_paid    Boolean   @default(false)
+  inst_22_amount  Decimal?  @db.Decimal(12, 2)
+  inst_22_date    DateTime?
+  inst_22_paid    Boolean   @default(false)
+  inst_23_amount  Decimal?  @db.Decimal(12, 2)
+  inst_23_date    DateTime?
+  inst_23_paid    Boolean   @default(false)
+  inst_24_amount  Decimal?  @db.Decimal(12, 2)
+  inst_24_date    DateTime?
+  inst_24_paid    Boolean   @default(false)
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -421,6 +433,18 @@ model PurchaseInstallment {
   inst_20_amount  Decimal?  @db.Decimal(12, 2)
   inst_20_date    DateTime?
   inst_20_paid    Boolean   @default(false)
+  inst_21_amount  Decimal?  @db.Decimal(12, 2)
+  inst_21_date    DateTime?
+  inst_21_paid    Boolean   @default(false)
+  inst_22_amount  Decimal?  @db.Decimal(12, 2)
+  inst_22_date    DateTime?
+  inst_22_paid    Boolean   @default(false)
+  inst_23_amount  Decimal?  @db.Decimal(12, 2)
+  inst_23_date    DateTime?
+  inst_23_paid    Boolean   @default(false)
+  inst_24_amount  Decimal?  @db.Decimal(12, 2)
+  inst_24_date    DateTime?
+  inst_24_paid    Boolean   @default(false)
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt

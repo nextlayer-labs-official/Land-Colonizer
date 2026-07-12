@@ -2,7 +2,7 @@ const prisma = require('../../lib/prisma');
 
 function computeTotalPaid(inst) {
   let sum = 0;
-  for (let n = 1; n <= 20; n++) {
+  for (let n = 1; n <= 24; n++) {
     if (inst[`inst_${n}_paid`]) sum += Number(inst[`inst_${n}_amount`] || 0);
   }
   return parseFloat(sum.toFixed(2));
@@ -18,7 +18,7 @@ function sanitize(body) {
     sl_no:               str(body.sl_no),
     installment_details: str(body.installment_details),
   };
-  for (let n = 1; n <= 20; n++) {
+  for (let n = 1; n <= 24; n++) {
     data[`inst_${n}_amount`] = num(body[`inst_${n}_amount`]);
     data[`inst_${n}_date`]   = dt(body[`inst_${n}_date`]);
     data[`inst_${n}_paid`]   = bool(body[`inst_${n}_paid`]);

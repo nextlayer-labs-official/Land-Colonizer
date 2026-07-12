@@ -35,7 +35,7 @@ function effBalance(r) {
   const bk      = Number(r.booking_amount  || 0);
   let instPaid  = 0;
   if (r.installment) {
-    for (let n = 1; n <= 20; n++) {
+    for (let n = 1; n <= 24; n++) {
       if (r.installment[`inst_${n}_paid`]) instPaid += Number(r.installment[`inst_${n}_amount`] || 0);
     }
   }

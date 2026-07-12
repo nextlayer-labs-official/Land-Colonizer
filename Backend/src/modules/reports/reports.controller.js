@@ -179,7 +179,7 @@ const brokerReport = async (req, res) => {
 const instalmentsReport = async (req, res) => {
   function pendingOf(inst) {
     const paid = [], pending = [];
-    for (let n = 1; n <= 20; n++) {
+    for (let n = 1; n <= 24; n++) {
       const amount = Number(inst[`inst_${n}_amount`] || 0);
       if (amount <= 0) continue;
       if (inst[`inst_${n}_paid`]) paid.push({ no: n, amount, date: inst[`inst_${n}_date`] || null });
