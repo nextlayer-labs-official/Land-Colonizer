@@ -326,8 +326,9 @@ function CompanyTab() {
       const { API_URL } = await import('@/lib/config');
       const res = await fetch(`${API_URL}/settings/logo`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
       if (!res.ok) { const d = await res.json(); throw new Error(d.message); }
-      setLogoMsg({ type: 'success', text: 'Logo uploaded successfully' });
+      setLogoMsg({ type: 'success', text: 'Logo uploaded successfully. Refreshing…' });
       setLogo(null);
+      setTimeout(() => window.location.reload(), 800);
     } catch (err) { setLogoMsg({ type: 'error', text: err.message }); }
     finally { setLogoUploading(false); }
   };

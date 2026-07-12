@@ -1196,13 +1196,16 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
             )}
           </div>
           <div>
-            <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">Payment Date</label>
+            <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">
+              Payment Date <span className="text-red-400">*</span>
+            </label>
             <input
               type="date"
               value={advanceDate}
               onChange={e => setAdvanceDate(e.target.value)}
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/20"
+              className={`w-full text-sm border rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/20 ${!advanceDate ? 'border-red-300' : 'border-gray-200'}`}
             />
+            {!advanceDate && <p className="text-[10px] text-red-400 mt-0.5">Required</p>}
           </div>
           <div>
             <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">Payment Notes</label>
@@ -1231,8 +1234,8 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
         <div className="flex gap-2">
           <button
             onClick={() => { onConfirm(advance, bookingInReceived, advanceDate, advanceNote); setConfirming2(false); }}
-            disabled={confirming}
-            className="h-8 px-4 text-xs font-bold rounded-lg text-white flex items-center gap-1.5"
+            disabled={confirming || !advanceDate}
+            className="h-8 px-4 text-xs font-bold rounded-lg text-white flex items-center gap-1.5 disabled:opacity-50"
             style={{ backgroundColor: '#875A7B' }}>
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
             {confirming ? 'Confirming…' : 'Confirm & Close Sale'}
