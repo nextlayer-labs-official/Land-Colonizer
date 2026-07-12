@@ -883,12 +883,14 @@ function BookingPanel({ saleId, canEdit, onConfirmed }) {
     finally { setDeleting(null); }
   };
 
-  const handleConfirm = async (id, advance_payment, booking_in_received) => {
+  const handleConfirm = async (id, advance_payment, booking_in_received, advance_payment_date, advance_payment_details) => {
     setConfirming(id); setError('');
     try {
       await apiPost(`/sales/${saleId}/bookings/${id}/confirm`, {
-        advance_payment:    advance_payment || null,
+        advance_payment:         advance_payment || null,
         booking_in_received,
+        advance_payment_date:    advance_payment_date    || null,
+        advance_payment_details: advance_payment_details || null,
       });
       onConfirmed?.();
       await load();
@@ -1000,6 +1002,8 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
   const [editing,           setEditing]           = useState(false);
   const [confirming2,       setConfirming2]        = useState(false);
   const [advance,           setAdvance]            = useState('');
+  const [advanceDate,       setAdvanceDate]        = useState('');
+  const [advanceNote,       setAdvanceNote]        = useState('');
   const [bookingInReceived, setBookingInReceived]  = useState(true);
   const [form, setForm] = useState({
     _customer:      b.customer || null,
@@ -1176,19 +1180,40 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
     {confirming2 && (
       <div className="border-t border-[#875A7B]/20 bg-[#875A7B]/5 px-4 py-3 space-y-2.5">
         <p className="text-xs font-bold text-gray-700">Confirm sale with {b.customer?.name || 'this customer'}</p>
-        <div>
-          <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">Advance Payment Received (₹)</label>
-          <input
-            autoFocus
-            type="number"
-            value={advance}
-            onChange={e => setAdvance(e.target.value)}
-            placeholder="Enter advance amount…"
-            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/20"
-          />
-          {b.booking_amount != null && (
-            <p className="text-[10px] text-gray-400 mt-1">Booking amount: {fmtINR(b.booking_amount)}</p>
-          )}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">Advance Amount (₹)</label>
+            <input
+              autoFocus
+              type="number"
+              value={advance}
+              onChange={e => setAdvance(e.target.value)}
+              placeholder="Enter advance amount…"
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/20"
+            />
+            {b.booking_amount != null && (
+              <p className="text-[10px] text-gray-400 mt-1">Booking amount: {fmtINR(b.booking_amount)}</p>
+            )}
+          </div>
+          <div>
+            <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">Payment Date</label>
+            <input
+              type="date"
+              value={advanceDate}
+              onChange={e => setAdvanceDate(e.target.value)}
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/20"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">Payment Notes</label>
+            <input
+              type="text"
+              value={advanceNote}
+              onChange={e => setAdvanceNote(e.target.value)}
+              placeholder="Mode / reference…"
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/20"
+            />
+          </div>
         </div>
         {b.booking_amount != null && (
           <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -1205,14 +1230,14 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
         )}
         <div className="flex gap-2">
           <button
-            onClick={() => { onConfirm(advance, bookingInReceived); setConfirming2(false); }}
+            onClick={() => { onConfirm(advance, bookingInReceived, advanceDate, advanceNote); setConfirming2(false); }}
             disabled={confirming}
             className="h-8 px-4 text-xs font-bold rounded-lg text-white flex items-center gap-1.5"
             style={{ backgroundColor: '#875A7B' }}>
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
             {confirming ? 'Confirming…' : 'Confirm & Close Sale'}
           </button>
-          <button onClick={() => { setConfirming2(false); setBookingInReceived(true); }}
+          <button onClick={() => { setConfirming2(false); setAdvanceDate(''); setAdvanceNote(''); setBookingInReceived(true); }}
             className="h-8 px-3 text-xs border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50">
             Cancel
           </button>

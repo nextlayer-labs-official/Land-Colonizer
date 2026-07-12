@@ -197,6 +197,7 @@ model Sale {
   booking_amount            Decimal?         @db.Decimal(10, 2)
   booking_details           String?          @db.Text
   advance_payment           Decimal?         @db.Decimal(10, 2)
+  advance_payment_date      DateTime?
   advance_payment_details   String?          @db.Text
   balance_amount            Decimal?         @db.Decimal(10, 2)
   balance_amount_details    String?

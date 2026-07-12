@@ -62,6 +62,8 @@ async function confirmBooking(req, res) {
     ? parseFloat(req.body.advance_payment)
     : null;
   const booking_in_received  = req.body.booking_in_received === false || req.body.booking_in_received === 'false' ? false : true;
+  const advance_payment_date    = req.body.advance_payment_date ? new Date(req.body.advance_payment_date) : null;
+  const advance_payment_details = req.body.advance_payment_details ? String(req.body.advance_payment_details).trim() : null;
 
   const booking = await prisma.saleBooking.findUnique({ where: { id } });
   if (!booking || booking.sale_id !== sale_id)
@@ -74,10 +76,12 @@ async function confirmBooking(req, res) {
   const saleUpdate = {
     sale_confirmed:      true,
     booking_in_received,
-    ...(booking.customer_id    ? { customer_id:    booking.customer_id }    : {}),
-    ...(booking.booking_amount ? { booking_amount: booking.booking_amount } : {}),
-    ...(advance_payment != null ? { advance_payment }                        : {}),
-    ...(computedBalance != null ? { balance_amount: computedBalance }        : {}),
+    ...(booking.customer_id       ? { customer_id:    booking.customer_id }    : {}),
+    ...(booking.booking_amount    ? { booking_amount: booking.booking_amount } : {}),
+    ...(advance_payment    != null ? { advance_payment }                        : {}),
+    ...(computedBalance    != null ? { balance_amount: computedBalance }        : {}),
+    ...(advance_payment_date      ? { advance_payment_date }                    : {}),
+    ...(advance_payment_details   ? { advance_payment_details }                 : {}),
   };
 
   // Mark this booking CONFIRMED; leave others as-is for manual refund/income entry
