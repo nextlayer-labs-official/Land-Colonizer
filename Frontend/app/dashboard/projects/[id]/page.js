@@ -67,15 +67,16 @@ function StatusBar({ project, height = 'h-3' }) {
 function DeleteModal({ name, onClose, onConfirm }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full">
-        <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center mb-4">
-          <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+      <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full">
+        <div className="w-11 h-11 bg-red-50 rounded-xl flex items-center justify-center mb-4">
+          <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
         </div>
-        <p className="text-base font-bold text-gray-900 mb-1">Delete &quot;{name}&quot;?</p>
-        <p className="text-sm text-gray-500 mb-6">Inventory units linked to this project will be unlinked, not deleted.</p>
+        <p className="text-base font-semibold text-gray-900 mb-1">Delete &quot;{name}&quot;?</p>
+        <p className="text-sm text-gray-500 mb-2">Inventory units linked to this project will be unlinked, not deleted.</p>
+        <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-5">This action cannot be undone — deleted data cannot be recovered.</p>
         <div className="flex gap-2">
-          <button onClick={onClose} className="flex-1 h-10 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 font-medium">Cancel</button>
-          <button onClick={onConfirm} className="flex-1 h-10 text-sm rounded-xl text-white font-semibold bg-red-500 hover:bg-red-600 transition">Delete</button>
+          <button onClick={onClose} className="flex-1 h-9 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 font-medium">Cancel</button>
+          <button onClick={onConfirm} className="flex-1 h-9 text-sm rounded-lg text-white font-semibold bg-red-500 hover:bg-red-600 transition">Yes, Delete</button>
         </div>
       </div>
     </div>

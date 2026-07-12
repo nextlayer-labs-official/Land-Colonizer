@@ -110,17 +110,21 @@ function DeleteModal({ user, onClose, onDeleted }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="w-full max-w-sm bg-white rounded-lg shadow-xl p-6">
-        <h2 className="text-base font-semibold text-gray-800 mb-2">Delete User</h2>
-        <p className="text-sm text-gray-500 mb-4">
-          Delete <span className="font-medium text-gray-700">{user.name}</span>? This cannot be undone.
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+      <div className="w-full max-w-sm bg-white rounded-xl shadow-2xl p-6">
+        <div className="w-11 h-11 bg-red-50 rounded-xl flex items-center justify-center mb-4">
+          <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        </div>
+        <h2 className="text-base font-semibold text-gray-900 mb-1">Delete user?</h2>
+        <p className="text-sm text-gray-500 mb-2">
+          <span className="font-medium text-gray-700">{user.name}</span> will be permanently deleted.
         </p>
-        {error && <div className="px-3 py-2.5 rounded bg-red-50 border border-red-200 text-red-600 text-sm mb-3">{error}</div>}
-        <div className="flex gap-3">
-          <button onClick={onClose} className="btn-secondary flex-1 justify-center py-2">Cancel</button>
-          <button onClick={handleDelete} disabled={loading} className="btn-danger flex-1 justify-center py-2">
-            {loading ? 'Deleting…' : 'Delete'}
+        <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">This action cannot be undone — deleted data cannot be recovered.</p>
+        {error && <div className="px-3 py-2.5 rounded-lg bg-red-50 border border-red-200 text-red-600 text-sm mb-3">{error}</div>}
+        <div className="flex gap-2">
+          <button onClick={onClose} className="flex-1 h-9 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 font-medium">Cancel</button>
+          <button onClick={handleDelete} disabled={loading} className="flex-1 h-9 text-sm rounded-lg text-white bg-red-500 hover:bg-red-600 font-semibold transition disabled:opacity-60">
+            {loading ? 'Deleting…' : 'Yes, Delete'}
           </button>
         </div>
       </div>
@@ -147,15 +151,19 @@ function BulkDeleteModal({ ids, onClose, onDeleted }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="w-full max-w-sm bg-white rounded-lg shadow-xl p-6">
-        <h2 className="text-base font-semibold text-gray-800 mb-2">Delete {ids.length} user{ids.length > 1 ? 's' : ''}?</h2>
-        <p className="text-sm text-gray-500 mb-4">This action cannot be undone.</p>
-        {error && <div className="px-3 py-2.5 rounded bg-red-50 border border-red-200 text-red-600 text-sm mb-3">{error}</div>}
-        <div className="flex gap-3">
-          <button onClick={onClose} className="btn-secondary flex-1 justify-center py-2">Cancel</button>
-          <button onClick={handleDelete} disabled={loading} className="btn-danger flex-1 justify-center py-2">
-            {loading ? 'Deleting…' : `Delete ${ids.length}`}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+      <div className="w-full max-w-sm bg-white rounded-xl shadow-2xl p-6">
+        <div className="w-11 h-11 bg-red-50 rounded-xl flex items-center justify-center mb-4">
+          <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        </div>
+        <h2 className="text-base font-semibold text-gray-900 mb-1">Delete {ids.length} user{ids.length > 1 ? 's' : ''}?</h2>
+        <p className="text-sm text-gray-500 mb-2">{ids.length} user{ids.length > 1 ? 's' : ''} will be permanently deleted.</p>
+        <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">This action cannot be undone — deleted data cannot be recovered.</p>
+        {error && <div className="px-3 py-2.5 rounded-lg bg-red-50 border border-red-200 text-red-600 text-sm mb-3">{error}</div>}
+        <div className="flex gap-2">
+          <button onClick={onClose} className="flex-1 h-9 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 font-medium">Cancel</button>
+          <button onClick={handleDelete} disabled={loading} className="flex-1 h-9 text-sm rounded-lg text-white bg-red-500 hover:bg-red-600 font-semibold transition disabled:opacity-60">
+            {loading ? 'Deleting…' : `Yes, Delete ${ids.length}`}
           </button>
         </div>
       </div>

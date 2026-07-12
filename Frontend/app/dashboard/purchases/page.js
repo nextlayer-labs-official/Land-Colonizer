@@ -112,27 +112,31 @@ function DeleteModal({ item, onClose, onConfirm, deleting, error }) {
   const hasLinked = item.items?.some(r => (r._count?.inventory || 0) > 0);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/40" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4">
-        <h3 className="text-base font-semibold text-gray-900 mb-2">Delete {count === 1 ? 'purchase' : `${count} purchases`}?</h3>
+        <div className="w-11 h-11 bg-red-50 rounded-xl flex items-center justify-center mb-4">
+          <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        </div>
+        <h3 className="text-base font-semibold text-gray-900 mb-1">Delete {count === 1 ? 'purchase' : `${count} purchases`}?</h3>
         <p className="text-sm text-gray-500 mb-2">
-          {count === 1 ? 'This purchase' : `These ${count} purchases`} will be permanently deleted and cannot be recovered.
+          {count === 1 ? 'This purchase' : `These ${count} purchases`} will be permanently deleted.
         </p>
         {hasLinked && (
-          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
+          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2">
             Any linked inventory units will also be deleted.
           </p>
         )}
+        <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">This action cannot be undone — deleted data cannot be recovered.</p>
         {error && (
           <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-3 py-2.5 text-sm text-red-700">
             {error}
           </div>
         )}
-        <div className="flex justify-end gap-2 mt-4">
-          <button onClick={onClose} className="btn-secondary text-sm">Cancel</button>
+        <div className="flex gap-2 mt-1">
+          <button onClick={onClose} className="flex-1 h-9 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 font-medium">Cancel</button>
           {!error && (
-            <button onClick={onConfirm} disabled={deleting} className="btn-danger text-sm min-w-[90px]">
-              {deleting ? 'Deleting…' : 'Delete'}
+            <button onClick={onConfirm} disabled={deleting} className="flex-1 h-9 text-sm rounded-lg text-white bg-red-500 hover:bg-red-600 font-semibold transition disabled:opacity-60 min-w-[90px]">
+              {deleting ? 'Deleting…' : 'Yes, Delete'}
             </button>
           )}
         </div>
