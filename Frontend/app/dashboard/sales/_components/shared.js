@@ -29,6 +29,7 @@ export const EMPTY = {
   intkaal_number: '', date_of_registration: '',
   vasika: '', possession: 'PENDING', possession_detail: '',
   other_details: '', status: 'ACTIVE', booking_in_received: true,
+  registration_completed: false,
 };
 
 // ── Computed fields (live in form) ─────────────────────────────────────────────

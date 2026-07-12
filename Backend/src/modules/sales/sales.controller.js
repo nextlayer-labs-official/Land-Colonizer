@@ -86,6 +86,7 @@ function sanitize(body) {
     status:                    body.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
     sale_confirmed:            body.sale_confirmed === true || body.sale_confirmed === 'true' || false,
     booking_in_received:       body.booking_in_received === false || body.booking_in_received === 'false' ? false : true,
+    registration_completed:    body.registration_completed === true || body.registration_completed === 'true' || false,
   };
 
   return { ...d, ...computeFields(d) };

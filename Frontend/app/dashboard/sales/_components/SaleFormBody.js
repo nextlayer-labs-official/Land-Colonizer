@@ -340,6 +340,21 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false, sho
 
         <SectionDivider title="Registration & Possession" />
 
+        <div className="col-span-full">
+          <label className={`flex items-center gap-2.5 select-none ${readOnly ? 'pointer-events-none' : 'cursor-pointer'}`}>
+            <input
+              type="checkbox"
+              checked={!!form.registration_completed}
+              onChange={(e) => set('registration_completed')({ target: { value: e.target.checked } })}
+              disabled={readOnly}
+              className="w-4 h-4 rounded border-gray-300 accent-emerald-600"
+            />
+            <span className={`text-sm font-semibold ${form.registration_completed ? 'text-emerald-700' : 'text-gray-500'}`}>
+              Registration Completed
+            </span>
+          </label>
+        </div>
+
         <div>
           <FieldLabel>Intkaal Number</FieldLabel>
           <FInput value={form.intkaal_number} onChange={set('intkaal_number')} placeholder="Intkaal number" readOnly={readOnly} />

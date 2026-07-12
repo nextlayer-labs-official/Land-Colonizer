@@ -234,6 +234,7 @@ model Sale {
   archived                  Boolean          @default(false)
   sale_confirmed            Boolean          @default(false)
   booking_in_received       Boolean          @default(true)
+  registration_completed    Boolean          @default(false)
   created_at                DateTime         @default(now())
   updated_at                DateTime         @updatedAt
   inventory                 Inventory?       @relation(fields: [inventory_id], references: [id])
