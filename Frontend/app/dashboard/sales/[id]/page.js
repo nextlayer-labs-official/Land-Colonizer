@@ -12,6 +12,7 @@ import {
   CustomerPicker,
 } from '../_components/shared';
 import SaleFormBody from '../_components/SaleFormBody';
+import DocumentsPanel from '../../_components/DocumentsPanel';
 
 // ── Project Picker ────────────────────────────────────────────────────────────
 function ProjectPicker({ current, onPick, onClose }) {
@@ -1644,6 +1645,7 @@ export default function SaleDetailPage() {
     { id: 'bookings',     label: 'Bookings' + (form.bookings?.length ? ` (${form.bookings.length})` : '') },
     { id: 'installments', label: 'Installments', locked: !confirmed },
     { id: 'financials',   label: 'Financials',   locked: !confirmed },
+    { id: 'documents',    label: 'Documents' },
   ];
 
   return (
@@ -1999,6 +2001,16 @@ export default function SaleDetailPage() {
             {/* Tab: Financials */}
             {tab === 'financials' && (
               <FinancialsTab form={form} instPaid={effectiveInstPaid} />
+            )}
+
+            {/* Tab: Documents */}
+            {tab === 'documents' && (
+              <DocumentsPanel
+                entityType="sale"
+                entityId={Number(params.id)}
+                canUpload={canEdit}
+                canDelete={canDelete}
+              />
             )}
 
           </div>

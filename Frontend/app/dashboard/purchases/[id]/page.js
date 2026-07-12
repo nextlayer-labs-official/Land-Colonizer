@@ -7,6 +7,7 @@ import useAuth from '@/lib/useAuth';
 import usePermissions from '@/lib/usePermissions';
 import { apiGet, apiPut, apiDelete, apiPost, apiPatch } from '@/lib/api';
 import { EMPTY, computed, getStageIndex, StatusPipeline, TYPE_RING, fmtINR, fmtNum, BrokerPicker } from '../_components/shared';
+import DocumentsPanel from '../../_components/DocumentsPanel';
 
 // ── Inline field atoms ─────────────────────────────────────────────────────────
 function Label({ children }) {
@@ -1463,6 +1464,16 @@ export default function PurchaseRecordPage() {
               </div>
             </div>
           )}
+
+          {/* ── Documents ── */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <DocumentsPanel
+              entityType="purchase"
+              entityId={Number(params.id)}
+              canUpload={canEdit}
+              canDelete={canDelete}
+            />
+          </div>
 
         </div>
       </div>

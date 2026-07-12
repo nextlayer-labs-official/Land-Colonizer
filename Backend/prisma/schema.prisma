@@ -32,6 +32,7 @@ model User {
   created_at          DateTime             @default(now())
   updated_at          DateTime             @updatedAt
   passwordResetTokens PasswordResetToken[]
+  documents           Document[]
 }
 
 enum UserStatus {
@@ -539,6 +540,23 @@ enum InventoryStatus {
   RESERVED
   SOLD
   REGISTERED
+}
+
+model Document {
+  id            Int      @id @default(autoincrement())
+  entity_type   String   // 'purchase' | 'sale'
+  entity_id     Int
+  name          String
+  drive_file_id String
+  drive_url     String   @db.Text
+  mime_type     String?
+  size          Int?
+  uploaded_by   Int
+  created_at    DateTime @default(now())
+
+  uploader User @relation(fields: [uploaded_by], references: [id], onDelete: Cascade)
+
+  @@index([entity_type, entity_id])
 }
 
 model AuditLog {

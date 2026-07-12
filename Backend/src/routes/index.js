@@ -13,6 +13,7 @@ const salesRoutes      = require('../modules/sales/sales.routes');
 const inventoryRoutes  = require('../modules/inventory/inventory.routes');
 const reportsRoutes    = require('../modules/reports/reports.routes');
 const auditRoutes      = require('../modules/audit/audit.routes');
+const { purchaseDocsRouter, saleDocsRouter, deleteRouter: docsDeleteRouter } = require('../modules/documents/documents.routes');
 
 const router = Router();
 
@@ -30,5 +31,8 @@ router.use('/sales',     salesRoutes);
 router.use('/inventory', inventoryRoutes);
 router.use('/reports',   reportsRoutes);
 router.use('/audit',     auditRoutes);
+router.use('/purchases/:entity_id/documents', purchaseDocsRouter);
+router.use('/sales/:entity_id/documents',     saleDocsRouter);
+router.use('/documents',                      docsDeleteRouter);
 
 module.exports = router;
