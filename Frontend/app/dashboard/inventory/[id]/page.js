@@ -139,6 +139,127 @@ function PaymentBar({ received, total }) {
   );
 }
 
+// ── PDF Report Generator ──────────────────────────────────────────────────────
+function generateInventoryReportHTML(form, inv, activeSale, companyName = 'Company') {
+  const mf = (n) => n != null && n !== '' ? `&#8377;${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '&mdash;';
+  const df = (v) => v ? new Date(v).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '&mdash;';
+  const sv = (v) => (v && String(v).trim()) ? String(v).trim() : '&mdash;';
+
+  const purple  = '#875A7B';
+  const purpleL = '#f5f0f4';
+  const now     = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+  const secTitle = (t) =>
+    `<div style="background:${purple};color:#fff;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;border-radius:4px 4px 0 0;">${t}</div>`;
+  const infoBox = (rows) =>
+    `<table style="width:100%;border-collapse:collapse;font-size:11px;border:1px solid #e5e7eb;border-top:none;">` +
+    rows.map(([l, v]) =>
+      `<tr><td style="padding:5px 10px;color:#6b7280;width:42%;border-bottom:1px solid #f3f4f6;font-size:10px;">${l}</td>` +
+      `<td style="padding:5px 10px;color:#111827;font-weight:600;border-bottom:1px solid #f3f4f6;">${v}</td></tr>`
+    ).join('') + `</table>`;
+  const finRow = (label, value, hi = false) =>
+    `<tr style="${hi ? `background:${purpleL};` : ''}">` +
+    `<td style="padding:6px 10px;color:${hi ? purple : '#374151'};font-weight:${hi ? '700' : '500'};border-bottom:1px solid #f3f4f6;font-size:11px;">${label}</td>` +
+    `<td style="padding:6px 10px;text-align:right;font-family:monospace;font-size:11px;color:${hi ? purple : '#111827'};font-weight:${hi ? '700' : '600'};border-bottom:1px solid #f3f4f6;">${value}</td></tr>`;
+
+  const codeLabel = form.inventory_code || (inv?.id ? `INV-${String(inv.id).padStart(4,'0')}` : '—');
+  const TYPE_MAP = { PLOT: 'Plot', LAND: 'Land', SHOP: 'Shop', FLAT: 'Flat', PLOT_WIRE: 'Plot Wire', SHOP_WIRE: 'Shop Wire' };
+  const fa = parseFloat(form.front_area) || 0;
+  const ba = parseFloat(form.back_area)  || 0;
+  const areaStr = fa && ba ? `${parseFloat((fa*(ba/9)).toFixed(4))} Sq Yd (${fa}×${ba})` : (form.area ? `${form.area} ${form.area_unit||''}`.trim() : '—');
+
+  // Sale financials
+  const inst         = activeSale?.installment || null;
+  const instRows     = [];
+  let   instPaidAmt  = 0;
+  let   instPaidCnt  = 0;
+  if (inst) {
+    for (let n = 1; n <= 20; n++) {
+      const amt = inst[`inst_${n}_amount`];
+      const dt  = inst[`inst_${n}_date`];
+      const pd  = inst[`inst_${n}_paid`];
+      if (amt != null && Number(amt) > 0) { instRows.push({ n, amt: Number(amt), dt, pd }); if (pd) { instPaidCnt++; instPaidAmt += Number(amt); } }
+    }
+  }
+  const totalVal    = Number(activeSale?.actual_price    || 0);
+  const bookingAmt  = Number(activeSale?.booking_amount  || 0);
+  const advanceAmt  = Number(activeSale?.advance_payment || 0);
+  const received    = bookingAmt + advanceAmt;
+  const balAmt      = totalVal > 0 ? Math.max(0, totalVal - advanceAmt - instPaidAmt) : 0;
+  const customer    = activeSale?.customer;
+
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/>
+<title>Inventory Report &ndash; ${codeLabel}</title>
+<style>*{margin:0;padding:0;box-sizing:border-box;}
+@page{size:A4;margin:14mm 14mm 18mm;}
+body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#1f2937;background:#fff;line-height:1.5;}
+@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style></head><body>
+<div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:12px;border-bottom:3px solid ${purple};">
+  <div><div style="font-size:18px;font-weight:900;color:${purple};">${companyName}</div>
+  <div style="font-size:11px;font-weight:700;color:#374151;margin-top:2px;">INVENTORY REPORT</div>
+  <div style="font-size:10px;color:#9ca3af;margin-top:1px;">Generated on ${now}</div></div>
+  <div style="text-align:right;"><div style="font-size:18px;font-weight:800;color:#111827;">${codeLabel}</div>
+  <div style="font-size:10px;color:#9ca3af;margin-top:2px;">Plot No: ${sv(form.plot_no)}</div></div>
+</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;margin-bottom:14px;">
+  ${[['Type',TYPE_MAP[form.type]||form.type||'—'],['Status',form.status||'—'],['Plot No',sv(form.plot_no)],['Location',sv(form.location)],['Area',areaStr]].map(([l,v])=>
+    `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:4px 10px;display:inline-block;"><span style="font-size:9px;color:#9ca3af;text-transform:uppercase;">${l}: </span><span style="font-size:10px;font-weight:700;color:#374151;">${v}</span></div>`
+  ).join('')}
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+  <div>${secTitle('Unit Information')}${infoBox([['Inventory Code',codeLabel],['Type',TYPE_MAP[form.type]||form.type||'—'],['Status',sv(form.status)],['Plot No',sv(form.plot_no)],['SL No',sv(form.sl_no)],['Location',sv(form.location)],['Possession',sv(form.possession_status)]])}</div>
+  <div>${secTitle('Area & Measurement')}${infoBox([['Front Area',`${sv(form.front_area)} ${sv(form.front_area_details)}`],['Back Area',`${sv(form.back_area)} ${sv(form.back_area_details)}`],['Computed Area',areaStr],['Sanctioned Area',`${sv(form.sanctioned_area)} ${sv(form.sanctioned_area_details)}`],['Rate',form.rate?mf(form.rate):'—'],['Project',sv(form.project?.name||form.project_id)],['Purchase Ref',sv(inv?.purchase?.purchase_code||form.purchase_id)]])}</div>
+</div>
+${activeSale ? `
+<div style="margin-bottom:14px;">${secTitle(`Linked Sale &mdash; ${activeSale.sale_code||`SALE-${String(activeSale.id).padStart(4,'0')}`} (${activeSale.status||''})`)}
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid #e5e7eb;border-top:none;">
+  <div style="padding:10px 12px;border-right:1px solid #e5e7eb;">
+    <div style="font-size:9px;text-transform:uppercase;color:#9ca3af;font-weight:700;margin-bottom:6px;">Customer</div>
+    ${customer?`<div style="font-size:12px;font-weight:700;color:#111827;">${customer.name||'—'}</div>
+    <div style="font-size:10px;color:#6b7280;margin-top:2px;">${customer.phone||''}</div>
+    <div style="font-size:10px;color:#6b7280;">${customer.email||''}</div>`:'<div style="color:#9ca3af;font-size:11px;">No customer linked</div>'}
+  </div>
+  <div style="padding:10px 12px;">
+    <div style="font-size:9px;text-transform:uppercase;color:#9ca3af;font-weight:700;margin-bottom:6px;">Broker</div>
+    <div style="font-size:12px;font-weight:700;color:#111827;">${sv(activeSale.broker_name)}</div>
+    <div style="font-size:10px;color:#6b7280;margin-top:2px;">Sale Date: ${df(activeSale.sale_date)}</div>
+    <div style="font-size:10px;color:#6b7280;">Reg. Date: ${df(activeSale.registration_date)}</div>
+  </div>
+</div>
+</div>
+<div style="margin-bottom:14px;">${secTitle('Financial Summary')}
+  <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-top:none;">
+    ${finRow('Actual Price (Total Value)',mf(totalVal),true)}
+    ${bookingAmt?finRow('Booking Amount',mf(bookingAmt)):''}
+    ${finRow('Advance Payment',mf(advanceAmt))}
+    ${finRow('Total Received (Adv + Booking)',mf(received))}
+    ${instPaidAmt>0?finRow(`Installments Paid (${instPaidCnt})`,mf(instPaidAmt)):''}
+    ${finRow('Balance Remaining',mf(balAmt),true)}
+  </table>
+</div>
+${instRows.length>0?`
+<div style="margin-bottom:14px;">${secTitle(`Installments (${instPaidCnt}/${instRows.length} paid &middot; Paid Total: ${mf(instPaidAmt)})`)}
+  <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-top:none;font-size:11px;">
+    <tr style="background:#f9fafb;">
+      <th style="padding:5px 10px;text-align:left;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">#</th>
+      <th style="padding:5px 10px;text-align:right;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Amount</th>
+      <th style="padding:5px 10px;text-align:left;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Due Date</th>
+      <th style="padding:5px 10px;text-align:center;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Status</th>
+    </tr>
+    ${instRows.map(r=>`<tr style="${r.pd?'background:#f0fdf4;':''}"><td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;color:#6b7280;">${r.n}</td><td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;text-align:right;font-family:monospace;font-weight:600;">${mf(r.amt)}</td><td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;color:#374151;">${df(r.dt)}</td><td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;text-align:center;font-weight:700;color:${r.pd?'#059669':'#f59e0b'};">${r.pd?'&#10003; Paid':'Pending'}</td></tr>`).join('')}
+  </table>
+</div>`:''}` : `
+<div style="border:1px solid #e5e7eb;border-radius:4px;padding:14px 16px;margin-bottom:14px;background:#fafafa;text-align:center;color:#9ca3af;font-size:11px;">No active sale linked to this unit.</div>`}
+${form.notes?`<div style="margin-bottom:14px;">${secTitle('Notes')}
+  <div style="border:1px solid #e5e7eb;border-top:none;padding:10px;font-size:11px;color:#374151;line-height:1.7;">${sv(form.notes)}</div>
+</div>`:''}
+<div style="margin-top:20px;padding-top:8px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;color:#9ca3af;font-size:9px;">
+  <span>System-generated report. ${codeLabel}</span><span>Confidential &middot; ${companyName}</span>
+</div>
+<script>window.onload=function(){window.print();}</script>
+</body></html>`;
+}
+
 // ── Main ───────────────────────────────────────────────────────────────────────
 export default function InventoryRecordPage() {
   useAuth();
@@ -222,6 +343,17 @@ export default function InventoryRecordPage() {
       if (original.purchase_id) router.push(`/dashboard/purchases/${original.purchase_id}`);
       else router.push('/dashboard/inventory');
     } catch (e) { setError(e.message); setDeleting(false); setShowDel(false); }
+  };
+
+  const handleExportPDF = async () => {
+    let companyName = 'Company';
+    try { const s = await apiGet('/settings/public'); if (s?.company_name) companyName = s.company_name; } catch { /* default */ }
+    const sale = inv?.sales?.find(s => s.status !== 'INACTIVE') || null;
+    const html = generateInventoryReportHTML(form, inv, sale, companyName);
+    const w = window.open('', '_blank');
+    if (!w) return;
+    w.document.write(html);
+    w.document.close();
   };
 
   if (loading) return (
@@ -323,6 +455,11 @@ export default function InventoryRecordPage() {
                   <button onClick={() => setShowDel(true)}
                     className="h-8 px-3 text-sm border border-red-200 rounded-lg text-red-500 hover:bg-red-50 transition">Delete</button>
                 )}
+                <button onClick={handleExportPDF}
+                  className="h-8 px-3 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                  PDF
+                </button>
               </>
             )}
           </div>

@@ -728,6 +728,131 @@ function EditUnitModal({ open, onClose, purchase, inventory = [], unitData, onSa
   );
 }
 
+// ── PDF Report Generator ──────────────────────────────────────────────────────
+function generatePurchaseReportHTML(form, c, totalInstPaid, inventory, companyName = 'Company') {
+  const mf = (n) => n != null && n !== '' ? `&#8377;${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '&mdash;';
+  const df = (v) => v ? new Date(v).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '&mdash;';
+  const sv = (v) => (v && String(v).trim()) ? String(v).trim() : '&mdash;';
+
+  const purple  = '#875A7B';
+  const purpleL = '#f5f0f4';
+  const now     = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+  const secTitle = (t) =>
+    `<div style="background:${purple};color:#fff;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;border-radius:4px 4px 0 0;">${t}</div>`;
+  const infoBox = (rows) =>
+    `<table style="width:100%;border-collapse:collapse;font-size:11px;border:1px solid #e5e7eb;border-top:none;">` +
+    rows.map(([l, v]) =>
+      `<tr><td style="padding:5px 10px;color:#6b7280;width:42%;border-bottom:1px solid #f3f4f6;font-size:10px;">${l}</td>` +
+      `<td style="padding:5px 10px;color:#111827;font-weight:600;border-bottom:1px solid #f3f4f6;">${v}</td></tr>`
+    ).join('') + `</table>`;
+  const finRow = (label, value, hi = false) =>
+    `<tr style="${hi ? `background:${purpleL};` : ''}">` +
+    `<td style="padding:6px 10px;color:${hi ? purple : '#374151'};font-weight:${hi ? '700' : '500'};border-bottom:1px solid #f3f4f6;font-size:11px;">${label}</td>` +
+    `<td style="padding:6px 10px;text-align:right;font-family:monospace;font-size:11px;color:${hi ? purple : '#111827'};font-weight:${hi ? '700' : '600'};border-bottom:1px solid #f3f4f6;">${value}</td></tr>`;
+
+  const effectiveBal = Math.max(0, c.balance_to_pay - totalInstPaid);
+  const pct = c.total_amount > 0 ? Math.min(100, ((c.total_amount - effectiveBal) / c.total_amount) * 100) : 0;
+  const TYPE_MAP = { PLOT: 'Plot', LAND: 'Land', SHOP: 'Shop', FLAT: 'Flat' };
+
+  const inst = form.installment || null;
+  const instRows = [];
+  let instPaidCount = 0;
+  if (inst) {
+    for (let n = 1; n <= 20; n++) {
+      const amt = inst[`inst_${n}_amount`];
+      const dt  = inst[`inst_${n}_date`];
+      const pd  = inst[`inst_${n}_paid`];
+      if (amt != null && Number(amt) > 0) { instRows.push({ n, amt: Number(amt), dt, pd }); if (pd) instPaidCount++; }
+    }
+  }
+
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/>
+<title>Purchase Report &ndash; ${sv(form.purchase_code)}</title>
+<style>*{margin:0;padding:0;box-sizing:border-box;}
+@page{size:A4;margin:14mm 14mm 18mm;}
+body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#1f2937;background:#fff;line-height:1.5;}
+@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style></head><body>
+<div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:12px;border-bottom:3px solid ${purple};">
+  <div><div style="font-size:18px;font-weight:900;color:${purple};">${companyName}</div>
+  <div style="font-size:11px;font-weight:700;color:#374151;margin-top:2px;">PURCHASE REPORT</div>
+  <div style="font-size:10px;color:#9ca3af;margin-top:1px;">Generated on ${now}</div></div>
+  <div style="text-align:right;"><div style="font-size:18px;font-weight:800;color:#111827;">${sv(form.purchase_code)}</div>
+  <div style="font-size:10px;color:#9ca3af;margin-top:2px;">Reg. Date: ${df(form.registration_date)}</div></div>
+</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;margin-bottom:14px;">
+  ${[['Type', TYPE_MAP[form.type]||form.type||'—'],['Category',form.purchase_category==='DIVIDED'?'Divided':'Single'],['Status',form.status||'—'],['SL No',sv(form.sl_no)],['Plot No',sv(form.plot_no)],['Payment',`${pct.toFixed(1)}% paid`]].map(([l,v])=>
+    `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:4px 10px;display:inline-block;"><span style="font-size:9px;color:#9ca3af;text-transform:uppercase;">${l}: </span><span style="font-size:10px;font-weight:700;color:#374151;">${v}</span></div>`
+  ).join('')}
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+  <div>${secTitle('Property Information')}${infoBox([['Location',sv(form.location)],['SL No',sv(form.sl_no)],['Plot No',sv(form.plot_no)],['Type',TYPE_MAP[form.type]||form.type],['Category',form.purchase_category==='DIVIDED'?'Divided':'Single'],['Registration',form.registration_completed?'Completed':'Pending'],['Reg. Date',df(form.registration_date)]])}</div>
+  <div>${secTitle('Brokers')}${infoBox([['Purchase Broker',sv(form.purchase_broker_name||(form._purchase_broker&&form._purchase_broker.name))],['Purchase Broker Details',sv(form.purchase_broker_details)],['Sell Broker',sv(form.sell_broker_name||(form._sell_broker&&form._sell_broker.name))],['Sell Broker Details',sv(form.sell_broker_details)],['Seller Details',sv(form.seller_details)]])}</div>
+</div>
+<div style="margin-bottom:14px;">${secTitle('Financial Summary')}
+  <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-top:none;">
+    ${finRow('Purchased Area',`${sv(form.purchased_area)} ${sv(form.purchased_area_details)}`)}
+    ${finRow('Purchase Price',mf(form.purchase_price))}
+    ${form.global_rate?finRow('Global Rate (divisor)',sv(form.global_rate)):''}
+    ${finRow('Rate per Unit',mf(c.rate))}
+    ${finRow('Total Amount (Rate × Area)',mf(c.total_amount),true)}
+    ${finRow('Advance Paid',mf(form.advance_paid))}
+    ${totalInstPaid>0?finRow('Installments Paid',mf(totalInstPaid)):''}
+    ${finRow('Balance to Pay',mf(effectiveBal),true)}
+  </table>
+</div>
+${(form.brokerage||form.extra_expenses||form.registration_charges||form.extra_income)?`
+<div style="margin-bottom:14px;">${secTitle('Cost Breakdown')}
+  <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-top:none;">
+    ${form.brokerage?finRow('Brokerage',mf(form.brokerage)):''}
+    ${form.extra_expenses?finRow('Extra Expenses',mf(form.extra_expenses)):''}
+    ${form.registration_charges?finRow('Registration Charges',mf(form.registration_charges)):''}
+    ${form.extra_income?finRow('Extra Income (−)',mf(form.extra_income)):''}
+    ${finRow('Total Cost',mf(c.total_cost+totalInstPaid),true)}
+  </table>
+</div>`:''}
+${instRows.length>0?`
+<div style="margin-bottom:14px;">${secTitle(`Installments (${instPaidCount}/${instRows.length} paid &middot; Total: ${mf(totalInstPaid)})`)}
+  <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-top:none;font-size:11px;">
+    <tr style="background:#f9fafb;">
+      <th style="padding:5px 10px;text-align:left;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">#</th>
+      <th style="padding:5px 10px;text-align:right;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Amount</th>
+      <th style="padding:5px 10px;text-align:left;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Due Date</th>
+      <th style="padding:5px 10px;text-align:center;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Status</th>
+    </tr>
+    ${instRows.map(r=>`<tr style="${r.pd?'background:#f0fdf4;':''}"><td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;color:#6b7280;">${r.n}</td><td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;text-align:right;font-family:monospace;font-weight:600;">${mf(r.amt)}</td><td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;color:#374151;">${df(r.dt)}</td><td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;text-align:center;font-weight:700;color:${r.pd?'#059669':'#f59e0b'};">${r.pd?'&#10003; Paid':'Pending'}</td></tr>`).join('')}
+  </table>
+</div>`:''}
+${inventory&&inventory.length>0?`
+<div style="margin-bottom:14px;">${secTitle(`Inventory Units (${inventory.length})`)}
+  <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-top:none;font-size:11px;">
+    <tr style="background:#f9fafb;">
+      <th style="padding:5px 10px;text-align:left;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Code</th>
+      <th style="padding:5px 10px;text-align:left;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Plot No</th>
+      <th style="padding:5px 10px;text-align:left;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Type</th>
+      <th style="padding:5px 10px;text-align:right;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Area</th>
+      <th style="padding:5px 10px;text-align:right;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Rate</th>
+      <th style="padding:5px 10px;text-align:left;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Status</th>
+    </tr>
+    ${inventory.map(u=>{const fa=parseFloat(u.front_area)||0,ba=parseFloat(u.back_area)||0;const area=fa&&ba?`${parseFloat((fa*(ba/9)).toFixed(4))} ${u.front_area_details||''}`.trim():(u.area?`${u.area} ${u.area_unit||''}`.trim():'—');return`<tr><td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;font-family:monospace;font-weight:600;color:${purple};">${u.inventory_code||`INV-${String(u.id).padStart(4,'0')}`}</td><td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;">${sv(u.plot_no)}</td><td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;">${u.type||'—'}</td><td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;text-align:right;">${area}</td><td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;text-align:right;font-family:monospace;">${u.rate?`&#8377;${Number(u.rate).toLocaleString('en-IN')}`:'—'}</td><td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;">${u.status||'—'}</td></tr>`;}).join('')}
+  </table>
+</div>`:''}
+${(form.other_details||form.advance_payment_details||form.instalment_details||form.registration_details)?`
+<div style="margin-bottom:14px;">${secTitle('Notes & Details')}
+  <div style="border:1px solid #e5e7eb;border-top:none;padding:10px;font-size:11px;color:#374151;line-height:1.7;">
+    ${form.advance_payment_details?`<p><strong>Advance Details:</strong> ${sv(form.advance_payment_details)}</p>`:''}
+    ${form.instalment_details?`<p><strong>Instalment Details:</strong> ${sv(form.instalment_details)}</p>`:''}
+    ${form.registration_details?`<p><strong>Registration Details:</strong> ${sv(form.registration_details)}</p>`:''}
+    ${form.other_details?`<p><strong>Other:</strong> ${sv(form.other_details)}</p>`:''}
+  </div>
+</div>`:''}
+<div style="margin-top:20px;padding-top:8px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;color:#9ca3af;font-size:9px;">
+  <span>System-generated report. ${sv(form.purchase_code)}</span><span>Confidential &middot; ${companyName}</span>
+</div>
+<script>window.onload=function(){window.print();}</script>
+</body></html>`;
+}
+
 // ── Main page ──────────────────────────────────────────────────────────────────
 export default function PurchaseRecordPage() {
   useAuth();
@@ -823,6 +948,17 @@ export default function PurchaseRecordPage() {
     catch (e) { setError(e.message); setDeleting(false); setShowDel(false); }
   };
 
+  const handleExportPDF = async () => {
+    let companyName = 'Company';
+    try { const s = await apiGet('/settings/public'); if (s?.company_name) companyName = s.company_name; } catch { /* default */ }
+    const snap = computed(form);
+    const html = generatePurchaseReportHTML(form, snap, totalInstPaid, inventory, companyName);
+    const w = window.open('', '_blank');
+    if (!w) return;
+    w.document.write(html);
+    w.document.close();
+  };
+
   const c        = computed(form);
   const stageIdx = getStageIndex(form, c, totalInstPaid);
   const title    = form.plot_no ? `Plot ${form.plot_no}` : form.sl_no ? `SL ${form.sl_no}` : `Purchase #${params.id}`;
@@ -898,6 +1034,11 @@ export default function PurchaseRecordPage() {
                   <button onClick={handleEdit}
                     className="h-8 px-4 text-sm border border-[#875A7B] rounded text-[#875A7B] hover:bg-[#875A7B]/5 transition font-medium">Edit</button>
                 )}
+                <button onClick={handleExportPDF}
+                  className="h-8 px-3 text-sm border border-gray-200 rounded text-gray-600 hover:bg-gray-50 transition flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                  PDF
+                </button>
                 <div className="relative">
                   <button onClick={() => setActMenu(v => !v)}
                     className="h-8 px-3 text-sm border border-gray-200 rounded text-gray-600 hover:bg-gray-50 transition flex items-center gap-1">
