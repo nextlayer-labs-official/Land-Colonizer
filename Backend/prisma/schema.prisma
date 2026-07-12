@@ -362,6 +362,31 @@ model Installment {
   inst_24_date    DateTime?
   inst_24_paid    Boolean   @default(false)
 
+  inst_1_payment_details   String?
+  inst_2_payment_details   String?
+  inst_3_payment_details   String?
+  inst_4_payment_details   String?
+  inst_5_payment_details   String?
+  inst_6_payment_details   String?
+  inst_7_payment_details   String?
+  inst_8_payment_details   String?
+  inst_9_payment_details   String?
+  inst_10_payment_details  String?
+  inst_11_payment_details  String?
+  inst_12_payment_details  String?
+  inst_13_payment_details  String?
+  inst_14_payment_details  String?
+  inst_15_payment_details  String?
+  inst_16_payment_details  String?
+  inst_17_payment_details  String?
+  inst_18_payment_details  String?
+  inst_19_payment_details  String?
+  inst_20_payment_details  String?
+  inst_21_payment_details  String?
+  inst_22_payment_details  String?
+  inst_23_payment_details  String?
+  inst_24_payment_details  String?
+
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
   sale       Sale     @relation(fields: [sale_id], references: [id], onDelete: Cascade)
@@ -445,6 +470,31 @@ model PurchaseInstallment {
   inst_24_amount  Decimal?  @db.Decimal(12, 2)
   inst_24_date    DateTime?
   inst_24_paid    Boolean   @default(false)
+
+  inst_1_payment_details   String?
+  inst_2_payment_details   String?
+  inst_3_payment_details   String?
+  inst_4_payment_details   String?
+  inst_5_payment_details   String?
+  inst_6_payment_details   String?
+  inst_7_payment_details   String?
+  inst_8_payment_details   String?
+  inst_9_payment_details   String?
+  inst_10_payment_details  String?
+  inst_11_payment_details  String?
+  inst_12_payment_details  String?
+  inst_13_payment_details  String?
+  inst_14_payment_details  String?
+  inst_15_payment_details  String?
+  inst_16_payment_details  String?
+  inst_17_payment_details  String?
+  inst_18_payment_details  String?
+  inst_19_payment_details  String?
+  inst_20_payment_details  String?
+  inst_21_payment_details  String?
+  inst_22_payment_details  String?
+  inst_23_payment_details  String?
+  inst_24_payment_details  String?
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt

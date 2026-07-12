@@ -74,16 +74,17 @@ const ORDINALS = ['1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th','
 function fmtDate(s) { if (!s) return ''; const d = new Date(s); return d.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }); }
 function emptyInst() {
   const d = { sl_no: '', installment_details: '' };
-  for (let n = 1; n <= 24; n++) { d[`inst_${n}_amount`] = ''; d[`inst_${n}_date`] = ''; d[`inst_${n}_paid`] = false; }
+  for (let n = 1; n <= 24; n++) { d[`inst_${n}_amount`] = ''; d[`inst_${n}_date`] = ''; d[`inst_${n}_paid`] = false; d[`inst_${n}_payment_details`] = ''; }
   return d;
 }
 function instFromApi(inst) {
   if (!inst) return emptyInst();
   const d = { sl_no: inst.sl_no || '', installment_details: inst.installment_details || '' };
   for (let n = 1; n <= 24; n++) {
-    d[`inst_${n}_amount`] = inst[`inst_${n}_amount`] != null ? String(inst[`inst_${n}_amount`]) : '';
-    d[`inst_${n}_date`]   = inst[`inst_${n}_date`]?.split?.('T')?.[0] || '';
-    d[`inst_${n}_paid`]   = Boolean(inst[`inst_${n}_paid`]);
+    d[`inst_${n}_amount`]          = inst[`inst_${n}_amount`] != null ? String(inst[`inst_${n}_amount`]) : '';
+    d[`inst_${n}_date`]            = inst[`inst_${n}_date`]?.split?.('T')?.[0] || '';
+    d[`inst_${n}_paid`]            = Boolean(inst[`inst_${n}_paid`]);
+    d[`inst_${n}_payment_details`] = inst[`inst_${n}_payment_details`] || '';
   }
   return d;
 }
@@ -92,6 +93,7 @@ function InstCard({ n, label, form, editing, setF }) {
   const amt = form[`inst_${n}_amount`];
   const dt  = form[`inst_${n}_date`];
   const pd  = form[`inst_${n}_paid`];
+  const pay = form[`inst_${n}_payment_details`];
   const hasData = !!(amt || dt);
   if (editing) {
     return (
@@ -107,6 +109,8 @@ function InstCard({ n, label, form, editing, setF }) {
           className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/20 placeholder:text-gray-300" />
         <input type="date" value={dt} onChange={e => setF(`inst_${n}_date`, e.target.value)}
           className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/20" />
+        <input type="text" value={pay} onChange={e => setF(`inst_${n}_payment_details`, e.target.value)} placeholder="Payment mode / details"
+          className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/20 placeholder:text-gray-300" />
       </div>
     );
   }
@@ -127,6 +131,7 @@ function InstCard({ n, label, form, editing, setF }) {
         {amt ? `₹${Number(amt).toLocaleString('en-IN')}` : <span className="text-sm font-normal text-gray-200">—</span>}
       </p>
       {dt && <p className={`text-xs mt-1.5 ${pd ? 'text-emerald-500' : 'text-gray-400'}`}>{fmtDate(dt)}</p>}
+      {pay && <p className="text-xs mt-1 text-gray-500 truncate" title={pay}>{pay}</p>}
     </div>
   );
 }

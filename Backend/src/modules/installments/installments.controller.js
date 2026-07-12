@@ -19,9 +19,10 @@ function sanitize(body) {
     installment_details: str(body.installment_details),
   };
   for (let n = 1; n <= 24; n++) {
-    data[`inst_${n}_amount`] = num(body[`inst_${n}_amount`]);
-    data[`inst_${n}_date`]   = dt(body[`inst_${n}_date`]);
-    data[`inst_${n}_paid`]   = bool(body[`inst_${n}_paid`]);
+    data[`inst_${n}_amount`]          = num(body[`inst_${n}_amount`]);
+    data[`inst_${n}_date`]            = dt(body[`inst_${n}_date`]);
+    data[`inst_${n}_paid`]            = bool(body[`inst_${n}_paid`]);
+    data[`inst_${n}_payment_details`] = str(body[`inst_${n}_payment_details`]);
   }
   return data;
 }
