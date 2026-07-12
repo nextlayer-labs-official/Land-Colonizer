@@ -963,6 +963,7 @@ export default function PurchaseRecordPage() {
   const stageIdx = getStageIndex(form, c, totalInstPaid);
   const title    = form.plot_no ? `Plot ${form.plot_no}` : form.sl_no ? `SL ${form.sl_no}` : `Purchase #${params.id}`;
   // Include paid installments in balance, progress, and total cost
+  const isArchived         = form.archived === true;
   const effectiveBalance  = Math.max(0, c.balance_to_pay - totalInstPaid);
   const effectivePct      = c.total_amount > 0 ? Math.min(100, ((c.total_amount - effectiveBalance) / c.total_amount) * 100) : 0;
   const effectiveTotalCost = c.total_cost + totalInstPaid;
@@ -1018,6 +1019,9 @@ export default function PurchaseRecordPage() {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>Saved
             </span>
           )}
+          {isArchived && (
+            <span className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full shrink-0">Archived</span>
+          )}
           <div className="flex items-center gap-2 shrink-0">
             {editing ? (
               <>
@@ -1047,13 +1051,14 @@ export default function PurchaseRecordPage() {
                   {actMenu && (
                     <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-30 py-1">
                       <Link href="/dashboard/purchases/new" onClick={() => setActMenu(false)} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">New Purchase</Link>
-                      {canDelete && <>
+                      {canDelete && !isArchived && <>
                         <div className="border-t border-gray-100 my-1" />
                         <button onClick={() => { setActMenu(false); setShowArch(true); }} className="w-full text-left px-4 py-2 text-sm text-amber-600 hover:bg-amber-50">Archive</button>
                       </>}
-                      {me?.is_system && (
+                      {canDelete && isArchived && <>
+                        <div className="border-t border-gray-100 my-1" />
                         <button onClick={() => { setActMenu(false); setShowDel(true); }} className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50">Delete</button>
-                      )}
+                      </>}
                     </div>
                   )}
                 </div>

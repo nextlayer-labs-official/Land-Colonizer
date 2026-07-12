@@ -1597,6 +1597,7 @@ export default function SaleDetailPage() {
     </div>
   );
 
+  const isArchived = form.archived === true;
   const c          = computed(form);
   const actualP    = Number(form.actual_price   ?? c.actual_price   ?? 0);
   const netP       = Number(form.net_amount     ?? c.net_amount     ?? 0);
@@ -1660,6 +1661,9 @@ export default function SaleDetailPage() {
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>Saved
             </span>
           )}
+          {isArchived && (
+            <span className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full shrink-0">Archived</span>
+          )}
 
           <div className="flex gap-2 shrink-0">
             <Link href="/dashboard/sales"
@@ -1707,10 +1711,10 @@ export default function SaleDetailPage() {
                     Edit Sale
                   </button>
                 )}
-                {canDelete && (
+                {canDelete && !isArchived && (
                   <button onClick={()=>setShowArch(true)} className="h-8 px-3 text-sm border border-amber-200 rounded-lg text-amber-600 hover:bg-amber-50 transition">Archive</button>
                 )}
-                {me?.is_system && (
+                {canDelete && isArchived && (
                   <button onClick={()=>setShowDel(true)} className="h-8 px-3 text-sm border border-red-200 rounded-lg text-red-500 hover:bg-red-50 transition">Delete</button>
                 )}
               </>
