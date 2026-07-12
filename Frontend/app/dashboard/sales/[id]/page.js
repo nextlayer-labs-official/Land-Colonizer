@@ -1032,7 +1032,7 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
   const bookingAmt   = Number(b.booking_amount || 0);
   const refundNum    = parseFloat(refund) || 0;
   const autoIncome   = bookingAmt > 0 ? Math.max(0, bookingAmt - refundNum) : 0;
-  const refundSaved  = b.refund_amount != null;                      // locked after first save
+  const refundSaved  = b.refund_amount != null;
   const refundExceed = bookingAmt > 0 && refundNum > bookingAmt;
   const showRefund   = isConfirmed && b.status !== 'CONFIRMED' && canEdit;
 
@@ -1130,50 +1130,40 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
         {/* Refund / Income — inline below customer info */}
         {showRefund && (
           <div className="mt-2">
-            {refundSaved ? (
-              /* Read-only after save */
-              <div className="flex items-center gap-3 flex-wrap">
-                <span className="text-[10px] text-gray-500">Refund <span className="font-semibold text-red-500">{fmtINR(b.refund_amount)}</span></span>
-                <span className="text-[10px] text-gray-300">·</span>
-                <span className="text-[10px] text-gray-500">Income <span className="font-semibold text-emerald-600">{fmtINR(b.income_amount ?? autoIncome)}</span></span>
-                {b.status !== 'REFUNDED' && (
-                  <button onClick={handleMarkRefunded} disabled={markingRefund}
-                    className="h-6 px-2.5 text-[10px] font-bold rounded border border-red-200 text-red-500 hover:bg-red-50 disabled:opacity-50 transition">
-                    {markingRefund ? 'Marking…' : 'Mark as Refunded'}
-                  </button>
-                )}
+            <div className="flex items-center gap-2 flex-wrap">
+              <div>
+                <span className="text-[10px] text-gray-400 block mb-1">Refund Amount (₹)</span>
+                <input
+                  type="number"
+                  value={refund}
+                  onChange={e => setRefund(e.target.value)}
+                  placeholder="0"
+                  className={`w-32 text-xs border rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-[#875A7B] ${refundExceed ? 'border-red-400' : 'border-gray-200'}`}
+                />
               </div>
-            ) : (
-              /* Editable — only refund input, income auto-computes */
-              <div className="flex items-center gap-2 flex-wrap">
-                <div>
-                  <span className="text-[10px] text-gray-400 block mb-1">Refund Amount (₹)</span>
-                  <input
-                    type="number"
-                    value={refund}
-                    onChange={e => setRefund(e.target.value)}
-                    placeholder="0"
-                    className={`w-32 text-xs border rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-[#875A7B] ${refundExceed ? 'border-red-400' : 'border-gray-200'}`}
-                  />
+              {bookingAmt > 0 && refundNum >= 0 && (
+                <div className="mt-4">
+                  <span className="text-[10px] text-gray-400 mr-1">Income:</span>
+                  <span className="text-xs font-semibold text-emerald-600">{fmtINR(autoIncome)}</span>
                 </div>
-                {bookingAmt > 0 && refundNum >= 0 && (
-                  <div className="mt-4">
-                    <span className="text-[10px] text-gray-400 mr-1">Income:</span>
-                    <span className="text-xs font-semibold text-emerald-600">{fmtINR(autoIncome)}</span>
-                  </div>
-                )}
-                <button
-                  onClick={handleSaveRefund}
-                  disabled={savingRI || refundExceed || !refund}
-                  className="mt-4 h-7 px-3 text-[10px] font-bold rounded-lg text-white disabled:opacity-50"
-                  style={{ backgroundColor: '#875A7B' }}>
-                  {savingRI ? 'Saving…' : 'Save'}
+              )}
+              <button
+                onClick={handleSaveRefund}
+                disabled={savingRI || refundExceed || !refund}
+                className="mt-4 h-7 px-3 text-[10px] font-bold rounded-lg text-white disabled:opacity-50"
+                style={{ backgroundColor: '#875A7B' }}>
+                {savingRI ? 'Saving…' : 'Save'}
+              </button>
+              {refundSaved && b.status !== 'REFUNDED' && (
+                <button onClick={handleMarkRefunded} disabled={markingRefund}
+                  className="mt-4 h-7 px-2.5 text-[10px] font-bold rounded border border-red-200 text-red-500 hover:bg-red-50 disabled:opacity-50 transition">
+                  {markingRefund ? 'Marking…' : 'Mark as Refunded'}
                 </button>
-                {refundExceed && (
-                  <p className="w-full text-[10px] text-red-500 mt-0.5">Cannot exceed booking amount ({fmtINR(bookingAmt)}).</p>
-                )}
-              </div>
-            )}
+              )}
+              {refundExceed && (
+                <p className="w-full text-[10px] text-red-500 mt-0.5">Cannot exceed booking amount ({fmtINR(bookingAmt)}).</p>
+              )}
+            </div>
           </div>
         )}
       </div>
