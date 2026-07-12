@@ -425,25 +425,8 @@ function InstallmentPanel({ saleId, canEdit, onTotalPaidChange }) {
         )}
       </div>
 
-      {/* ── SL No. + Details + progress ── */}
+      {/* ── Progress ── */}
       <div className="flex flex-col sm:flex-row gap-3 items-stretch">
-        <div className="flex gap-3 flex-1">
-          <div className="flex-1">
-            <p className="text-[9px] text-gray-400 uppercase tracking-wide mb-1">SL. No.</p>
-            {editing
-              ? <input value={form.sl_no} onChange={e => setF('sl_no', e.target.value)} placeholder="SL No."
-                  className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#875A7B] bg-white" />
-              : <p className="text-xs text-gray-700 bg-gray-50 rounded-lg px-2.5 py-1.5 border border-gray-100 min-h-[32px]">{form.sl_no || '—'}</p>}
-          </div>
-          <div className="flex-1">
-            <p className="text-[9px] text-gray-400 uppercase tracking-wide mb-1">Details</p>
-            {editing
-              ? <input value={form.installment_details} onChange={e => setF('installment_details', e.target.value)} placeholder="Notes…"
-                  className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#875A7B] bg-white" />
-              : <p className="text-xs text-gray-700 bg-gray-50 rounded-lg px-2.5 py-1.5 border border-gray-100 min-h-[32px]">{form.installment_details || '—'}</p>}
-          </div>
-        </div>
-
         {/* Progress pill */}
         <div className="sm:w-48 bg-gray-50 border border-gray-100 rounded-xl px-4 py-2.5 flex flex-col justify-center">
           <div className="flex items-center justify-between mb-2">
