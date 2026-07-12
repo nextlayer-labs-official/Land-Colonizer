@@ -18,11 +18,12 @@ function getAuth() {
 }
 
 async function uploadFile(buffer, name, mimeType, folderId) {
-  const auth   = getAuth();
-  const drive  = google.drive({ version: 'v3', auth });
+  const auth  = getAuth();
+  const drive = google.drive({ version: 'v3', auth });
   const { Readable } = require('stream');
 
   const res = await drive.files.create({
+    supportsAllDrives: true,
     requestBody: {
       name,
       parents: [folderId],
@@ -37,6 +38,7 @@ async function uploadFile(buffer, name, mimeType, folderId) {
   // Make the file readable by anyone with the link
   await drive.permissions.create({
     fileId: res.data.id,
+    supportsAllDrives: true,
     requestBody: { role: 'reader', type: 'anyone' },
   });
 
@@ -49,7 +51,7 @@ async function uploadFile(buffer, name, mimeType, folderId) {
 async function deleteFile(fileId) {
   const auth  = getAuth();
   const drive = google.drive({ version: 'v3', auth });
-  await drive.files.delete({ fileId });
+  await drive.files.delete({ fileId, supportsAllDrives: true });
 }
 
 module.exports = { uploadFile, deleteFile };
