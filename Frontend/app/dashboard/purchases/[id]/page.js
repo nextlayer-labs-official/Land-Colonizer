@@ -409,7 +409,7 @@ function AddUnitModal({ open, onClose, purchase, inventory = [], onCreated }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-auto overflow-hidden">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-auto overflow-hidden">
 
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
@@ -486,56 +486,42 @@ function AddUnitModal({ open, onClose, purchase, inventory = [], onCreated }) {
             </div>
 
             {/* Row 2: area measurement */}
-            <div>
+            <div className="col-span-2">
               <label className="block text-xs font-semibold text-gray-500 mb-1.5">Front Area</label>
               <input type="number" value={unit.front_area} onChange={set('front_area')} placeholder="0"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30 transition placeholder:text-gray-300" />
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1.5">Front Unit</label>
-              <select value={unit.front_area_details} onChange={set('front_area_details')}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30 transition">
-                <option value="">— Select —</option>
-                {AREA_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-              </select>
-            </div>
-            <div>
+            <div className="col-span-2">
               <label className="block text-xs font-semibold text-gray-500 mb-1.5">Back Area</label>
               <input type="number" value={unit.back_area} onChange={set('back_area')} placeholder="0"
                 className={`w-full border rounded-lg px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none transition placeholder:text-gray-300 ${areaExceeds ? 'border-red-400 focus:border-red-400 ring-1 ring-red-200' : 'border-gray-200 focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30'}`} />
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1.5">Back Unit</label>
-              <select value={unit.back_area_details} onChange={set('back_area_details')}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30 transition">
-                <option value="">— Select —</option>
-                {AREA_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-              </select>
-            </div>
 
-            {/* Row 3: rate + computed total + date */}
-            <div className="col-span-2">
-              <label className="block text-xs font-semibold text-gray-500 mb-1.5">
-                Plot Rate (₹ per {unit.front_area_details || 'unit'}) <span className="text-red-500">*</span>
-                {purchase?.rate && <span className="ml-1 text-gray-400 font-normal">— purchase: ₹{Number(purchase.rate).toLocaleString('en-IN')}</span>}
-              </label>
-              <input type="number" value={unit.rate} onChange={set('rate')} placeholder={purchase?.rate ? String(purchase.rate) : '0'}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30 transition placeholder:text-gray-300" />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1.5">
-                Total Area
-                {remainingArea > 0 && <span className="ml-1 text-gray-400 font-normal">(rem: {remainingArea} {areaUnit})</span>}
-              </label>
-              <div className={`w-full border rounded-lg px-3 py-2 text-sm font-semibold ${areaExceeds ? 'border-red-300 bg-red-50 text-red-600' : 'border-gray-100 bg-gray-50 text-gray-600'}`}>
-                {enteredArea > 0 ? `${enteredArea} ${unit.front_area_details || ''}` : <span className="font-normal text-gray-300">Front × Back ÷ 9</span>}
+            {/* Row 3: rate + computed total + date — 3 equal columns */}
+            <div className="col-span-full grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                  Plot Rate (₹ per {unit.front_area_details || 'unit'}) <span className="text-red-500">*</span>
+                  {purchase?.rate && <span className="ml-1 text-gray-400 font-normal">— purchase: ₹{Number(purchase.rate).toLocaleString('en-IN')}</span>}
+                </label>
+                <input type="number" value={unit.rate} onChange={set('rate')} placeholder={purchase?.rate ? String(purchase.rate) : '0'}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30 transition placeholder:text-gray-300" />
               </div>
-              {areaExceeds && <p className="text-xs text-red-500 mt-1">Exceeds by {(enteredArea - remainingArea).toFixed(4)}</p>}
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1.5">Created Date</label>
-              <div className="w-full border border-gray-100 rounded-lg px-3 py-2 text-sm text-gray-500 bg-gray-50">
-                {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                  Total Area
+                  {remainingArea > 0 && <span className="ml-1 text-gray-400 font-normal">(rem: {remainingArea} {areaUnit})</span>}
+                </label>
+                <div className={`w-full border rounded-lg px-3 py-2 text-sm font-semibold ${areaExceeds ? 'border-red-300 bg-red-50 text-red-600' : 'border-gray-100 bg-gray-50 text-gray-600'}`}>
+                  {enteredArea > 0 ? `${enteredArea} ${unit.front_area_details || ''}` : <span className="font-normal text-gray-300">Front × Back ÷ 9</span>}
+                </div>
+                {areaExceeds && <p className="text-xs text-red-500 mt-1">Exceeds by {(enteredArea - remainingArea).toFixed(4)}</p>}
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Created Date</label>
+                <div className="w-full border border-gray-100 rounded-lg px-3 py-2 text-sm text-gray-500 bg-gray-50">
+                  {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                </div>
               </div>
             </div>
           </div>
@@ -610,7 +596,7 @@ function EditUnitModal({ open, onClose, purchase, inventory = [], unitData, onSa
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-auto overflow-hidden">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-auto overflow-hidden">
 
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
@@ -676,52 +662,40 @@ function EditUnitModal({ open, onClose, purchase, inventory = [], unitData, onSa
             </div>
 
             {/* Row 2 */}
-            <div>
+            <div className="col-span-2">
               <label className="block text-xs font-semibold text-gray-500 mb-1.5">Front Area</label>
               <input type="number" value={unit.front_area} onChange={set('front_area')} placeholder="0" className={inputCls} />
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1.5">Front Unit</label>
-              <select value={unit.front_area_details} onChange={set('front_area_details')} className={inputCls}>
-                <option value="">— Select —</option>
-                {AREA_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-              </select>
-            </div>
-            <div>
+            <div className="col-span-2">
               <label className="block text-xs font-semibold text-gray-500 mb-1.5">Back Area</label>
               <input type="number" value={unit.back_area} onChange={set('back_area')} placeholder="0"
                 className={`w-full border rounded-lg px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none transition placeholder:text-gray-300 ${areaExceeds ? 'border-red-400 focus:border-red-400 ring-1 ring-red-200' : 'border-gray-200 focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30'}`} />
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1.5">Back Unit</label>
-              <select value={unit.back_area_details} onChange={set('back_area_details')} className={inputCls}>
-                <option value="">— Select —</option>
-                {AREA_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-              </select>
-            </div>
 
-            {/* Row 3 */}
-            <div className="col-span-2">
-              <label className="block text-xs font-semibold text-gray-500 mb-1.5">
-                Plot Rate (₹ per {unit.front_area_details || 'unit'})
-                {purchase?.rate && <span className="ml-1 text-gray-400 font-normal">— purchase: ₹{Number(purchase.rate).toLocaleString('en-IN')}</span>}
-              </label>
-              <input type="number" value={unit.rate} onChange={set('rate')} placeholder={purchase?.rate ? String(purchase.rate) : '0'} className={inputCls} />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1.5">
-                Total Area
-                {remainingArea > 0 && <span className="ml-1 text-gray-400 font-normal">(rem: {remainingArea} {areaUnit})</span>}
-              </label>
-              <div className={`w-full border rounded-lg px-3 py-2 text-sm font-semibold ${areaExceeds ? 'border-red-300 bg-red-50 text-red-600' : 'border-gray-100 bg-gray-50 text-gray-600'}`}>
-                {enteredArea > 0 ? `${enteredArea} ${unit.front_area_details || ''}` : <span className="font-normal text-gray-300">Front × Back ÷ 9</span>}
+            {/* Row 3 — 3 equal columns */}
+            <div className="col-span-full grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                  Plot Rate (₹ per {unit.front_area_details || 'unit'})
+                  {purchase?.rate && <span className="ml-1 text-gray-400 font-normal">— purchase: ₹{Number(purchase.rate).toLocaleString('en-IN')}</span>}
+                </label>
+                <input type="number" value={unit.rate} onChange={set('rate')} placeholder={purchase?.rate ? String(purchase.rate) : '0'} className={inputCls} />
               </div>
-              {areaExceeds && <p className="text-xs text-red-500 mt-1">Exceeds by {(enteredArea - remainingArea).toFixed(4)}</p>}
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1.5">Inventory Code</label>
-              <div className="w-full border border-gray-100 rounded-lg px-3 py-2 text-sm text-[#875A7B] font-mono font-semibold bg-gray-50">
-                {unitData?.inventory_code || '—'}
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                  Total Area
+                  {remainingArea > 0 && <span className="ml-1 text-gray-400 font-normal">(rem: {remainingArea} {areaUnit})</span>}
+                </label>
+                <div className={`w-full border rounded-lg px-3 py-2 text-sm font-semibold ${areaExceeds ? 'border-red-300 bg-red-50 text-red-600' : 'border-gray-100 bg-gray-50 text-gray-600'}`}>
+                  {enteredArea > 0 ? `${enteredArea} ${unit.front_area_details || ''}` : <span className="font-normal text-gray-300">Front × Back ÷ 9</span>}
+                </div>
+                {areaExceeds && <p className="text-xs text-red-500 mt-1">Exceeds by {(enteredArea - remainingArea).toFixed(4)}</p>}
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Inventory Code</label>
+                <div className="w-full border border-gray-100 rounded-lg px-3 py-2 text-sm text-[#875A7B] font-mono font-semibold bg-gray-50">
+                  {unitData?.inventory_code || '—'}
+                </div>
               </div>
             </div>
           </div>

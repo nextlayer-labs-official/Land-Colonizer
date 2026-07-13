@@ -1023,6 +1023,11 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
   const [noteEditing,   setNoteEditing]   = useState(false);
   const [noteVal,       setNoteVal]       = useState(b.notes || '');
   const [noteSaving,    setNoteSaving]    = useState(false);
+  const [advEditing,    setAdvEditing]    = useState(false);
+  const [advAmt,        setAdvAmt]        = useState('');
+  const [advDate,       setAdvDate]       = useState('');
+  const [advNote,       setAdvNote]       = useState('');
+  const [advSaving,     setAdvSaving]     = useState(false);
 
   const bookingAmt   = Number(b.booking_amount || 0);
   const refundNum    = parseFloat(refund) || 0;
@@ -1036,6 +1041,16 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
     const base  = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
     return fetch(`${base}/sales/${saleId}/bookings/${b.id}`, {
       method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(body),
+    });
+  };
+
+  const salePatchFetch = (path, body) => {
+    const token = localStorage.getItem('token');
+    const base  = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+    return fetch(`${base}/sales/${saleId}${path}`, {
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
       body: JSON.stringify(body),
     });
@@ -1087,6 +1102,20 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
       await onSaved();
     } catch (e) { console.error(e); }
     finally { setNoteSaving(false); }
+  };
+
+  const handleSaveAdv = async () => {
+    setAdvSaving(true);
+    try {
+      await salePatchFetch('/advance', {
+        advance_payment:         advAmt  || null,
+        advance_payment_date:    advDate || null,
+        advance_payment_details: advNote || null,
+      });
+      setAdvEditing(false);
+      await onSaved();
+    } catch (e) { console.error(e); }
+    finally { setAdvSaving(false); }
   };
 
   const cls = BOOKING_STATUS_CLS[b.status] || 'bg-gray-50 text-gray-500 ring-gray-200';
@@ -1162,14 +1191,39 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
                 </div>
               )}
             </div>
-            {(saleAdvance != null || saleAdvanceDetails) && (
-              <div className="flex items-start gap-2 flex-wrap">
-                {saleAdvance != null && <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Advance</span>}
-                {saleAdvance != null && <span className="text-xs font-semibold text-emerald-700">{fmtINR(saleAdvance)}</span>}
-                {saleAdvanceDate && <span className="text-[10px] text-gray-400">{fmtDate(saleAdvanceDate)}</span>}
-                {saleAdvanceDetails && <span className="text-[10px] text-gray-500 italic">{saleAdvanceDetails}</span>}
-              </div>
-            )}
+            <div className="flex items-center gap-2 flex-wrap mt-0.5">
+              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Advance</span>
+              {advEditing ? (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <input type="number" value={advAmt} onChange={e => setAdvAmt(e.target.value)} placeholder="Amount ₹"
+                    className="w-28 text-xs border border-[#875A7B]/40 rounded px-2 py-1 bg-white focus:outline-none focus:border-[#875A7B]" autoFocus />
+                  <input type="date" value={advDate} onChange={e => setAdvDate(e.target.value)}
+                    className="text-xs border border-[#875A7B]/40 rounded px-2 py-1 bg-white focus:outline-none focus:border-[#875A7B]" />
+                  <input type="text" value={advNote} onChange={e => setAdvNote(e.target.value)} placeholder="Note…"
+                    className="w-36 text-xs border border-[#875A7B]/40 rounded px-2 py-1 bg-white focus:outline-none focus:border-[#875A7B]" />
+                  <button onClick={handleSaveAdv} disabled={advSaving}
+                    className="h-6 px-2 text-[10px] font-bold rounded text-white disabled:opacity-50" style={{ backgroundColor: '#875A7B' }}>
+                    {advSaving ? '…' : 'Save'}
+                  </button>
+                  <button onClick={() => setAdvEditing(false)}
+                    className="h-6 px-2 text-[10px] border border-gray-200 rounded text-gray-400 hover:bg-gray-50">✕</button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-xs font-semibold text-emerald-700">{saleAdvance != null ? fmtINR(saleAdvance) : '—'}</span>
+                  <span className="text-[10px] text-gray-400">{saleAdvanceDate ? fmtDate(saleAdvanceDate) : '—'}</span>
+                  <span className="text-[10px] text-gray-500 italic">{saleAdvanceDetails || '—'}</span>
+                  {canEdit && <button onClick={() => {
+                    setAdvAmt(saleAdvance != null ? String(saleAdvance) : '');
+                    setAdvDate(saleAdvanceDate ? saleAdvanceDate.substring(0, 10) : '');
+                    setAdvNote(saleAdvanceDetails || '');
+                    setAdvEditing(true);
+                  }} className="text-gray-300 hover:text-[#875A7B] transition">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 012.828 2.828L11.828 15.83a4 4 0 01-1.897 1.058l-2.634.659.659-2.634A4 4 0 019 13z"/></svg>
+                  </button>}
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           <>

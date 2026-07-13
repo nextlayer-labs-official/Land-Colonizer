@@ -194,4 +194,29 @@ async function deleteSale(req, res) {
   res.json({ message: 'Deleted' });
 }
 
-module.exports = { getSales, getSaleById, createSale, updateSale, archiveSale, unarchiveSale, deleteSale };
+async function updateAdvancePayment(req, res) {
+  const id  = Number(req.params.id);
+  const num = (v) => (v !== undefined && v !== '' && v !== null ? parseFloat(v) : null);
+
+  const advance_payment         = num(req.body.advance_payment);
+  const advance_payment_date    = req.body.advance_payment_date ? new Date(req.body.advance_payment_date) : null;
+  const advance_payment_details = req.body.advance_payment_details ? String(req.body.advance_payment_details).trim() : null;
+
+  const current = await prisma.sale.findUnique({ where: { id }, select: { actual_price: true } });
+  const actualPrice = current?.actual_price != null ? parseFloat(current.actual_price) : null;
+  const balance_amount = actualPrice != null && advance_payment != null
+    ? parseFloat((actualPrice - advance_payment).toFixed(2))
+    : null;
+
+  const data = {
+    advance_payment,
+    advance_payment_date,
+    advance_payment_details,
+    ...(balance_amount != null ? { balance_amount } : {}),
+  };
+
+  const s = await prisma.sale.update({ where: { id }, data });
+  res.json(s);
+}
+
+module.exports = { getSales, getSaleById, createSale, updateSale, archiveSale, unarchiveSale, deleteSale, updateAdvancePayment };
