@@ -30,6 +30,7 @@ import Pagination from '@/components/Pagination';
 
 function DeleteModal({ item, onClose, onConfirm, deleting }) {
   if (!item) return null;
+  const isBulk = !!item._bulk;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
@@ -37,9 +38,13 @@ function DeleteModal({ item, onClose, onConfirm, deleting }) {
         <div className="w-11 h-11 bg-red-50 rounded-xl flex items-center justify-center mb-4">
           <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
         </div>
-        <h3 className="text-base font-semibold text-gray-900 mb-1">Delete customer?</h3>
+        <h3 className="text-base font-semibold text-gray-900 mb-1">
+          {isBulk ? `Delete ${item.count} customers?` : 'Delete customer?'}
+        </h3>
         <p className="text-sm text-gray-500 mb-2">
-          <strong>{item.name}</strong> will be permanently deleted.
+          {isBulk
+            ? `${item.count} customers will be permanently deleted.`
+            : <><strong>{item.name}</strong> will be permanently deleted.</>}
         </p>
         <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-5">This action cannot be undone — deleted data cannot be recovered.</p>
         <div className="flex gap-2">
@@ -125,9 +130,14 @@ export default function CustomersPage() {
   const handleDelete = async () => {
     setDeleting(true);
     try {
-      await apiDelete(`/customers/${delModal.id}`);
+      if (delModal._bulk) {
+        await Promise.all(delModal.ids.map(id => apiDelete(`/customers/${id}`)));
+        setSelected([]);
+      } else {
+        await apiDelete(`/customers/${delModal.id}`);
+      }
       setDelModal(null);
-      load(rows.length === 1 && page > 1 ? page - 1 : page);
+      load(rows.length <= (delModal._bulk ? delModal.ids.length : 1) && page > 1 ? page - 1 : page);
     } finally { setDeleting(false); }
   };
 
@@ -150,7 +160,11 @@ export default function CustomersPage() {
           </button>
         )}
         {selected.length > 0 && canDelete && (
-          <button onClick={() => setDelModal(rows.find(r => r.id === selected[0]))} className="btn-danger text-sm h-8 px-3">
+          <button onClick={() => setDelModal(
+            selected.length === 1
+              ? rows.find(r => r.id === selected[0])
+              : { _bulk: true, count: selected.length, ids: [...selected] }
+          )} className="btn-danger text-sm h-8 px-3">
             Delete ({selected.length})
           </button>
         )}

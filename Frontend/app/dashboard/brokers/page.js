@@ -39,10 +39,12 @@ export default function BrokersPage() {
   const [total,   setTotal]   = useState(0);
   const [page,    setPage]    = useState(1);
   const [loading, setLoading] = useState(true);
-  const [search,     setSearch]     = useState('');
-  const [delId,      setDelId]      = useState(null);
-  const [deleting,   setDeleting]   = useState(false);
-  const [exportOpen, setExportOpen] = useState(false);
+  const [selected,    setSelected]    = useState([]);
+  const [search,      setSearch]      = useState('');
+  const [delId,       setDelId]       = useState(null);
+  const [bulkDelOpen, setBulkDelOpen] = useState(false);
+  const [deleting,    setDeleting]    = useState(false);
+  const [exportOpen,  setExportOpen]  = useState(false);
   const exportRef = useRef(null);
   const LIMIT = 15;
 
@@ -55,6 +57,7 @@ export default function BrokersPage() {
       setRows(data.brokers || []);
       setTotal(data.total  || 0);
       setPage(p);
+      setSelected([]);
     } finally { setLoading(false); }
   }, [search]);
 
@@ -92,6 +95,19 @@ export default function BrokersPage() {
     finally { setDeleting(false); }
   };
 
+  const handleBulkDelete = async () => {
+    setDeleting(true);
+    try {
+      await Promise.all(selected.map(id => apiDelete(`/brokers/${id}`)));
+      setBulkDelOpen(false);
+      setSelected([]);
+      load(rows.length <= selected.length && page > 1 ? page - 1 : page);
+    } finally { setDeleting(false); }
+  };
+
+  const toggleSelect = (id) => setSelected(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
+  const toggleAll    = () => setSelected(selected.length === rows.length ? [] : rows.map(r => r.id));
+
   const totalPages = Math.ceil(total / LIMIT);
   const canCreate  = me?.is_system;
   const canDelete  = me?.is_system;
@@ -104,6 +120,11 @@ export default function BrokersPage() {
       <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-center gap-2 flex-wrap">
         {canCreate && (
           <button onClick={() => router.push('/dashboard/brokers/new')} className="btn-primary text-sm h-8 px-4">New</button>
+        )}
+        {selected.length > 0 && canDelete && (
+          <button onClick={() => setBulkDelOpen(true)} className="btn-danger text-sm h-8 px-3">
+            Delete ({selected.length})
+          </button>
         )}
 
         {/* Export */}
@@ -141,6 +162,10 @@ export default function BrokersPage() {
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="border-b border-gray-200 bg-white">
+              <th className="w-10 px-3 py-2.5">
+                <input type="checkbox" checked={selected.length === rows.length && rows.length > 0} onChange={toggleAll}
+                  className="rounded border-gray-300 text-[#875A7B] focus:ring-[#875A7B]" />
+              </th>
               {['Code', 'Name', 'Phone', 'Email', 'Sales', 'Status', 'Created', ''].map(h => (
                 <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
               ))}
@@ -149,11 +174,12 @@ export default function BrokersPage() {
           <tbody>
             {loading ? Array(6).fill(0).map((_, i) => (
               <tr key={i} className="border-b border-gray-100">
+                <td className="px-3 py-3" />
                 {Array(8).fill(0).map((__, j) => <td key={j} className="px-3 py-3"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td>)}
               </tr>
             )) : rows.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-20 text-center">
+                <td colSpan={9} className="py-20 text-center">
                   <p className="text-sm text-gray-400 mb-2">No brokers found</p>
                   {canCreate && <button onClick={() => router.push('/dashboard/brokers/new')} className="btn-primary text-sm">New Broker</button>}
                 </td>
@@ -161,7 +187,11 @@ export default function BrokersPage() {
             ) : rows.map(row => (
               <tr key={row.id}
                 onClick={() => { NProgress.start(); setNavigatingId(row.id); router.push(`/dashboard/brokers/${row.id}`); }}
-                className={`border-b border-gray-100 transition-colors select-none ${navigatingId === row.id ? 'bg-[#875A7B]/8 pointer-events-none' : 'cursor-pointer hover:bg-gray-50'}`}>
+                className={`border-b border-gray-100 transition-colors select-none ${navigatingId === row.id ? 'bg-[#875A7B]/8 pointer-events-none' : `cursor-pointer ${selected.includes(row.id) ? 'bg-[#875A7B]/5' : 'hover:bg-gray-50'}`}`}>
+                <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
+                  <input type="checkbox" checked={selected.includes(row.id)} onChange={() => toggleSelect(row.id)}
+                    className="rounded border-gray-300 text-[#875A7B] focus:ring-[#875A7B]" />
+                </td>
                 <td className="px-3 py-2.5">
                   <span className="font-mono text-xs font-semibold text-[#875A7B] bg-[#875A7B]/8 px-1.5 py-0.5 rounded">{row.broker_code || `BRK-${String(row.id).padStart(4,'0')}`}</span>
                 </td>
@@ -202,6 +232,23 @@ export default function BrokersPage() {
             <div className="flex justify-end gap-2">
               <button onClick={() => setDelId(null)} className="px-4 h-8 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
               <button onClick={handleDelete} disabled={deleting} className="px-4 h-8 text-sm rounded-lg text-white bg-red-500 hover:bg-red-600 min-w-[90px]">{deleting ? 'Deleting…' : 'Delete'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {bulkDelOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/40" onClick={() => setBulkDelOpen(false)} />
+          <div className="relative bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4">
+            <h3 className="text-base font-semibold text-gray-900 mb-1">Delete {selected.length} brokers?</h3>
+            <p className="text-sm text-gray-500 mb-2">{selected.length} brokers will be permanently deleted.</p>
+            <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-5">This action cannot be undone — deleted data cannot be recovered.</p>
+            <div className="flex gap-2">
+              <button onClick={() => setBulkDelOpen(false)} className="flex-1 h-9 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 font-medium">Cancel</button>
+              <button onClick={handleBulkDelete} disabled={deleting} className="flex-1 h-9 text-sm rounded-lg text-white bg-red-500 hover:bg-red-600 font-semibold transition disabled:opacity-60 min-w-[90px]">
+                {deleting ? 'Deleting…' : 'Yes, Delete'}
+              </button>
             </div>
           </div>
         </div>
