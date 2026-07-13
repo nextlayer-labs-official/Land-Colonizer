@@ -507,8 +507,8 @@ function SaleDetailView({ form, linkedProject }) {
 
       {/* Area */}
       <Section title={form._inventory ? 'Area Measurement · from inventory unit' : 'Area Measurement'}>
-        <Cell label="Front Area"  value={pair(form.front_area, form.front_area_details)} />
-        <Cell label="Back Area"   value={pair(form.back_area,  form.back_area_details)} />
+        <Cell label="Front Area"  value={pair(form.front_area, null)} />
+        <Cell label="Back Area"   value={pair(form.back_area,  null)} />
         <Cell label="Total Area (F × B ÷ 9)"  value={pair(form.total_area ?? c.total_area, form.total_area_details || form.front_area_details)} accent />
         {form.total_area_details && <Cell label="Area Notes" value={v(form.total_area_details)} />}
         {form.registration_area && <Cell label="Registration Area" value={v(form.registration_area)} />}
@@ -685,8 +685,8 @@ function FinancialsTab({ form, instPaid = 0 }) {
       {/* Area & Value */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
         <Hdr>Area Measurement{form._inventory ? ' · from inventory unit' : ''}</Hdr>
-        <Row label="Front Area" value={form.front_area ? `${Number(form.front_area).toLocaleString('en-IN')} ${form.front_area_details||''}`.trim() : '—'} />
-        <Row label="Back Area"  value={form.back_area  ? `${Number(form.back_area).toLocaleString('en-IN')}  ${form.back_area_details||''}`.trim()  : '—'} />
+        <Row label="Front Area" value={form.front_area ? Number(form.front_area).toLocaleString('en-IN') : '—'} />
+        <Row label="Back Area"  value={form.back_area  ? Number(form.back_area).toLocaleString('en-IN')  : '—'} />
         {(() => { const f = parseFloat(form.front_area)||0, b = parseFloat(form.back_area)||0; const stored = parseFloat(form.total_area || c.total_area || 0); const t = f && b ? parseFloat((f*(b/9)).toFixed(4)) : stored; return <Row label="Total Area" value={t ? `${t.toLocaleString('en-IN')} ${form.front_area_details||form.total_area_details||''}`.trim() : '—'} sub="Front × (Back ÷ 9)" accent />; })()}
         {form.registration_area && <Row label="Registration Area" value={`${form.registration_area}`} />}
         <Hdr>Pricing{form._inventory ? ' · Plot Rate from unit' : ''}</Hdr>
@@ -1992,7 +1992,7 @@ export default function SaleDetailPage() {
                       <p className="text-[9px] text-gray-400 uppercase tracking-wide mb-1">Area (F × B)</p>
                       <p className="text-sm font-semibold text-gray-800">
                         {form.front_area && form.back_area
-                          ? `${Number(form.front_area).toLocaleString('en-IN')} × ${Number(form.back_area).toLocaleString('en-IN')}${form.front_area_details ? ` ${form.front_area_details}` : ''}`
+                          ? `${Number(form.front_area).toLocaleString('en-IN')} × ${Number(form.back_area).toLocaleString('en-IN')}`
                           : form.front_area || form.back_area || '—'}
                       </p>
                       {(() => { const f = parseFloat(form.front_area)||0, b = parseFloat(form.back_area)||0; const t = f && b ? parseFloat((f*(b/9)).toFixed(2)) : 0; return t ? <p className="text-[10px] text-gray-400">Total: {t.toLocaleString('en-IN')} {form.front_area_details||''}</p> : null; })()}
