@@ -275,6 +275,7 @@ model SaleBooking {
   sale_id        Int
   customer_id    Int?
   booking_amount Decimal?      @db.Decimal(10, 2)
+  booking_date   DateTime?
   notes          String?       @db.Text
   refund_amount  Decimal?      @db.Decimal(10, 2)
   income_amount  Decimal?      @db.Decimal(10, 2)

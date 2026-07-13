@@ -848,7 +848,7 @@ function BookingPanel({ saleId, canEdit, onConfirmed, saleAdvance, saleAdvanceDa
   const [deleting,   setDeleting]   = useState(null);
   const [error,    setError]    = useState('');
 
-  const emptyForm = { _customer: null, customer_id: '', booking_amount: '', notes: '' };
+  const emptyForm = { _customer: null, customer_id: '', booking_amount: '', booking_date: '', notes: '' };
   const [addForm, setAddForm] = useState(emptyForm);
   const [saving,  setSaving]  = useState(false);
 
@@ -863,11 +863,13 @@ function BookingPanel({ saleId, canEdit, onConfirmed, saleAdvance, saleAdvanceDa
 
   const handleAddSave = async () => {
     if (!addForm.customer_id) { setError('Please select a customer before adding a booking.'); return; }
+    if (!addForm.booking_date) { setError('Booking received date is required.'); return; }
     setSaving(true); setError('');
     try {
       await apiPost(`/sales/${saleId}/bookings`, {
         customer_id:    addForm.customer_id || null,
         booking_amount: addForm.booking_amount || null,
+        booking_date:   addForm.booking_date || null,
         notes:          addForm.notes || null,
       });
       setAddForm(emptyForm); setShowAdd(false);
@@ -945,13 +947,26 @@ function BookingPanel({ saleId, canEdit, onConfirmed, saleAdvance, saleAdvanceDa
             excludeIds={bookedCustomerIds}
           />
 
-          <input
-            type="number"
-            value={addForm.booking_amount}
-            onChange={e => setAddForm(p => ({ ...p, booking_amount: e.target.value }))}
-            placeholder="Booking amount (₹)"
-            className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-[#875A7B]"
-          />
+          <div className="flex gap-2">
+            <input
+              type="number"
+              value={addForm.booking_amount}
+              onChange={e => setAddForm(p => ({ ...p, booking_amount: e.target.value }))}
+              placeholder="Booking amount (₹)"
+              className="flex-1 text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-[#875A7B]"
+            />
+            <div className="flex-1 relative">
+              <input
+                type="date"
+                value={addForm.booking_date}
+                onChange={e => setAddForm(p => ({ ...p, booking_date: e.target.value }))}
+                className={`w-full text-xs border rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-[#875A7B] ${!addForm.booking_date ? 'border-red-300' : 'border-gray-200'}`}
+              />
+              {!addForm.booking_date && (
+                <span className="absolute -top-2 right-2 text-[9px] text-red-500 font-semibold bg-white px-1">Required</span>
+              )}
+            </div>
+          </div>
           <textarea
             value={addForm.notes}
             onChange={e => setAddForm(p => ({ ...p, notes: e.target.value }))}
@@ -1010,6 +1025,7 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
     _customer:      b.customer || null,
     customer_id:    b.customer_id || '',
     booking_amount: b.booking_amount != null ? String(b.booking_amount) : '',
+    booking_date:   b.booking_date ? b.booking_date.substring(0, 10) : '',
     notes:          b.notes || '',
   });
   const [refund,        setRefund]        = useState(b.refund_amount != null ? String(b.refund_amount) : '');
@@ -1059,7 +1075,7 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
   const handleSave = async () => {
     setSaving(true);
     try {
-      await apiFetch({ customer_id: form.customer_id || null, booking_amount: form.booking_amount || null, notes: form.notes || null });
+      await apiFetch({ customer_id: form.customer_id || null, booking_amount: form.booking_amount || null, booking_date: form.booking_date || null, notes: form.notes || null });
       setEditing(false); await onSaved();
     } catch (e) { console.error(e); }
     finally { setSaving(false); }
@@ -1133,8 +1149,12 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
           onClear={() => setForm(p => ({ ...p, customer_id: '', _customer: null }))}
           excludeIds={excludeCustomerIds}
         />
-        <input type="number" value={form.booking_amount} onChange={e => setForm(p => ({ ...p, booking_amount: e.target.value }))}
-          placeholder="Amount ₹" className="w-full text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:border-[#875A7B]" />
+        <div className="flex gap-2">
+          <input type="number" value={form.booking_amount} onChange={e => setForm(p => ({ ...p, booking_amount: e.target.value }))}
+            placeholder="Amount ₹" className="flex-1 text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:border-[#875A7B]" />
+          <input type="date" value={form.booking_date} onChange={e => setForm(p => ({ ...p, booking_date: e.target.value }))}
+            className="flex-1 text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:border-[#875A7B]" />
+        </div>
         <textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} placeholder="Notes…" rows={2}
           className="w-full text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:border-[#875A7B] resize-none" />
         <div className="flex gap-2">
@@ -1170,6 +1190,7 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
           <div className="mt-0.5 space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Booking Amt</span>
+              {b.booking_date && <span className="text-[10px] text-gray-400">{fmtDate(b.booking_date)}</span>}
               {amtEditing ? (
                 <div className="flex items-center gap-1.5">
                   <input type="number" value={amtVal} onChange={e => setAmtVal(e.target.value)} autoFocus
@@ -1227,9 +1248,14 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
           </div>
         ) : (
           <>
-            {b.booking_amount != null && (
-              <p className="text-xs text-gray-600"><span className="font-medium text-[#875A7B]">{fmtINR(b.booking_amount)}</span> booking amount</p>
-            )}
+            <div className="flex items-center gap-2 flex-wrap">
+              {b.booking_amount != null && (
+                <p className="text-xs text-gray-600"><span className="font-medium text-[#875A7B]">{fmtINR(b.booking_amount)}</span> booking amount</p>
+              )}
+              {b.booking_date && (
+                <span className="text-[10px] text-gray-400">· {fmtDate(b.booking_date)}</span>
+              )}
+            </div>
           </>
         )}
         {b.status === 'CONFIRMED' ? (

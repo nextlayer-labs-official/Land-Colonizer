@@ -14,13 +14,14 @@ async function getBookings(req, res) {
 
 async function createBooking(req, res) {
   const sale_id = Number(req.params.sale_id);
-  const { customer_id, booking_amount, notes } = req.body;
+  const { customer_id, booking_amount, booking_date, notes } = req.body;
   const booking = await prisma.saleBooking.create({
     data: {
       sale_id,
-      customer_id: customer_id ? Number(customer_id) : null,
+      customer_id:    customer_id ? Number(customer_id) : null,
       booking_amount: booking_amount != null && booking_amount !== '' ? parseFloat(booking_amount) : null,
-      notes: notes || null,
+      booking_date:   booking_date ? new Date(booking_date) : null,
+      notes:          notes || null,
       status: 'PENDING',
     },
     include: { customer: { select: CUSTOMER_SELECT } },
@@ -30,12 +31,13 @@ async function createBooking(req, res) {
 
 async function updateBooking(req, res) {
   const id = Number(req.params.id);
-  const { customer_id, booking_amount, notes, refund_amount, income_amount, status } = req.body;
+  const { customer_id, booking_amount, booking_date, notes, refund_amount, income_amount, status } = req.body;
   const num = (v) => (v != null && v !== '' ? parseFloat(v) : null);
   const ALLOWED_STATUS = ['PENDING', 'REFUNDED'];
   const data = {
     ...(customer_id    !== undefined ? { customer_id: customer_id ? Number(customer_id) : null } : {}),
     ...(booking_amount !== undefined ? { booking_amount: num(booking_amount) } : {}),
+    ...(booking_date   !== undefined ? { booking_date: booking_date ? new Date(booking_date) : null } : {}),
     ...(notes          !== undefined ? { notes: notes || null } : {}),
     ...(refund_amount  !== undefined ? { refund_amount: num(refund_amount) } : {}),
     ...(income_amount  !== undefined ? { income_amount: num(income_amount) } : {}),
