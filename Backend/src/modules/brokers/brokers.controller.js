@@ -82,7 +82,14 @@ async function updateBroker(req, res) {
 async function deleteBroker(req, res) {
   const id = Number(req.params.id);
   const b  = await prisma.broker.findUnique({ where: { id } });
-  await prisma.broker.delete({ where: { id } });
+  try {
+    await prisma.broker.delete({ where: { id } });
+  } catch (e) {
+    if (e.code === 'P2003' || e.code === 'P2014') {
+      return res.status(409).json({ message: 'Cannot delete this broker — they have linked sales. Remove the linked data first.' });
+    }
+    throw e;
+  }
   auditLog({ req, action: 'DELETE', entity: 'broker', entityId: id, entityCode: b?.broker_code });
   res.json({ message: 'Deleted' });
 }

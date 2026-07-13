@@ -28,7 +28,7 @@ async function dlXlsx(rows, sheet, name) {
 import NProgress from 'nprogress';
 import Pagination from '@/components/Pagination';
 
-function DeleteModal({ item, onClose, onConfirm, deleting }) {
+function DeleteModal({ item, onClose, onConfirm, deleting, error }) {
   if (!item) return null;
   const isBulk = !!item._bulk;
   return (
@@ -46,12 +46,15 @@ function DeleteModal({ item, onClose, onConfirm, deleting }) {
             ? `${item.count} customers will be permanently deleted.`
             : <><strong>{item.name}</strong> will be permanently deleted.</>}
         </p>
-        <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-5">This action cannot be undone — deleted data cannot be recovered.</p>
+        {error
+          ? <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-5">{error}</p>
+          : <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-5">This action cannot be undone — deleted data cannot be recovered.</p>
+        }
         <div className="flex gap-2">
           <button onClick={onClose} className="flex-1 h-9 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 font-medium">Cancel</button>
-          <button onClick={onConfirm} disabled={deleting} className="flex-1 h-9 text-sm rounded-lg text-white bg-red-500 hover:bg-red-600 font-semibold transition disabled:opacity-60 min-w-[90px]">
+          {!error && <button onClick={onConfirm} disabled={deleting} className="flex-1 h-9 text-sm rounded-lg text-white bg-red-500 hover:bg-red-600 font-semibold transition disabled:opacity-60 min-w-[90px]">
             {deleting ? 'Deleting…' : 'Yes, Delete'}
-          </button>
+          </button>}
         </div>
       </div>
     </div>
@@ -71,6 +74,7 @@ export default function CustomersPage() {
   const [selected, setSelected] = useState([]);
   const [delModal, setDelModal] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [delError, setDelError] = useState('');
   const [search,     setSearch]     = useState('');
   const [statusF,    setStatusF]    = useState('');
   const [showF,      setShowF]      = useState(false);
@@ -129,15 +133,26 @@ export default function CustomersPage() {
 
   const handleDelete = async () => {
     setDeleting(true);
+    setDelError('');
     try {
       if (delModal._bulk) {
-        await Promise.all(delModal.ids.map(id => apiDelete(`/customers/${id}`)));
+        const results = await Promise.allSettled(delModal.ids.map(id => apiDelete(`/customers/${id}`)));
+        const failed  = results.filter(r => r.status === 'rejected');
+        if (failed.length > 0) {
+          const succeeded = delModal.ids.length - failed.length;
+          setDelError(`${succeeded > 0 ? `${succeeded} deleted. ` : ''}${failed.length} could not be deleted — they have linked sales or bookings.`);
+          setSelected([]);
+          load(page);
+          return;
+        }
         setSelected([]);
       } else {
         await apiDelete(`/customers/${delModal.id}`);
       }
       setDelModal(null);
       load(rows.length <= (delModal._bulk ? delModal.ids.length : 1) && page > 1 ? page - 1 : page);
+    } catch (e) {
+      setDelError(e.message || 'Delete failed.');
     } finally { setDeleting(false); }
   };
 
@@ -312,7 +327,7 @@ export default function CustomersPage() {
         </table>
       </div>
 
-      <DeleteModal item={delModal} onClose={() => setDelModal(null)} onConfirm={handleDelete} deleting={deleting} />
+      <DeleteModal item={delModal} onClose={() => { setDelModal(null); setDelError(''); }} onConfirm={handleDelete} deleting={deleting} error={delError} />
     </div>
   );
 }

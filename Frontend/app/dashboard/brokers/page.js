@@ -44,6 +44,7 @@ export default function BrokersPage() {
   const [delId,       setDelId]       = useState(null);
   const [bulkDelOpen, setBulkDelOpen] = useState(false);
   const [deleting,    setDeleting]    = useState(false);
+  const [delError,    setDelError]    = useState('');
   const [exportOpen,  setExportOpen]  = useState(false);
   const exportRef = useRef(null);
   const LIMIT = 15;
@@ -91,14 +92,29 @@ export default function BrokersPage() {
 
   const handleDelete = async () => {
     setDeleting(true);
-    try { await apiDelete(`/brokers/${delId}`); setDelId(null); load(rows.length === 1 && page > 1 ? page - 1 : page); }
-    finally { setDeleting(false); }
+    setDelError('');
+    try {
+      await apiDelete(`/brokers/${delId}`);
+      setDelId(null);
+      load(rows.length === 1 && page > 1 ? page - 1 : page);
+    } catch (e) {
+      setDelError(e.message || 'Delete failed.');
+    } finally { setDeleting(false); }
   };
 
   const handleBulkDelete = async () => {
     setDeleting(true);
+    setDelError('');
     try {
-      await Promise.all(selected.map(id => apiDelete(`/brokers/${id}`)));
+      const results  = await Promise.allSettled(selected.map(id => apiDelete(`/brokers/${id}`)));
+      const failed   = results.filter(r => r.status === 'rejected');
+      if (failed.length > 0) {
+        const succeeded = selected.length - failed.length;
+        setDelError(`${succeeded > 0 ? `${succeeded} deleted. ` : ''}${failed.length} could not be deleted — they have linked sales.`);
+        setSelected([]);
+        load(page);
+        return;
+      }
       setBulkDelOpen(false);
       setSelected([]);
       load(rows.length <= selected.length && page > 1 ? page - 1 : page);
@@ -225,13 +241,17 @@ export default function BrokersPage() {
 
       {delId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="fixed inset-0 bg-black/40" onClick={() => setDelId(null)} />
+          <div className="fixed inset-0 bg-black/40" onClick={() => { setDelId(null); setDelError(''); }} />
           <div className="relative bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4">
             <h3 className="text-base font-semibold text-gray-900 mb-1">Delete broker?</h3>
-            <p className="text-sm text-gray-500 mb-5">This broker will be permanently deleted.</p>
+            <p className="text-sm text-gray-500 mb-2">This broker will be permanently deleted.</p>
+            {delError
+              ? <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-5">{delError}</p>
+              : <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-5">This action cannot be undone — deleted data cannot be recovered.</p>
+            }
             <div className="flex justify-end gap-2">
-              <button onClick={() => setDelId(null)} className="px-4 h-8 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
-              <button onClick={handleDelete} disabled={deleting} className="px-4 h-8 text-sm rounded-lg text-white bg-red-500 hover:bg-red-600 min-w-[90px]">{deleting ? 'Deleting…' : 'Delete'}</button>
+              <button onClick={() => { setDelId(null); setDelError(''); }} className="px-4 h-8 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
+              {!delError && <button onClick={handleDelete} disabled={deleting} className="px-4 h-8 text-sm rounded-lg text-white bg-red-500 hover:bg-red-600 min-w-[90px]">{deleting ? 'Deleting…' : 'Delete'}</button>}
             </div>
           </div>
         </div>
@@ -239,16 +259,19 @@ export default function BrokersPage() {
 
       {bulkDelOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="fixed inset-0 bg-black/40" onClick={() => setBulkDelOpen(false)} />
+          <div className="fixed inset-0 bg-black/40" onClick={() => { setBulkDelOpen(false); setDelError(''); }} />
           <div className="relative bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4">
             <h3 className="text-base font-semibold text-gray-900 mb-1">Delete {selected.length} brokers?</h3>
             <p className="text-sm text-gray-500 mb-2">{selected.length} brokers will be permanently deleted.</p>
-            <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-5">This action cannot be undone — deleted data cannot be recovered.</p>
+            {delError
+              ? <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-5">{delError}</p>
+              : <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-5">This action cannot be undone — deleted data cannot be recovered.</p>
+            }
             <div className="flex gap-2">
-              <button onClick={() => setBulkDelOpen(false)} className="flex-1 h-9 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 font-medium">Cancel</button>
-              <button onClick={handleBulkDelete} disabled={deleting} className="flex-1 h-9 text-sm rounded-lg text-white bg-red-500 hover:bg-red-600 font-semibold transition disabled:opacity-60 min-w-[90px]">
+              <button onClick={() => { setBulkDelOpen(false); setDelError(''); }} className="flex-1 h-9 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 font-medium">Cancel</button>
+              {!delError && <button onClick={handleBulkDelete} disabled={deleting} className="flex-1 h-9 text-sm rounded-lg text-white bg-red-500 hover:bg-red-600 font-semibold transition disabled:opacity-60 min-w-[90px]">
                 {deleting ? 'Deleting…' : 'Yes, Delete'}
-              </button>
+              </button>}
             </div>
           </div>
         </div>
