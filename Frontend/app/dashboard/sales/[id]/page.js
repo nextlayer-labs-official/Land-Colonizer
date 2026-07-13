@@ -1020,6 +1020,9 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
   const [amtEditing,    setAmtEditing]    = useState(false);
   const [amtVal,        setAmtVal]        = useState(b.booking_amount != null ? String(b.booking_amount) : '');
   const [amtSaving,     setAmtSaving]     = useState(false);
+  const [noteEditing,   setNoteEditing]   = useState(false);
+  const [noteVal,       setNoteVal]       = useState(b.notes || '');
+  const [noteSaving,    setNoteSaving]    = useState(false);
 
   const bookingAmt   = Number(b.booking_amount || 0);
   const refundNum    = parseFloat(refund) || 0;
@@ -1074,6 +1077,16 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
       await onSaved();
     } catch (e) { console.error(e); }
     finally { setAmtSaving(false); }
+  };
+
+  const handleSaveNote = async () => {
+    setNoteSaving(true);
+    try {
+      await apiFetch({ notes: noteVal || null });
+      setNoteEditing(false);
+      await onSaved();
+    } catch (e) { console.error(e); }
+    finally { setNoteSaving(false); }
   };
 
   const cls = BOOKING_STATUS_CLS[b.status] || 'bg-gray-50 text-gray-500 ring-gray-200';
@@ -1165,7 +1178,33 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
             )}
           </>
         )}
-        {b.notes && <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{b.notes}</p>}
+        {b.status === 'CONFIRMED' ? (
+          <div className="flex items-center gap-2 flex-wrap mt-0.5">
+            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Note</span>
+            {noteEditing ? (
+              <div className="flex items-center gap-1.5">
+                <input type="text" value={noteVal} onChange={e => setNoteVal(e.target.value)} autoFocus
+                  placeholder="Add a note…"
+                  className="w-44 text-xs border border-[#875A7B]/40 rounded px-2 py-1 bg-white focus:outline-none focus:border-[#875A7B]" />
+                <button onClick={handleSaveNote} disabled={noteSaving}
+                  className="h-6 px-2 text-[10px] font-bold rounded text-white disabled:opacity-50" style={{ backgroundColor: '#875A7B' }}>
+                  {noteSaving ? '…' : 'Save'}
+                </button>
+                <button onClick={() => { setNoteEditing(false); setNoteVal(b.notes || ''); }}
+                  className="h-6 px-2 text-[10px] border border-gray-200 rounded text-gray-400 hover:bg-gray-50">✕</button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-gray-500">{noteVal || <span className="text-gray-300 italic">—</span>}</span>
+                {canEdit && <button onClick={() => setNoteEditing(true)} className="text-gray-300 hover:text-[#875A7B] transition">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 012.828 2.828L11.828 15.83a4 4 0 01-1.897 1.058l-2.634.659.659-2.634A4 4 0 019 13z"/></svg>
+                </button>}
+              </div>
+            )}
+          </div>
+        ) : (
+          b.notes && <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{b.notes}</p>
+        )}
 
         {/* Refund / Income — inline below customer info */}
         {showRefund && (
