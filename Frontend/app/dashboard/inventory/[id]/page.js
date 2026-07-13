@@ -149,6 +149,8 @@ function generateInventoryReportHTML(form, inv, activeSale, companyName = 'Compa
   const mf = (n) => n != null && n !== '' ? `&#8377;${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '&mdash;';
   const df = (v) => v ? new Date(v).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '&mdash;';
   const sv = (v) => (v && String(v).trim()) ? String(v).trim() : '&mdash;';
+  // Strip trailing zeros: 9.0000 → "9", 9.5000 → "9.5", 9.1234 → "9.1234"
+  const nf = (n) => { if (n == null || n === '' || isNaN(Number(n))) return '&mdash;'; return parseFloat(Number(n).toFixed(4)).toString(); };
 
   const purple  = '#875A7B';
   const purpleL = '#f5f0f4';
@@ -171,7 +173,7 @@ function generateInventoryReportHTML(form, inv, activeSale, companyName = 'Compa
   const TYPE_MAP = { PLOT: 'Plot', LAND: 'Land', SHOP: 'Shop', FLAT: 'Flat', PLOT_WIRE: 'Plot Wire', SHOP_WIRE: 'Shop Wire' };
   const fa = parseFloat(form.front_area) || 0;
   const ba = parseFloat(form.back_area)  || 0;
-  const areaStr = fa && ba ? `${parseFloat((fa*(ba/9)).toFixed(4))} Sq Yd (${fa}×${ba})` : (form.area ? `${form.area} ${form.area_unit||''}`.trim() : '—');
+  const areaStr = fa && ba ? `${nf(fa*(ba/9))} ${form.front_area_details||'gaj'} (${nf(fa)} &times; ${nf(ba)})` : (form.area ? `${nf(form.area)} ${form.area_unit||''}`.trim() : '&mdash;');
 
   // Sale financials
   const inst         = activeSale?.installment || null;
@@ -213,7 +215,7 @@ body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#1f2937;backgro
 </div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
   <div>${secTitle('Unit Information')}${infoBox([['Inventory Code',codeLabel],['Type',TYPE_MAP[form.type]||form.type||'—'],['Status',sv(form.status)],['Plot No',sv(form.plot_no)],['SL No',sv(form.sl_no)],['Location',sv(form.location)],['Possession',sv(form.possession_status)]])}</div>
-  <div>${secTitle('Area & Measurement')}${infoBox([['Front Area',`${sv(form.front_area)} ${sv(form.front_area_details)}`],['Back Area',`${sv(form.back_area)} ${sv(form.back_area_details)}`],['Computed Area',areaStr],['Sanctioned Area',`${sv(form.sanctioned_area)} ${sv(form.sanctioned_area_details)}`],['Rate',form.rate?mf(form.rate):'—'],['Project',sv(form.project?.name||form.project_id)],['Purchase Ref',sv(inv?.purchase?.purchase_code||form.purchase_id)]])}</div>
+  <div>${secTitle('Area & Measurement')}${infoBox([['Front Area',form.front_area?`${nf(form.front_area)} ${sv(form.front_area_details)}`:'&mdash;'],['Back Area',form.back_area?`${nf(form.back_area)} ${sv(form.back_area_details)}`:'&mdash;'],['Computed Area',areaStr],['Sanctioned Area',form.sanctioned_area?`${nf(form.sanctioned_area)} ${sv(form.sanctioned_area_details)}`:'&mdash;'],['Rate',form.rate?mf(form.rate):'&mdash;'],['Project',sv(form.project?.name||form.project_id)],['Purchase Ref',sv(inv?.purchase?.purchase_code||form.purchase_id)]])}</div>
 </div>
 ${activeSale ? `
 <div style="margin-bottom:14px;">${secTitle(`Linked Sale &mdash; ${activeSale.sale_code||`SALE-${String(activeSale.id).padStart(4,'0')}`} (${activeSale.status||''})`)}
