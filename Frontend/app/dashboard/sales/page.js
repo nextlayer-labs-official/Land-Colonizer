@@ -323,10 +323,17 @@ export default function SalesPage() {
                   </span>
                 </td>
                 <td className="px-3 py-2.5">
-                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${row.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${row.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-gray-400'}`} />
-                    {row.status === 'ACTIVE' ? 'Active' : 'Inactive'}
-                  </span>
+                  {row.registration_completed ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                      Registered
+                    </span>
+                  ) : (
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${row.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${row.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-gray-400'}`} />
+                      {row.status === 'ACTIVE' ? 'Active' : 'Inactive'}
+                    </span>
+                  )}
                 </td>
                 <td className="px-3 py-2.5 text-xs text-gray-400 whitespace-nowrap">{fmtDate(row.sale_date || row.created_at)}</td>
                 <td className="px-3 py-2.5 text-right" onClick={e => e.stopPropagation()}>

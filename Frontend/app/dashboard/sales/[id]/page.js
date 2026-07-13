@@ -191,7 +191,7 @@ function SaleVisual({ form }) {
           </svg>
         </div>
         {/* status dot */}
-        <span className={`absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full border-2 border-white ${form.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-gray-400'}`} />
+        <span className={`absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full border-2 border-white ${form.registration_completed ? 'bg-blue-500' : form.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-gray-400'}`} />
       </div>
 
       {/* Sale code */}
@@ -212,8 +212,8 @@ function SaleVisual({ form }) {
             {POSS_LABEL[form.possession] || form.possession}
           </span>
         )}
-        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${form.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
-          {form.status === 'ACTIVE' ? '● Active' : '● Inactive'}
+        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${form.registration_completed ? 'bg-blue-50 text-blue-700' : form.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+          {form.registration_completed ? '● Registered' : form.status === 'ACTIVE' ? '● Active' : '● Inactive'}
         </span>
       </div>
     </div>
