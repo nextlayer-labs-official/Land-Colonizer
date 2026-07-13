@@ -1013,6 +1013,7 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
     notes:          b.notes || '',
   });
   const [refund,        setRefund]        = useState(b.refund_amount != null ? String(b.refund_amount) : '');
+  const [refundNote,    setRefundNote]    = useState(b.notes || '');
   const [savingRI,      setSavingRI]      = useState(false);
   const [markingRefund, setMarkingRefund] = useState(false);
   const [saving,        setSaving]        = useState(false);
@@ -1050,7 +1051,7 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
     if (refundExceed) return;
     setSavingRI(true);
     try {
-      await apiFetch({ refund_amount: refund || null, income_amount: String(autoIncome) });
+      await apiFetch({ refund_amount: refund || null, income_amount: String(autoIncome), notes: refundNote || null });
       await onSaved();
     } catch (e) { console.error(e); }
     finally { setSavingRI(false); }
@@ -1178,6 +1179,16 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
                   onChange={e => setRefund(e.target.value)}
                   placeholder="0"
                   className={`w-32 text-xs border rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-[#875A7B] ${refundExceed ? 'border-red-400' : 'border-gray-200'}`}
+                />
+              </div>
+              <div>
+                <span className="text-[10px] text-gray-400 block mb-1">Note</span>
+                <input
+                  type="text"
+                  value={refundNote}
+                  onChange={e => setRefundNote(e.target.value)}
+                  placeholder="Reason / details…"
+                  className="w-44 text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-[#875A7B]"
                 />
               </div>
               {bookingAmt > 0 && refundNum >= 0 && (
