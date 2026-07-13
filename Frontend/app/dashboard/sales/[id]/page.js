@@ -840,7 +840,7 @@ const BOOKING_STATUS_CLS = {
 };
 
 // ── BookingPanel ──────────────────────────────────────────────────────────────
-function BookingPanel({ saleId, canEdit, onConfirmed }) {
+function BookingPanel({ saleId, canEdit, onConfirmed, saleAdvance, saleAdvanceDate, saleAdvanceDetails }) {
   const [bookings, setBookings] = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [showAdd,  setShowAdd]  = useState(false);
@@ -986,10 +986,11 @@ function BookingPanel({ saleId, canEdit, onConfirmed }) {
           {bookings.map((b, idx) => (
             <BookingRow key={b.id} booking={b} idx={idx}
               canEdit={canEdit} isConfirmed={isConfirmed}
-              onConfirm={(advance, bookingInReceived) => handleConfirm(b.id, advance, bookingInReceived)} confirming={confirming === b.id}
+              onConfirm={(advance, bookingInReceived, advDate, advNote) => handleConfirm(b.id, advance, bookingInReceived, advDate, advNote)} confirming={confirming === b.id}
               onDelete={() => handleDelete(b.id)}    deleting={deleting === b.id}
               saleId={saleId} onSaved={load}
               excludeCustomerIds={bookedCustomerIds.filter(id => id !== b.customer_id)}
+              saleAdvance={saleAdvance} saleAdvanceDate={saleAdvanceDate} saleAdvanceDetails={saleAdvanceDetails}
             />
           ))}
         </div>
@@ -998,7 +999,7 @@ function BookingPanel({ saleId, canEdit, onConfirmed }) {
   );
 }
 
-function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirming, onDelete, deleting, saleId, onSaved, excludeCustomerIds }) {
+function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirming, onDelete, deleting, saleId, onSaved, excludeCustomerIds, saleAdvance, saleAdvanceDate, saleAdvanceDetails }) {
   const [editing,           setEditing]           = useState(false);
   const [confirming2,       setConfirming2]        = useState(false);
   const [advance,           setAdvance]            = useState('');
@@ -1015,6 +1016,9 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
   const [savingRI,      setSavingRI]      = useState(false);
   const [markingRefund, setMarkingRefund] = useState(false);
   const [saving,        setSaving]        = useState(false);
+  const [amtEditing,    setAmtEditing]    = useState(false);
+  const [amtVal,        setAmtVal]        = useState(b.booking_amount != null ? String(b.booking_amount) : '');
+  const [amtSaving,     setAmtSaving]     = useState(false);
 
   const bookingAmt   = Number(b.booking_amount || 0);
   const refundNum    = parseFloat(refund) || 0;
@@ -1059,6 +1063,16 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
       await onSaved();
     } catch (e) { console.error(e); }
     finally { setMarkingRefund(false); }
+  };
+
+  const handleSaveAmt = async () => {
+    setAmtSaving(true);
+    try {
+      await apiFetch({ booking_amount: amtVal || null });
+      setAmtEditing(false);
+      await onSaved();
+    } catch (e) { console.error(e); }
+    finally { setAmtSaving(false); }
   };
 
   const cls = BOOKING_STATUS_CLS[b.status] || 'bg-gray-50 text-gray-500 ring-gray-200';
@@ -1109,8 +1123,46 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
           {b.customer?.customer_code && <span className="text-[10px] text-gray-400">· {b.customer.customer_code}</span>}
           {b.customer?.phone && <span className="text-[10px] text-gray-400">· {b.customer.phone}</span>}
         </div>
-        {b.booking_amount != null && (
-          <p className="text-xs text-gray-600"><span className="font-medium text-[#875A7B]">{fmtINR(b.booking_amount)}</span> booking amount</p>
+        {b.status === 'CONFIRMED' ? (
+          <div className="mt-0.5 space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Booking Amt</span>
+              {amtEditing ? (
+                <div className="flex items-center gap-1.5">
+                  <input type="number" value={amtVal} onChange={e => setAmtVal(e.target.value)} autoFocus
+                    className="w-28 text-xs border border-[#875A7B]/40 rounded px-2 py-1 bg-white focus:outline-none focus:border-[#875A7B]" />
+                  <button onClick={handleSaveAmt} disabled={amtSaving}
+                    className="h-6 px-2 text-[10px] font-bold rounded text-white disabled:opacity-50" style={{ backgroundColor: '#875A7B' }}>
+                    {amtSaving ? '…' : 'Save'}
+                  </button>
+                  <button onClick={() => { setAmtEditing(false); setAmtVal(b.booking_amount != null ? String(b.booking_amount) : ''); }}
+                    className="h-6 px-2 text-[10px] border border-gray-200 rounded text-gray-400 hover:bg-gray-50">✕</button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <span className="text-xs font-semibold text-[#875A7B]">{b.booking_amount != null ? fmtINR(b.booking_amount) : '—'}</span>
+                  {canEdit && <button onClick={() => { setAmtEditing(true); setAmtVal(b.booking_amount != null ? String(b.booking_amount) : ''); }}
+                    className="text-gray-300 hover:text-[#875A7B] transition">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 012.828 2.828L11.828 15.83a4 4 0 01-1.897 1.058l-2.634.659.659-2.634A4 4 0 019 13z"/></svg>
+                  </button>}
+                </div>
+              )}
+            </div>
+            {(saleAdvance != null || saleAdvanceDetails) && (
+              <div className="flex items-start gap-2 flex-wrap">
+                {saleAdvance != null && <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Advance</span>}
+                {saleAdvance != null && <span className="text-xs font-semibold text-emerald-700">{fmtINR(saleAdvance)}</span>}
+                {saleAdvanceDate && <span className="text-[10px] text-gray-400">{fmtDate(saleAdvanceDate)}</span>}
+                {saleAdvanceDetails && <span className="text-[10px] text-gray-500 italic">{saleAdvanceDetails}</span>}
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
+            {b.booking_amount != null && (
+              <p className="text-xs text-gray-600"><span className="font-medium text-[#875A7B]">{fmtINR(b.booking_amount)}</span> booking amount</p>
+            )}
+          </>
         )}
         {b.notes && <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{b.notes}</p>}
 
@@ -2002,6 +2054,9 @@ export default function SaleDetailPage() {
               <BookingPanel
                 saleId={params.id}
                 canEdit={canEdit}
+                saleAdvance={form.advance_payment}
+                saleAdvanceDate={form.advance_payment_date}
+                saleAdvanceDetails={form.advance_payment_details}
                 onConfirmed={async () => { await load(); }}
               />
             )}
