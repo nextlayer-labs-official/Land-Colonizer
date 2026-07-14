@@ -235,6 +235,8 @@ model Sale {
   sale_confirmed            Boolean          @default(false)
   booking_in_received       Boolean          @default(true)
   registration_completed    Boolean          @default(false)
+  created_by_id             Int?
+  created_by_name           String?
   created_at                DateTime         @default(now())
   updated_at                DateTime         @updatedAt
   inventory                 Inventory?       @relation(fields: [inventory_id], references: [id])
@@ -542,6 +544,8 @@ model Purchase {
   other_details                String?          @db.Text
   status                       PurchaseStatus   @default(ACTIVE)
   archived                     Boolean          @default(false)
+  created_by_id                Int?
+  created_by_name              String?
   created_at                   DateTime         @default(now())
   updated_at                   DateTime         @updatedAt
   inventory                    Inventory[]
@@ -583,6 +587,8 @@ model Inventory {
   rate              Decimal?        @db.Decimal(10, 2)
   registration_date DateTime?
   status            InventoryStatus @default(AVAILABLE)
+  created_by_id     Int?
+  created_by_name   String?
   created_at        DateTime        @default(now())
   updated_at        DateTime        @updatedAt
   purchase          Purchase        @relation(fields: [purchase_id], references: [id])

@@ -749,15 +749,17 @@ function InstalmentsReport() {
 
 // ── Availability Report ───────────────────────────────────────────────────────
 function AvailabilityReport() {
-  const [filters, setFilters] = useState({ purchase_id: '', project_id: '', status: '' });
+  const [filters, setFilters] = useState({ purchase_id: '', project_id: '', status: '', created_by_id: '' });
   const [result, setResult]   = useState(null);
   const [loading, setLoading] = useState(false);
   const [purchases, setPurchases] = useState([]);
   const [projects,  setProjects]  = useState([]);
+  const [employees, setEmployees] = useState([]);
 
   useEffect(() => {
     apiGet('/lookup/plots').then(d => setPurchases(d || [])).catch(() => {});
     apiGet('/lookup/projects').then(d => setProjects(d || [])).catch(() => {});
+    apiGet('/lookup/users').then(d => setEmployees(d || [])).catch(() => {});
   }, []);
 
   const set = (k, v) => setFilters(f => ({ ...f, [k]: v }));
@@ -778,6 +780,7 @@ function AvailabilityReport() {
       'Plot No.':    u.plot_no || '',
       'Total Area':  fmtNum(u.total_area),
       'Status':      u.status,
+      'Added By':    u.created_by_name || '',
     }));
     await exportXlsx([{ name: 'Availability', rows }], `availability_report_${new Date().toISOString().slice(0,10)}.xlsx`);
   };
@@ -828,6 +831,12 @@ function AvailabilityReport() {
               <option value="REGISTERED">Registered</option>
             </select>
           </Field>
+          <Field label="Employee">
+            <select value={filters.created_by_id} onChange={e => set('created_by_id', e.target.value)} className={selectCls} style={{ minWidth: 160 }}>
+              <option value="">All Employees</option>
+              {employees.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+            </select>
+          </Field>
           <RunBtn onClick={run} loading={loading} />
           {result && <><PrintBtn /><ExcelBtn onClick={doExcel} /></>}
         </FilterRow>
@@ -846,14 +855,14 @@ function AvailabilityReport() {
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  {['#', 'SL No.', 'Plot No.', 'Total Area', 'Status'].map(h => (
+                  {['#', 'SL No.', 'Plot No.', 'Total Area', 'Status', 'Added By'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {result.units.length === 0 ? (
-                  <tr><td colSpan={5} className="py-10 text-center text-sm text-gray-400">No inventory found</td></tr>
+                  <tr><td colSpan={6} className="py-10 text-center text-sm text-gray-400">No inventory found</td></tr>
                 ) : result.units.map((u, i) => (
                   <tr key={u.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
@@ -861,6 +870,7 @@ function AvailabilityReport() {
                     <td className="px-3 py-2.5 text-gray-700">{u.plot_no || '—'}</td>
                     <td className="px-3 py-2.5 text-gray-600">{u.total_area ? fmtN(u.total_area) + ' sq.yd' : '—'}</td>
                     <td className="px-3 py-2.5">{statusBadge(u.status)}</td>
+                    <td className="px-3 py-2.5 text-gray-500 text-xs">{u.created_by_name || '—'}</td>
                   </tr>
                 ))}
               </tbody>

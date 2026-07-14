@@ -261,12 +261,13 @@ const instalmentsReport = async (req, res) => {
 
 // ── Availability Report ──────────────────────────────────────────────────────
 const availabilityReport = async (req, res) => {
-  const { purchase_id, project_id, status } = req.query;
+  const { purchase_id, project_id, status, created_by_id } = req.query;
 
   const where = {};
-  if (purchase_id) where.purchase_id = parseInt(purchase_id);
-  if (project_id)  where.project_id  = parseInt(project_id);
-  if (status)      where.status      = status;
+  if (purchase_id)   where.purchase_id   = parseInt(purchase_id);
+  if (project_id)    where.project_id    = parseInt(project_id);
+  if (status)        where.status        = status;
+  if (created_by_id) where.created_by_id = parseInt(created_by_id);
 
   const units = await prisma.inventory.findMany({
     where,
@@ -278,6 +279,8 @@ const availabilityReport = async (req, res) => {
       front_area: true,
       back_area: true,
       status: true,
+      created_by_id: true,
+      created_by_name: true,
       purchase: { select: { id: true, purchase_code: true, plot_no: true, location: true } },
       project:  { select: { id: true, name: true } },
     },

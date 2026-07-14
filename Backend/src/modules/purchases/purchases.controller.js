@@ -152,7 +152,9 @@ async function getPurchaseById(req, res) {
 
 async function createPurchase(req, res) {
   const prefix = await getPurchasePrefix();
-  const p = await prisma.purchase.create({ data: sanitize(req.body) });
+  const p = await prisma.purchase.create({
+    data: { ...sanitize(req.body), created_by_id: req.user?.id ?? null, created_by_name: req.user?.name ?? null },
+  });
 
   const purchase_code = `${prefix}-${String(p.id).padStart(4, '0')}`;
   const updated = await prisma.purchase.update({ where: { id: p.id }, data: { purchase_code } });
@@ -232,7 +234,9 @@ async function importPurchases(req, res) {
         if (after > before) brokersCreated.add(bname);
       }
 
-      const p    = await prisma.purchase.create({ data });
+      const p    = await prisma.purchase.create({
+        data: { ...data, created_by_id: req.user?.id ?? null, created_by_name: req.user?.name ?? null },
+      });
       const purchase_code = `${prefix}-${String(p.id).padStart(4, '0')}`;
       const updated = await prisma.purchase.update({ where: { id: p.id }, data: { purchase_code } });
 
@@ -240,13 +244,15 @@ async function importPurchases(req, res) {
       if (updated.purchase_category === 'SINGLE') {
         const inv = await prisma.inventory.create({
           data: {
-            purchase_id: updated.id,
-            type:        updated.type    || 'PLOT',
-            sl_no:       updated.sl_no   || null,
-            location:    updated.location || null,
-            plot_no:     updated.plot_no  || null,
-            area:        updated.purchased_area         || null,
-            area_unit:   updated.purchased_area_details || null,
+            purchase_id:     updated.id,
+            type:            updated.type    || 'PLOT',
+            sl_no:           updated.sl_no   || null,
+            location:        updated.location || null,
+            plot_no:         updated.plot_no  || null,
+            area:            updated.purchased_area         || null,
+            area_unit:       updated.purchased_area_details || null,
+            created_by_id:   req.user?.id   ?? null,
+            created_by_name: req.user?.name ?? null,
           },
         });
         const inventory_code = `${invPrefix}-${String(inv.id).padStart(4, '0')}`;

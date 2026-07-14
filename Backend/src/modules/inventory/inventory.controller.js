@@ -121,7 +121,10 @@ async function createInventory(req, res) {
   data.purchase_id = Number(req.body.purchase_id);
 
   const prefix = await getPrefix();
-  const inv = await prisma.inventory.create({ data, include: INCLUDE });
+  const inv = await prisma.inventory.create({
+    data: { ...data, created_by_id: req.user?.id ?? null, created_by_name: req.user?.name ?? null },
+    include: INCLUDE,
+  });
 
   const inventory_code = `${prefix}-${String(inv.id).padStart(4, '0')}`;
   const updated = await prisma.inventory.update({ where: { id: inv.id }, data: { inventory_code }, include: INCLUDE });
