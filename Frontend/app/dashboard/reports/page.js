@@ -747,13 +747,139 @@ function InstalmentsReport() {
   );
 }
 
+// ── Availability Report ───────────────────────────────────────────────────────
+function AvailabilityReport() {
+  const [filters, setFilters] = useState({ purchase_id: '', project_id: '', status: '' });
+  const [result, setResult]   = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [purchases, setPurchases] = useState([]);
+  const [projects,  setProjects]  = useState([]);
+
+  useEffect(() => {
+    apiGet('/lookup/plots').then(d => setPurchases(d || [])).catch(() => {});
+    apiGet('/lookup/projects').then(d => setProjects(d || [])).catch(() => {});
+  }, []);
+
+  const set = (k, v) => setFilters(f => ({ ...f, [k]: v }));
+
+  const run = async () => {
+    setLoading(true);
+    try {
+      const q = new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([,v]) => v)));
+      setResult(await apiGet(`/reports/availability?${q}`));
+    } finally { setLoading(false); }
+  };
+
+  const doExcel = async () => {
+    if (!result) return;
+    const rows = result.units.map((u, i) => ({
+      '#':           i + 1,
+      'SL No.':      u.sl_no   || '',
+      'Plot No.':    u.plot_no || '',
+      'Total Area':  fmtNum(u.total_area),
+      'Status':      u.status,
+    }));
+    await exportXlsx([{ name: 'Availability', rows }], `availability_report_${new Date().toISOString().slice(0,10)}.xlsx`);
+  };
+
+  const statusBadge = (status) => {
+    const map = {
+      AVAILABLE:  { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500',  label: 'Available'   },
+      SOLD:       { bg: 'bg-red-50',     text: 'text-red-700',     dot: 'bg-red-500',       label: 'Sold'        },
+      RESERVED:   { bg: 'bg-amber-50',   text: 'text-amber-700',   dot: 'bg-amber-400',     label: 'Reserved'    },
+      REGISTERED: { bg: 'bg-blue-50',    text: 'text-blue-700',    dot: 'bg-blue-500',      label: 'Registered'  },
+    };
+    const s = map[status] || { bg: 'bg-gray-50', text: 'text-gray-600', dot: 'bg-gray-400', label: status };
+    return (
+      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${s.bg} ${s.text}`}>
+        <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
+        {s.label}
+      </span>
+    );
+  };
+
+  return (
+    <div>
+      <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4 print:hidden">
+        <FilterRow>
+          <Field label="Purchase">
+            <select value={filters.purchase_id} onChange={e => set('purchase_id', e.target.value)} className={selectCls} style={{ minWidth: 200 }}>
+              <option value="">All Purchases</option>
+              {purchases.map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.purchase_code || p.plot_no || `PUR-${String(p.id).padStart(4,'0')}`}
+                  {p.location ? ` · ${p.location}` : ''}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Project">
+            <select value={filters.project_id} onChange={e => set('project_id', e.target.value)} className={selectCls} style={{ minWidth: 160 }}>
+              <option value="">All Projects</option>
+              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </Field>
+          <Field label="Status">
+            <select value={filters.status} onChange={e => set('status', e.target.value)} className={selectCls} style={{ minWidth: 130 }}>
+              <option value="">All</option>
+              <option value="AVAILABLE">Available</option>
+              <option value="SOLD">Sold</option>
+              <option value="RESERVED">Reserved</option>
+              <option value="REGISTERED">Registered</option>
+            </select>
+          </Field>
+          <RunBtn onClick={run} loading={loading} />
+          {result && <><PrintBtn /><ExcelBtn onClick={doExcel} /></>}
+        </FilterRow>
+      </div>
+
+      {result && (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
+            <SummaryCard label="Total Units" value={result.summary.count} />
+            <SummaryCard label="Available"   value={result.summary.available} />
+            <SummaryCard label="Sold"        value={result.summary.sold} />
+            <SummaryCard label="Reserved"    value={result.summary.reserved} />
+            <SummaryCard label="Registered"  value={result.summary.registered} />
+          </div>
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="border-b border-gray-200 bg-gray-50">
+                  {['#', 'SL No.', 'Plot No.', 'Total Area', 'Status'].map(h => (
+                    <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {result.units.length === 0 ? (
+                  <tr><td colSpan={5} className="py-10 text-center text-sm text-gray-400">No inventory found</td></tr>
+                ) : result.units.map((u, i) => (
+                  <tr key={u.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
+                    <td className="px-3 py-2.5 text-gray-700">{u.sl_no   || '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-700">{u.plot_no || '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-600">{u.total_area ? fmtN(u.total_area) + ' sq.yd' : '—'}</td>
+                    <td className="px-3 py-2.5">{statusBadge(u.status)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 const TABS = [
-  { id: 'sales',       label: 'Sales Report' },
-  { id: 'inventory',   label: 'Inventory Report' },
-  { id: 'purchases',   label: 'Purchase Report' },
-  { id: 'brokers',     label: 'Broker Report' },
-  { id: 'instalments', label: 'Instalments Report' },
+  { id: 'sales',        label: 'Sales Report' },
+  { id: 'inventory',    label: 'Inventory Report' },
+  { id: 'purchases',    label: 'Purchase Report' },
+  { id: 'brokers',      label: 'Broker Report' },
+  { id: 'instalments',  label: 'Instalments Report' },
+  { id: 'availability', label: 'Availability Report' },
 ];
 
 export default function ReportsPage() {
@@ -781,11 +907,12 @@ export default function ReportsPage() {
       </div>
 
       <div className="flex-1 overflow-auto p-4">
-        {tab === 'sales'       && <SalesReport />}
-        {tab === 'inventory'   && <InventoryReport />}
-        {tab === 'purchases'   && <PurchaseReport />}
-        {tab === 'brokers'     && <BrokerReport />}
-        {tab === 'instalments' && <InstalmentsReport />}
+        {tab === 'sales'        && <SalesReport />}
+        {tab === 'inventory'    && <InventoryReport />}
+        {tab === 'purchases'    && <PurchaseReport />}
+        {tab === 'brokers'      && <BrokerReport />}
+        {tab === 'instalments'  && <InstalmentsReport />}
+        {tab === 'availability' && <AvailabilityReport />}
       </div>
 
       <style>{`

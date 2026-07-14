@@ -259,4 +259,45 @@ const instalmentsReport = async (req, res) => {
   });
 };
 
-module.exports = { salesReport, inventoryReport, purchaseReport, brokerReport, instalmentsReport };
+// ── Availability Report ──────────────────────────────────────────────────────
+const availabilityReport = async (req, res) => {
+  const { purchase_id, project_id, status } = req.query;
+
+  const where = {};
+  if (purchase_id) where.purchase_id = parseInt(purchase_id);
+  if (project_id)  where.project_id  = parseInt(project_id);
+  if (status)      where.status      = status;
+
+  const units = await prisma.inventory.findMany({
+    where,
+    select: {
+      id: true,
+      sl_no: true,
+      plot_no: true,
+      area: true,
+      front_area: true,
+      back_area: true,
+      status: true,
+      purchase: { select: { id: true, purchase_code: true, plot_no: true, location: true } },
+      project:  { select: { id: true, name: true } },
+    },
+    orderBy: [{ purchase_id: 'asc' }, { created_at: 'asc' }],
+  });
+
+  const rows = units.map(u => {
+    const total_area = Number(u.area || 0) || (Number(u.front_area || 0) + Number(u.back_area || 0));
+    return { ...u, total_area: total_area || null };
+  });
+
+  const summary = {
+    count:      rows.length,
+    available:  rows.filter(u => u.status === 'AVAILABLE').length,
+    sold:       rows.filter(u => u.status === 'SOLD').length,
+    reserved:   rows.filter(u => u.status === 'RESERVED').length,
+    registered: rows.filter(u => u.status === 'REGISTERED').length,
+  };
+
+  res.json({ units: rows, summary });
+};
+
+module.exports = { salesReport, inventoryReport, purchaseReport, brokerReport, instalmentsReport, availabilityReport };
