@@ -6,7 +6,7 @@ import usePermissions from '@/lib/usePermissions';
 import { apiGet } from '@/lib/api';
 
 const fmt     = (n) => n == null ? '—' : Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const fmtN    = (n) => n == null ? '—' : Number(n).toLocaleString('en-IN', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+const fmtN    = (n) => n == null ? '—' : parseFloat(Number(n).toFixed(4)).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 4 });
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const fmtNum  = (n) => n == null ? 0 : Number(n);
 
