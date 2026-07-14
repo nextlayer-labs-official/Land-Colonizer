@@ -87,15 +87,17 @@ function ExcelBtn({ onClick }) {
 
 // ── Sales Report ──────────────────────────────────────────────────────────────
 function SalesReport() {
-  const [filters, setFilters] = useState({ date_from: '', date_to: '', project_id: '', broker_id: '', status: '' });
+  const [filters, setFilters] = useState({ date_from: '', date_to: '', project_id: '', broker_id: '', status: '', created_by_id: '' });
   const [result, setResult]   = useState(null);
   const [loading, setLoading] = useState(false);
-  const [projects, setProjects] = useState([]);
-  const [brokers,  setBrokers]  = useState([]);
+  const [projects,  setProjects]  = useState([]);
+  const [brokers,   setBrokers]   = useState([]);
+  const [employees, setEmployees] = useState([]);
 
   useEffect(() => {
     apiGet('/lookup/projects').then(d => setProjects(d || [])).catch(() => {});
     apiGet('/lookup/brokers').then(d => setBrokers(d || [])).catch(() => {});
+    apiGet('/lookup/users').then(d => setEmployees(d || [])).catch(() => {});
   }, []);
 
   const run = async () => {
@@ -121,6 +123,7 @@ function SalesReport() {
       'Advance':      fmtNum(s.advance_payment),
       'Balance':      fmtNum(s.balance_amount),
       'Status':       s.sale_confirmed ? 'Confirmed' : 'Pending',
+      'Sold By':      s.created_by_name || '',
       'Date':         fmtDate(s.created_at),
     }));
     await exportXlsx([{ name: 'Sales', rows }], `sales_report_${new Date().toISOString().slice(0,10)}.xlsx`);
@@ -151,6 +154,12 @@ function SalesReport() {
               <option value="pending">Pending</option>
             </select>
           </Field>
+          <Field label="Sold By">
+            <select value={filters.created_by_id} onChange={e => set('created_by_id', e.target.value)} className={selectCls} style={{ minWidth: 150 }}>
+              <option value="">All Employees</option>
+              {employees.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+            </select>
+          </Field>
           <RunBtn onClick={run} loading={loading} />
           {result && <><PrintBtn /><ExcelBtn onClick={doExcel} /></>}
         </FilterRow>
@@ -168,14 +177,14 @@ function SalesReport() {
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  {['#','Sale Code','Customer','Project','Broker','Total Area','Actual Price','Advance','Balance','Status','Date'].map(h => (
+                  {['#','Sale Code','Customer','Project','Broker','Total Area','Actual Price','Advance','Balance','Status','Sold By','Date'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {result.sales.length === 0 ? (
-                  <tr><td colSpan={11} className="py-10 text-center text-sm text-gray-400">No sales found for the selected criteria</td></tr>
+                  <tr><td colSpan={12} className="py-10 text-center text-sm text-gray-400">No sales found for the selected criteria</td></tr>
                 ) : result.sales.map((s, i) => (
                   <tr key={s.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
@@ -193,6 +202,7 @@ function SalesReport() {
                         {s.sale_confirmed ? 'Confirmed' : 'Pending'}
                       </span>
                     </td>
+                    <td className="px-3 py-2.5 text-gray-500 text-xs">{s.created_by_name || '—'}</td>
                     <td className="px-3 py-2.5 text-xs text-gray-400 whitespace-nowrap">{fmtDate(s.created_at)}</td>
                   </tr>
                 ))}
@@ -781,6 +791,7 @@ function AvailabilityReport() {
       'Total Area':  fmtNum(u.total_area),
       'Status':      u.status,
       'Added By':    u.created_by_name || '',
+      'Sold By':     u.sold_by_name    || '',
     }));
     await exportXlsx([{ name: 'Availability', rows }], `availability_report_${new Date().toISOString().slice(0,10)}.xlsx`);
   };
@@ -855,14 +866,14 @@ function AvailabilityReport() {
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  {['#', 'SL No.', 'Plot No.', 'Total Area', 'Status', 'Added By'].map(h => (
+                  {['#', 'SL No.', 'Plot No.', 'Total Area', 'Status', 'Added By', 'Sold By'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {result.units.length === 0 ? (
-                  <tr><td colSpan={6} className="py-10 text-center text-sm text-gray-400">No inventory found</td></tr>
+                  <tr><td colSpan={7} className="py-10 text-center text-sm text-gray-400">No inventory found</td></tr>
                 ) : result.units.map((u, i) => (
                   <tr key={u.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
@@ -871,6 +882,7 @@ function AvailabilityReport() {
                     <td className="px-3 py-2.5 text-gray-600">{u.total_area ? fmtN(u.total_area) + ' sq.yd' : '—'}</td>
                     <td className="px-3 py-2.5">{statusBadge(u.status)}</td>
                     <td className="px-3 py-2.5 text-gray-500 text-xs">{u.created_by_name || '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-500 text-xs">{u.sold_by_name    || '—'}</td>
                   </tr>
                 ))}
               </tbody>
