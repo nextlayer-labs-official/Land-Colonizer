@@ -724,7 +724,7 @@ function InstalmentsReport() {
                         <td className="px-3 py-2.5"><span className="font-mono text-xs font-semibold text-[#875A7B] bg-[#875A7B]/8 px-1.5 py-0.5 rounded">{r.sale_code}</span></td>
                         <td className="px-3 py-2.5 font-medium text-gray-800">
                           {r.customer?.name || '—'}
-                          {r.customer?.phone && <p className="text-[10px] text-gray-400 font-normal">{r.customer.phone}</p>}
+                          {r.customer?.phone && <p className="text-sm font-medium text-gray-800">{r.customer.phone}</p>}
                         </td>
                         <td className="px-3 py-2.5 text-gray-600">{r.project?.name || '—'}</td>
                         <td className="px-3 py-2.5 text-emerald-700">₹ {fmt(r.paid_amount)}</td>
