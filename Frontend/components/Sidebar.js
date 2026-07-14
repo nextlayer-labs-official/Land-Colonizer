@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import usePermissions from '@/lib/usePermissions';
 import { apiGet } from '@/lib/api';
+import { UPLOADS_URL } from '@/lib/config';
 
 // ── Nav structure ──────────────────────────────────────────────────────────────
 const navItems = [
@@ -177,7 +178,7 @@ export default function Sidebar({ isOpen, onClose }) {
     apiGet('/settings')
       .then((s) => {
         if (s.company_name) setCompanyName(s.company_name);
-        if (s.company_logo) setCompanyLogo(s.company_logo);
+        if (s.company_logo) setCompanyLogo(`${UPLOADS_URL}${s.company_logo}`);
       })
       .catch(() => {});
   }, []);
@@ -211,7 +212,7 @@ export default function Sidebar({ isOpen, onClose }) {
       <div className="flex items-center justify-between px-4 py-4 border-b border-gray-700">
         <div className="flex items-center gap-3 min-w-0">
           {companyLogo ? (
-            <img src={`${process.env.NEXT_PUBLIC_UPLOADS_URL || ''}${companyLogo}`}
+            <img src={companyLogo}
               alt="Logo" className="w-8 h-8 rounded-lg object-contain bg-white p-0.5 shrink-0" />
           ) : (
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shrink-0">
