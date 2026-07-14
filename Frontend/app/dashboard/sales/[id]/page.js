@@ -1003,7 +1003,7 @@ function BookingPanel({ saleId, canEdit, onConfirmed, saleAdvance, saleAdvanceDa
               canEdit={canEdit} isConfirmed={isConfirmed}
               onConfirm={(advance, bookingInReceived, advDate, advNote) => handleConfirm(b.id, advance, bookingInReceived, advDate, advNote)} confirming={confirming === b.id}
               onDelete={() => handleDelete(b.id)}    deleting={deleting === b.id}
-              saleId={saleId} onSaved={load}
+              saleId={saleId} onSaved={load} onSaleReload={onConfirmed}
               excludeCustomerIds={bookedCustomerIds.filter(id => id !== b.customer_id)}
               saleAdvance={saleAdvance} saleAdvanceDate={saleAdvanceDate} saleAdvanceDetails={saleAdvanceDetails}
             />
@@ -1014,7 +1014,7 @@ function BookingPanel({ saleId, canEdit, onConfirmed, saleAdvance, saleAdvanceDa
   );
 }
 
-function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirming, onDelete, deleting, saleId, onSaved, excludeCustomerIds, saleAdvance, saleAdvanceDate, saleAdvanceDetails }) {
+function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirming, onDelete, deleting, saleId, onSaved, onSaleReload, excludeCustomerIds, saleAdvance, saleAdvanceDate, saleAdvanceDetails }) {
   const [editing,           setEditing]           = useState(false);
   const [confirming2,       setConfirming2]        = useState(false);
   const [advance,           setAdvance]            = useState('');
@@ -1039,11 +1039,12 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
   const [noteEditing,   setNoteEditing]   = useState(false);
   const [noteVal,       setNoteVal]       = useState(b.notes || '');
   const [noteSaving,    setNoteSaving]    = useState(false);
-  const [advEditing,    setAdvEditing]    = useState(false);
-  const [advAmt,        setAdvAmt]        = useState('');
-  const [advDate,       setAdvDate]       = useState('');
-  const [advNote,       setAdvNote]       = useState('');
-  const [advSaving,     setAdvSaving]     = useState(false);
+  const [advEditing,      setAdvEditing]      = useState(false);
+  const [advAmt,          setAdvAmt]          = useState('');
+  const [advDate,         setAdvDate]         = useState('');
+  const [advNote,         setAdvNote]         = useState('');
+  const [advSaving,       setAdvSaving]       = useState(false);
+  const [refundEditing,   setRefundEditing]   = useState(false);
 
   const bookingAmt   = Number(b.booking_amount || 0);
   const refundNum    = parseFloat(refund) || 0;
@@ -1129,7 +1130,7 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
         advance_payment_details: advNote || null,
       });
       setAdvEditing(false);
-      await onSaved();
+      await onSaleReload?.();
     } catch (e) { console.error(e); }
     finally { setAdvSaving(false); }
   };
@@ -1212,22 +1213,47 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
                 </div>
               )}
             </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Note</span>
+              {noteEditing ? (
+                <div className="flex items-center gap-1.5">
+                  <input type="text" value={noteVal} onChange={e => setNoteVal(e.target.value)} autoFocus
+                    placeholder="Add a note…"
+                    className="w-44 text-xs border border-[#875A7B]/40 rounded px-2 py-1 bg-white focus:outline-none focus:border-[#875A7B]" />
+                  <button onClick={handleSaveNote} disabled={noteSaving}
+                    className="h-6 px-2 text-[10px] font-bold rounded text-white disabled:opacity-50" style={{ backgroundColor: '#875A7B' }}>
+                    {noteSaving ? '…' : 'Save'}
+                  </button>
+                  <button onClick={() => { setNoteEditing(false); setNoteVal(b.notes || ''); }}
+                    className="h-6 px-2 text-[10px] border border-gray-200 rounded text-gray-400 hover:bg-gray-50">✕</button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-gray-500">{noteVal || <span className="text-gray-300 italic">—</span>}</span>
+                  {canEdit && <button onClick={() => setNoteEditing(true)} className="text-gray-300 hover:text-[#875A7B] transition">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 012.828 2.828L11.828 15.83a4 4 0 01-1.897 1.058l-2.634.659.659-2.634A4 4 0 019 13z"/></svg>
+                  </button>}
+                </div>
+              )}
+            </div>
             <div className="flex items-center gap-2 flex-wrap mt-0.5">
               <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Advance</span>
               {advEditing ? (
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <input type="number" value={advAmt} onChange={e => setAdvAmt(e.target.value)} placeholder="Amount ₹"
-                    className="w-28 text-xs border border-[#875A7B]/40 rounded px-2 py-1 bg-white focus:outline-none focus:border-[#875A7B]" autoFocus />
-                  <input type="date" value={advDate} onChange={e => setAdvDate(e.target.value)}
-                    className="text-xs border border-[#875A7B]/40 rounded px-2 py-1 bg-white focus:outline-none focus:border-[#875A7B]" />
+                <div className="flex flex-col gap-1.5 mt-0.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <input type="number" value={advAmt} onChange={e => setAdvAmt(e.target.value)} placeholder="Amount ₹"
+                      className="w-28 text-xs border border-[#875A7B]/40 rounded px-2 py-1 bg-white focus:outline-none focus:border-[#875A7B]" autoFocus />
+                    <input type="date" value={advDate} onChange={e => setAdvDate(e.target.value)}
+                      className="text-xs border border-[#875A7B]/40 rounded px-2 py-1 bg-white focus:outline-none focus:border-[#875A7B]" />
+                    <button onClick={handleSaveAdv} disabled={advSaving}
+                      className="h-6 px-2 text-[10px] font-bold rounded text-white disabled:opacity-50" style={{ backgroundColor: '#875A7B' }}>
+                      {advSaving ? '…' : 'Save'}
+                    </button>
+                    <button onClick={() => setAdvEditing(false)}
+                      className="h-6 px-2 text-[10px] border border-gray-200 rounded text-gray-400 hover:bg-gray-50">✕</button>
+                  </div>
                   <input type="text" value={advNote} onChange={e => setAdvNote(e.target.value)} placeholder="Note…"
-                    className="w-36 text-xs border border-[#875A7B]/40 rounded px-2 py-1 bg-white focus:outline-none focus:border-[#875A7B]" />
-                  <button onClick={handleSaveAdv} disabled={advSaving}
-                    className="h-6 px-2 text-[10px] font-bold rounded text-white disabled:opacity-50" style={{ backgroundColor: '#875A7B' }}>
-                    {advSaving ? '…' : 'Save'}
-                  </button>
-                  <button onClick={() => setAdvEditing(false)}
-                    className="h-6 px-2 text-[10px] border border-gray-200 rounded text-gray-400 hover:bg-gray-50">✕</button>
+                    className="w-64 text-xs border border-[#875A7B]/40 rounded px-2 py-1 bg-white focus:outline-none focus:border-[#875A7B]" />
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -1256,83 +1282,77 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
                 <span className="text-[10px] text-gray-400">· {fmtDate(b.booking_date)}</span>
               )}
             </div>
+            {b.notes && <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{b.notes}</p>}
           </>
-        )}
-        {b.status === 'CONFIRMED' ? (
-          <div className="flex items-center gap-2 flex-wrap mt-0.5">
-            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Note</span>
-            {noteEditing ? (
-              <div className="flex items-center gap-1.5">
-                <input type="text" value={noteVal} onChange={e => setNoteVal(e.target.value)} autoFocus
-                  placeholder="Add a note…"
-                  className="w-44 text-xs border border-[#875A7B]/40 rounded px-2 py-1 bg-white focus:outline-none focus:border-[#875A7B]" />
-                <button onClick={handleSaveNote} disabled={noteSaving}
-                  className="h-6 px-2 text-[10px] font-bold rounded text-white disabled:opacity-50" style={{ backgroundColor: '#875A7B' }}>
-                  {noteSaving ? '…' : 'Save'}
-                </button>
-                <button onClick={() => { setNoteEditing(false); setNoteVal(b.notes || ''); }}
-                  className="h-6 px-2 text-[10px] border border-gray-200 rounded text-gray-400 hover:bg-gray-50">✕</button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-1">
-                <span className="text-xs text-gray-500">{noteVal || <span className="text-gray-300 italic">—</span>}</span>
-                {canEdit && <button onClick={() => setNoteEditing(true)} className="text-gray-300 hover:text-[#875A7B] transition">
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 012.828 2.828L11.828 15.83a4 4 0 01-1.897 1.058l-2.634.659.659-2.634A4 4 0 019 13z"/></svg>
-                </button>}
-              </div>
-            )}
-          </div>
-        ) : (
-          b.notes && <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{b.notes}</p>
         )}
 
         {/* Refund / Income — inline below customer info */}
         {showRefund && (
           <div className="mt-2">
-            <div className="flex items-center gap-2 flex-wrap">
-              <div>
-                <span className="text-[10px] text-gray-400 block mb-1">Refund Amount (₹)</span>
-                <input
-                  type="number"
-                  value={refund}
-                  onChange={e => setRefund(e.target.value)}
-                  placeholder="0"
-                  className={`w-32 text-xs border rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-[#875A7B] ${refundExceed ? 'border-red-400' : 'border-gray-200'}`}
-                />
-              </div>
-              <div>
-                <span className="text-[10px] text-gray-400 block mb-1">Note</span>
-                <input
-                  type="text"
-                  value={refundNote}
-                  onChange={e => setRefundNote(e.target.value)}
-                  placeholder="Reason / details…"
-                  className="w-44 text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-[#875A7B]"
-                />
-              </div>
-              {bookingAmt > 0 && refundNum >= 0 && (
-                <div className="mt-4">
-                  <span className="text-[10px] text-gray-400 mr-1">Income:</span>
-                  <span className="text-xs font-semibold text-emerald-600">{fmtINR(autoIncome)}</span>
+            {refundEditing ? (
+              <div className="flex items-center gap-2 flex-wrap">
+                <div>
+                  <span className="text-[10px] text-gray-400 block mb-1">Refund Amount (₹)</span>
+                  <input
+                    type="number" autoFocus
+                    value={refund}
+                    onChange={e => setRefund(e.target.value)}
+                    placeholder="0"
+                    className={`w-32 text-xs border rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-[#875A7B] ${refundExceed ? 'border-red-400' : 'border-gray-200'}`}
+                  />
                 </div>
-              )}
-              <button
-                onClick={handleSaveRefund}
-                disabled={savingRI || refundExceed || !refund}
-                className="mt-4 h-7 px-3 text-[10px] font-bold rounded-lg text-white disabled:opacity-50"
-                style={{ backgroundColor: '#875A7B' }}>
-                {savingRI ? 'Saving…' : 'Save'}
-              </button>
-              {refundSaved && b.status !== 'REFUNDED' && (
-                <button onClick={handleMarkRefunded} disabled={markingRefund}
-                  className="mt-4 h-7 px-2.5 text-[10px] font-bold rounded border border-red-200 text-red-500 hover:bg-red-50 disabled:opacity-50 transition">
-                  {markingRefund ? 'Marking…' : 'Mark as Refunded'}
+                <div>
+                  <span className="text-[10px] text-gray-400 block mb-1">Note</span>
+                  <input
+                    type="text"
+                    value={refundNote}
+                    onChange={e => setRefundNote(e.target.value)}
+                    placeholder="Reason / details…"
+                    className="w-44 text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-[#875A7B]"
+                  />
+                </div>
+                {bookingAmt > 0 && refundNum >= 0 && (
+                  <div className="mt-4">
+                    <span className="text-[10px] text-gray-400 mr-1">Income:</span>
+                    <span className="text-xs font-semibold text-emerald-600">{fmtINR(autoIncome)}</span>
+                  </div>
+                )}
+                <button
+                  onClick={async () => { await handleSaveRefund(); setRefundEditing(false); }}
+                  disabled={savingRI || refundExceed || !refund}
+                  className="mt-4 h-7 px-3 text-[10px] font-bold rounded-lg text-white disabled:opacity-50"
+                  style={{ backgroundColor: '#875A7B' }}>
+                  {savingRI ? 'Saving…' : 'Save'}
                 </button>
-              )}
-              {refundExceed && (
-                <p className="w-full text-[10px] text-red-500 mt-0.5">Cannot exceed booking amount ({fmtINR(bookingAmt)}).</p>
-              )}
-            </div>
+                <button onClick={() => { setRefundEditing(false); setRefund(b.refund_amount != null ? String(b.refund_amount) : ''); setRefundNote(b.notes || ''); }}
+                  className="mt-4 h-7 px-2 text-[10px] border border-gray-200 rounded-lg text-gray-400 hover:bg-gray-50">✕</button>
+                {refundExceed && (
+                  <p className="w-full text-[10px] text-red-500 mt-0.5">Cannot exceed booking amount ({fmtINR(bookingAmt)}).</p>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Refund</span>
+                <span className="text-xs font-semibold text-red-500">{refundSaved ? fmtINR(b.refund_amount) : '—'}</span>
+                {refundNote && <span className="text-[10px] text-gray-500 italic">{refundNote}</span>}
+                {refundSaved && bookingAmt > 0 && (
+                  <>
+                    <span className="text-[10px] text-gray-400">·</span>
+                    <span className="text-[10px] text-gray-400">Income:</span>
+                    <span className="text-xs font-semibold text-emerald-600">{fmtINR(autoIncome)}</span>
+                  </>
+                )}
+                <button onClick={() => setRefundEditing(true)} className="text-gray-300 hover:text-[#875A7B] transition">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 012.828 2.828L11.828 15.83a4 4 0 01-1.897 1.058l-2.634.659.659-2.634A4 4 0 019 13z"/></svg>
+                </button>
+                {refundSaved && b.status !== 'REFUNDED' && (
+                  <button onClick={handleMarkRefunded} disabled={markingRefund}
+                    className="h-6 px-2.5 text-[10px] font-bold rounded border border-red-200 text-red-500 hover:bg-red-50 disabled:opacity-50 transition">
+                    {markingRefund ? 'Marking…' : 'Mark as Refunded'}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
