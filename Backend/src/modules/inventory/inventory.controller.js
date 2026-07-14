@@ -11,7 +11,7 @@ function computeStatus(sales = []) {
   const active = sales.filter(s => s.status !== 'INACTIVE');
   if (active.length === 0) return 'AVAILABLE';
   const sale = active[0]; // most recent (ordered by created_at desc)
-  if (sale.date_of_registration) return 'REGISTERED';
+  if (sale.date_of_registration || sale.registration_completed) return 'REGISTERED';
   if ((sale.booking_amount && Number(sale.booking_amount) > 0) ||
       (sale.advance_payment && Number(sale.advance_payment) > 0)) return 'SOLD';
   return 'RESERVED';
@@ -57,7 +57,7 @@ const INCLUDE = {
   sales: {
     select: {
       id: true, sale_code: true, sale_date: true, status: true, type: true, possession: true,
-      booking_amount: true, advance_payment: true, date_of_registration: true,
+      booking_amount: true, advance_payment: true, date_of_registration: true, registration_completed: true,
       actual_price: true, balance_amount: true, net_amount: true, selling_rate: true,
       customer: { select: { id: true, customer_code: true, name: true, phone: true, email: true } },
       broker:   { select: { id: true, broker_code: true, name: true } },
@@ -166,7 +166,7 @@ async function syncInventoryStatus(inventoryId) {
   try {
     const inv = await prisma.inventory.findUnique({
       where: { id: Number(inventoryId) },
-      include: { sales: { select: { booking_amount: true, advance_payment: true, date_of_registration: true, status: true }, orderBy: { created_at: 'desc' } } },
+      include: { sales: { select: { booking_amount: true, advance_payment: true, date_of_registration: true, registration_completed: true, status: true }, orderBy: { created_at: 'desc' } } },
     });
     if (!inv) return;
     const status = computeStatus(inv.sales || []);

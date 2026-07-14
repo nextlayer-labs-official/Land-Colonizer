@@ -52,16 +52,16 @@ async function getDashboard(req, res) {
       _sum: { advance_paid: true, registration_charges: true, brokerage: true, extra_expenses: true, extra_income: true },
     }),
     prisma.customer.count({ where: { status: 'ACTIVE' } }),
-    prisma.sale.count({ where: { status: 'ACTIVE' } }),
+    prisma.sale.count({ where: { status: 'ACTIVE', archived: false } }),
     prisma.sale.aggregate({
-      where: { status: 'ACTIVE' },
+      where: { status: 'ACTIVE', archived: false },
       _sum: { actual_price: true, booking_amount: true, advance_payment: true, brokerage: true, net_amount: true },
     }),
     prisma.inventory.groupBy({ by: ['status'], _count: { id: true } }),
     prisma.sale.findMany({
       take: 6,
       orderBy: { created_at: 'desc' },
-      where: { status: 'ACTIVE' },
+      where: { status: 'ACTIVE', archived: false },
       select: {
         id: true, sale_code: true, actual_price: true,
         booking_amount: true, advance_payment: true, created_at: true,
