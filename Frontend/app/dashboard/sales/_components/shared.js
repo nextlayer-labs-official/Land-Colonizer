@@ -30,6 +30,7 @@ export const EMPTY = {
   vasika: '', possession: 'PENDING', possession_detail: '',
   other_details: '', status: 'ACTIVE', booking_in_received: true,
   registration_completed: false,
+  sold_by_id: '', sold_by_name: '',
 };
 
 // ── Computed fields (live in form) ─────────────────────────────────────────────

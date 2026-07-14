@@ -87,6 +87,8 @@ function sanitize(body) {
     sale_confirmed:            body.sale_confirmed === true || body.sale_confirmed === 'true' || false,
     booking_in_received:       body.booking_in_received === false || body.booking_in_received === 'false' ? false : true,
     registration_completed:    body.registration_completed === true || body.registration_completed === 'true' || false,
+    sold_by_id:                int(body.sold_by_id),
+    sold_by_name:              str(body.sold_by_name),
   };
 
   return { ...d, ...computeFields(d) };

@@ -1,5 +1,7 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+import { apiGet } from '@/lib/api';
 import {
   FieldLabel, FInput, FTextarea, FSelect, ComputedBox, SectionDivider,
   SALE_TYPES, POSSESSION_STATES, TYPE_LABEL, POSS_LABEL,
@@ -10,6 +12,10 @@ import {
 const AREA_UNITS = ['gaj', 'acres', 'bigha'];
 
 export default function SaleFormBody({ form, set, setForm, readOnly = false, showFinancials = false }) {
+  const [employees, setEmployees] = useState([]);
+  useEffect(() => {
+    apiGet('/lookup/users').then(d => setEmployees(d || [])).catch(() => {});
+  }, []);
   const c = computed(form);
   const bookingInReceived = form.booking_in_received !== false;
   const bookingAmt        = Number(form.booking_amount || 0);
@@ -57,6 +63,27 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false, sho
       <div>
         <FieldLabel required>Sale Date</FieldLabel>
         <FInput type="date" value={form.sale_date?.split?.('T')?.[0] ?? form.sale_date ?? ''} onChange={set('sale_date')} readOnly={readOnly} />
+      </div>
+
+      <div>
+        <FieldLabel>Sold By</FieldLabel>
+        {readOnly ? (
+          <div className="min-h-[36px] px-3 py-[7px] bg-gray-50 rounded border border-gray-100 text-sm text-gray-700">
+            {form.sold_by_name || <span className="text-gray-300">—</span>}
+          </div>
+        ) : (
+          <select
+            value={form.sold_by_id || ''}
+            onChange={e => {
+              const emp = employees.find(u => u.id === Number(e.target.value));
+              setForm(p => ({ ...p, sold_by_id: emp?.id || '', sold_by_name: emp?.name || '' }));
+            }}
+            className="w-full border border-gray-200 rounded px-3 py-[7px] text-sm text-gray-800 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30 transition"
+          >
+            <option value="">— Select employee —</option>
+            {employees.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+          </select>
+        )}
       </div>
 
       <div>

@@ -4,7 +4,7 @@ const num = (v) => (v !== undefined && v !== '' && v !== null ? parseFloat(v) : 
 
 // ── Sales Report ─────────────────────────────────────────────────────────────
 const salesReport = async (req, res) => {
-  const { date_from, date_to, project_id, broker_id, customer_id, status, created_by_id } = req.query;
+  const { date_from, date_to, project_id, broker_id, customer_id, status, sold_by_id } = req.query;
 
   const where = {};
   if (date_from || date_to) {
@@ -12,11 +12,11 @@ const salesReport = async (req, res) => {
     if (date_from) where.created_at.gte = new Date(date_from);
     if (date_to)   where.created_at.lte = new Date(date_to + 'T23:59:59.999Z');
   }
-  if (project_id)   where.inventory    = { project_id: parseInt(project_id) };
-  if (broker_id)    where.broker_id    = parseInt(broker_id);
-  if (customer_id)  where.customer_id  = parseInt(customer_id);
-  if (status)       where.sale_confirmed = status === 'confirmed';
-  if (created_by_id) where.created_by_id = parseInt(created_by_id);
+  if (project_id) where.inventory       = { project_id: parseInt(project_id) };
+  if (broker_id)  where.broker_id       = parseInt(broker_id);
+  if (customer_id) where.customer_id    = parseInt(customer_id);
+  if (status)      where.sale_confirmed = status === 'confirmed';
+  if (sold_by_id)  where.sold_by_id     = parseInt(sold_by_id);
 
   const sales = await prisma.sale.findMany({
     where,
@@ -288,7 +288,7 @@ const availabilityReport = async (req, res) => {
         where:   { status: 'ACTIVE' },
         orderBy: { created_at: 'desc' },
         take: 1,
-        select:  { created_by_name: true },
+        select:  { sold_by_name: true },
       },
     },
     orderBy: [{ purchase_id: 'asc' }, { created_at: 'asc' }],
@@ -296,7 +296,7 @@ const availabilityReport = async (req, res) => {
 
   const rows = units.map(u => {
     const total_area = Number(u.area || 0) || (Number(u.front_area || 0) + Number(u.back_area || 0));
-    const sold_by_name = u.sales?.[0]?.created_by_name || null;
+    const sold_by_name = u.sales?.[0]?.sold_by_name || null;
     return { ...u, total_area: total_area || null, sold_by_name };
   });
 

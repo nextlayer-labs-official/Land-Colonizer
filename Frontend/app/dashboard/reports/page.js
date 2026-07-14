@@ -87,7 +87,7 @@ function ExcelBtn({ onClick }) {
 
 // ── Sales Report ──────────────────────────────────────────────────────────────
 function SalesReport() {
-  const [filters, setFilters] = useState({ date_from: '', date_to: '', project_id: '', broker_id: '', status: '', created_by_id: '' });
+  const [filters, setFilters] = useState({ date_from: '', date_to: '', project_id: '', broker_id: '', status: '', sold_by_id: '' });
   const [result, setResult]   = useState(null);
   const [loading, setLoading] = useState(false);
   const [projects,  setProjects]  = useState([]);
@@ -123,7 +123,7 @@ function SalesReport() {
       'Advance':      fmtNum(s.advance_payment),
       'Balance':      fmtNum(s.balance_amount),
       'Status':       s.sale_confirmed ? 'Confirmed' : 'Pending',
-      'Sold By':      s.created_by_name || '',
+      'Sold By':      s.sold_by_name || '',
       'Date':         fmtDate(s.created_at),
     }));
     await exportXlsx([{ name: 'Sales', rows }], `sales_report_${new Date().toISOString().slice(0,10)}.xlsx`);
@@ -155,7 +155,7 @@ function SalesReport() {
             </select>
           </Field>
           <Field label="Sold By">
-            <select value={filters.created_by_id} onChange={e => set('created_by_id', e.target.value)} className={selectCls} style={{ minWidth: 150 }}>
+            <select value={filters.sold_by_id} onChange={e => set('sold_by_id', e.target.value)} className={selectCls} style={{ minWidth: 150 }}>
               <option value="">All Employees</option>
               {employees.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
@@ -202,7 +202,7 @@ function SalesReport() {
                         {s.sale_confirmed ? 'Confirmed' : 'Pending'}
                       </span>
                     </td>
-                    <td className="px-3 py-2.5 text-gray-500 text-xs">{s.created_by_name || '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-500 text-xs">{s.sold_by_name || '—'}</td>
                     <td className="px-3 py-2.5 text-xs text-gray-400 whitespace-nowrap">{fmtDate(s.created_at)}</td>
                   </tr>
                 ))}
