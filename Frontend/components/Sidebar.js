@@ -213,7 +213,8 @@ export default function Sidebar({ isOpen, onClose }) {
         <div className="flex items-center gap-3 min-w-0">
           {companyLogo ? (
             <img src={companyLogo}
-              alt="Logo" className="w-8 h-8 rounded-lg object-contain bg-white p-0.5 shrink-0" />
+              alt="Logo" className="w-8 h-8 rounded-lg object-contain bg-white p-0.5 shrink-0"
+              onError={() => setCompanyLogo(null)} />
           ) : (
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shrink-0">
               <span className="text-sm font-black text-white">

@@ -139,7 +139,8 @@ export default function DashboardLayout({ children }) {
       <header className="flex items-center px-2 py-3 shrink-0 z-40 print:hidden" style={{ backgroundColor: '#1f2330' }}>
         <div className="flex items-center justify-center w-8 h-8 rounded shrink-0">
           {companyLogo
-            ? <img src={companyLogo} alt={companyName} className="w-8 h-8 object-contain rounded" />
+            ? <img src={companyLogo} alt={companyName} className="w-8 h-8 object-contain rounded"
+                onError={() => setCompanyLogo(null)} />
             : <WaffleIcon />}
         </div>
         <div className="flex items-center gap-2 mx-2 min-w-0 shrink-0">
