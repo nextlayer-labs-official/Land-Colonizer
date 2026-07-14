@@ -93,14 +93,14 @@ async function updateCustomer(req, res) {
 async function deleteCustomer(req, res) {
   const id = Number(req.params.id);
   const c  = await prisma.customer.findUnique({ where: { id } });
-  try {
-    await prisma.customer.delete({ where: { id } });
-  } catch (e) {
-    if (e.code === 'P2003' || e.code === 'P2014') {
-      return res.status(409).json({ message: 'Cannot delete this customer — they have linked sales or bookings. Remove the linked data first.' });
-    }
-    throw e;
+  const [salesCount, bookingsCount] = await Promise.all([
+    prisma.sale.count({ where: { customer_id: id } }),
+    prisma.saleBooking.count({ where: { customer_id: id } }),
+  ]);
+  if (salesCount > 0 || bookingsCount > 0) {
+    return res.status(409).json({ message: 'Cannot delete this customer — they have linked sales or bookings. Remove the linked data first.' });
   }
+  await prisma.customer.delete({ where: { id } });
   auditLog({ req, action: 'DELETE', entity: 'customer', entityId: id, entityCode: c?.customer_code });
   res.json({ message: 'Deleted' });
 }
