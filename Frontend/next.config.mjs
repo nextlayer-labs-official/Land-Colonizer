@@ -1,12 +1,12 @@
 /** @type {import('next').NextConfig} */
-const BACKEND_ORIGIN = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api').replace(/\/api$/, '');
+const BACKEND_INTERNAL = process.env.BACKEND_INTERNAL_URL || 'http://localhost:4000';
 
 const nextConfig = {
   async rewrites() {
     return [
       {
         source: '/uploads/:path*',
-        destination: `${BACKEND_ORIGIN}/uploads/:path*`,
+        destination: `${BACKEND_INTERNAL}/uploads/:path*`,
       },
     ];
   },
