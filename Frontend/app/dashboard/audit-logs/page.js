@@ -30,9 +30,115 @@ function ActionBadge({ action }) {
   );
 }
 
+// ── Field label map ───────────────────────────────────────────────────────────
+const FIELD_LABELS = {
+  // Common
+  id: 'ID', status: 'Status', archived: 'Archived', created_at: 'Created At',
+  updated_at: 'Updated At', created_by_id: 'Created By (ID)', created_by_name: 'Created By',
+
+  // Purchase
+  purchase_code: 'Purchase Code', purchase_category: 'Category',
+  purchase_broker_name: 'Purchase Broker', purchase_broker_details: 'Purchase Broker Details',
+  sell_broker_name: 'Sell Broker', sell_broker_details: 'Sell Broker Details',
+  seller_details: 'Seller Details', plot_no: 'Plot No.', sl_no: 'SL No.',
+  purchased_area: 'Purchased Area', purchased_area_details: 'Area Details',
+  purchase_price: 'Purchase Price', global_rate: 'Global Rate', rate: 'Rate',
+  rate_details: 'Rate Details', total_amount_details: 'Total Amount Details',
+  advance_paid: 'Advance Paid', advance_payment_details: 'Advance Payment Details',
+  instalment_details: 'Instalment Details', remaining_paid: 'Remaining Paid',
+  registration_date: 'Registration Date', registration_completed: 'Registration Completed',
+  registration_details: 'Registration Details', registration_charges: 'Registration Charges',
+  registration_charges_details: 'Reg. Charges Details',
+  brokerage: 'Brokerage', brokerage_details: 'Brokerage Details',
+  extra_expenses: 'Extra Expenses', extra_expenses_details: 'Extra Expenses Details',
+  extra_income: 'Extra Income', extra_income_details: 'Extra Income Details',
+  other_details: 'Other Details', location: 'Location',
+
+  // Sale
+  sale_code: 'Sale Code', sale_date: 'Sale Date', inventory_id: 'Inventory (ID)',
+  customer_id: 'Customer (ID)', broker_id: 'Broker (ID)',
+  broker_name: 'Broker Name', broker_details: 'Broker Details',
+  front_area: 'Front Area', front_area_details: 'Front Area Details',
+  back_area: 'Back Area', back_area_details: 'Back Area Details',
+  total_area: 'Total Area', total_area_details: 'Total Area Details',
+  plot_rate: 'Plot Rate', total_value: 'Total Value', selling_rate: 'Selling Rate',
+  actual_price: 'Actual Price', booking_amount: 'Booking Amount',
+  booking_details: 'Booking Details', advance_payment: 'Advance Payment',
+  advance_payment_date: 'Advance Payment Date',
+  balance_amount: 'Balance Amount', balance_amount_details: 'Balance Details',
+  registration_paid: 'Registration Paid', registration_area: 'Registration Area',
+  intkaal_charges: 'Intkaal Charges', intkaal_paid: 'Intkaal Paid',
+  intkaal_details: 'Intkaal Details', intkaal_number: 'Intkaal Number',
+  water_connection_charges: 'Water Connection Charges',
+  water_connection_paid: 'Water Connection Paid',
+  water_connection_details: 'Water Connection Details',
+  electricity_meter_charges: 'Electricity Meter Charges',
+  electricity_meter_paid: 'Electricity Meter Paid',
+  electricity_meter_details: 'Electricity Meter Details',
+  payment_due_date: 'Payment Due Date', discount: 'Discount',
+  discount_details: 'Discount Details', incentive: 'Incentive',
+  incentive_details: 'Incentive Details', net_amount: 'Net Amount',
+  date_of_registration: 'Date of Registration', vasika: 'Vasika',
+  possession: 'Possession', possession_detail: 'Possession Detail',
+  sale_confirmed: 'Sale Confirmed', booking_in_received: 'Booking In Received',
+  sold_by_id: 'Sold By (ID)', sold_by_name: 'Sold By',
+
+  // Inventory
+  inventory_code: 'Inventory Code', purchase_id: 'Purchase (ID)',
+  project_id: 'Project (ID)', area: 'Area', area_unit: 'Area Unit',
+
+  // Customer
+  customer_code: 'Customer Code', name: 'Name', phone: 'Phone',
+  email: 'Email', address: 'Address', pan: 'PAN', aadhaar: 'Aadhaar',
+
+  // Broker
+  broker_code: 'Broker Code', details: 'Details',
+
+  // Project
+  project_code: 'Project Code',
+
+  // User / Role
+  role_id: 'Role (ID)', is_verified: 'Verified', password: 'Password',
+  role_name: 'Role', slug: 'Slug', description: 'Description', is_system: 'System Role',
+
+  // Settings
+  company_name: 'Company Name', company_logo: 'Company Logo',
+  company_address: 'Company Address', company_phone: 'Company Phone',
+  company_email: 'Company Email', company_website: 'Company Website',
+  company_gstin: 'Company GSTIN', smtp_host: 'SMTP Host', smtp_port: 'SMTP Port',
+  smtp_user: 'SMTP User', smtp_from_name: 'From Name', smtp_from_email: 'From Email',
+  email_notifications: 'Email Notifications', login_max_attempts: 'Max Login Attempts',
+  login_window_minutes: 'Login Window (min)', max_upload_mb: 'Max Upload (MB)',
+  project_prefix: 'Project Prefix', purchase_prefix: 'Purchase Prefix',
+  inventory_prefix: 'Inventory Prefix', sale_prefix: 'Sale Prefix',
+  customer_prefix: 'Customer Prefix', broker_prefix: 'Broker Prefix',
+  google_drive_enabled: 'Google Drive Enabled',
+};
+
+function snakeToTitle(str) {
+  return str.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function labelFor(field) {
+  return FIELD_LABELS[field] || snakeToTitle(field);
+}
+
+function formatValue(v) {
+  if (v == null)          return null;
+  if (v === true)         return 'Yes';
+  if (v === false)        return 'No';
+  if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(v))
+    return new Date(v).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return String(v);
+}
+
 function ChangesModal({ log, onClose }) {
   const changes = log.changes;
-  const hasChanges = changes && typeof changes === 'object' && Object.keys(changes).length > 0;
+
+  // Filter: skip rows where both before and after are null (pure noise)
+  const rows = changes && typeof changes === 'object'
+    ? Object.entries(changes).filter(([, [before, after]]) => !(before == null && after == null))
+    : [];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={onClose}>
@@ -40,7 +146,7 @@ function ChangesModal({ log, onClose }) {
         onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <div>
-            <h2 className="text-sm font-semibold text-gray-800">
+            <h2 className="text-sm font-semibold text-gray-800 capitalize">
               {log.entity_code ? `${log.entity} · ${log.entity_code}` : log.entity}
             </h2>
             <p className="text-xs text-gray-400 mt-0.5">
@@ -51,7 +157,7 @@ function ChangesModal({ log, onClose }) {
         </div>
 
         <div className="overflow-y-auto flex-1 px-5 py-4">
-          {!hasChanges ? (
+          {rows.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-6">No field-level changes recorded.</p>
           ) : (
             <table className="w-full text-sm">
@@ -63,17 +169,25 @@ function ChangesModal({ log, onClose }) {
                 </tr>
               </thead>
               <tbody>
-                {Object.entries(changes).map(([field, [before, after]]) => (
-                  <tr key={field} className="border-b border-gray-50">
-                    <td className="py-2 pr-3 font-mono text-[11px] text-gray-500">{field}</td>
-                    <td className="py-2 pr-3 text-red-600 text-xs break-all">
-                      {before == null ? <span className="text-gray-300 italic">null</span> : String(before)}
-                    </td>
-                    <td className="py-2 text-green-700 text-xs break-all">
-                      {after == null ? <span className="text-gray-300 italic">null</span> : String(after)}
-                    </td>
-                  </tr>
-                ))}
+                {rows.map(([field, [before, after]]) => {
+                  const bFmt = formatValue(before);
+                  const aFmt = formatValue(after);
+                  return (
+                    <tr key={field} className="border-b border-gray-50">
+                      <td className="py-2 pr-3 text-xs font-medium text-gray-600">{labelFor(field)}</td>
+                      <td className="py-2 pr-3 text-xs break-all">
+                        {bFmt == null
+                          ? <span className="text-gray-300 italic">—</span>
+                          : <span className="text-red-500">{bFmt}</span>}
+                      </td>
+                      <td className="py-2 text-xs break-all">
+                        {aFmt == null
+                          ? <span className="text-gray-300 italic">—</span>
+                          : <span className="text-green-700">{aFmt}</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
