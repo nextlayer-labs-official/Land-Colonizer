@@ -88,6 +88,8 @@ async function restoreBackup(req, res) {
 
   try {
     await prisma.$executeRaw`SET FOREIGN_KEY_CHECKS = 0`;
+    // Disable strict mode so stale enum values (e.g. action='') can be reinserted as-is
+    await prisma.$executeRaw`SET sql_mode = ''`;
 
     // Clear all tables in reverse dependency order using raw SQL
     // (avoids Prisma enum validation on deleteMany too)
@@ -113,6 +115,7 @@ async function restoreBackup(req, res) {
     }
 
     await prisma.$executeRaw`SET FOREIGN_KEY_CHECKS = 1`;
+    await prisma.$executeRaw`SET sql_mode = DEFAULT`;
 
     const counts = {};
     for (const [key, rows] of Object.entries(backup.tables)) {
@@ -122,6 +125,7 @@ async function restoreBackup(req, res) {
     res.json({ message: 'Backup restored successfully', counts });
   } catch (err) {
     await prisma.$executeRaw`SET FOREIGN_KEY_CHECKS = 1`.catch(() => {});
+    await prisma.$executeRaw`SET sql_mode = DEFAULT`.catch(() => {});
     console.error('Restore failed:', err);
     res.status(500).json({ message: 'Restore failed: ' + err.message });
   }
