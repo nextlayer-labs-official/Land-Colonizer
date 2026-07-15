@@ -1,12 +1,54 @@
 const prisma = require('../../lib/prisma');
 
-// Ordered by FK dependencies — insert in this order, delete in reverse
-const TABLE_ORDER = [
-  'role', 'module', 'companySettings', 'permission', 'user',
-  'rolePermission', 'customer', 'broker', 'project', 'purchase',
-  'inventory', 'sale', 'saleBooking', 'installment', 'purchaseInstallment',
-  'document', 'passwordResetToken', 'auditLog',
+// Prisma model name → MySQL table name (PascalCase)
+const TABLE_MAP = [
+  ['role',                'Role'],
+  ['module',              'Module'],
+  ['companySettings',     'CompanySettings'],
+  ['permission',          'Permission'],
+  ['user',                'User'],
+  ['rolePermission',      'RolePermission'],
+  ['customer',            'Customer'],
+  ['broker',              'Broker'],
+  ['project',             'Project'],
+  ['purchase',            'Purchase'],
+  ['inventory',           'Inventory'],
+  ['sale',                'Sale'],
+  ['saleBooking',         'SaleBooking'],
+  ['installment',         'Installment'],
+  ['purchaseInstallment', 'PurchaseInstallment'],
+  ['document',            'Document'],
+  ['passwordResetToken',  'PasswordResetToken'],
+  ['auditLog',            'AuditLog'],
 ];
+
+// Raw SQL results can contain BigInt (integer IDs) and Buffer (BIT/TINYINT(1) booleans)
+// Normalise them so JSON.stringify works and restore receives clean types
+function cleanExportRow(row) {
+  const out = {};
+  for (const [k, v] of Object.entries(row)) {
+    if (v === null || v === undefined)  { out[k] = null; }
+    else if (typeof v === 'bigint')     { out[k] = Number(v); }
+    else if (Buffer.isBuffer(v))        { out[k] = v[0] === 1; } // BIT(1) → boolean
+    else                                { out[k] = v; }
+  }
+  return out;
+}
+
+// Restore rows come from JSON — convert ISO date strings back to Date objects
+// Booleans may be true/false or 0/1 — leave as-is, MySQL/Prisma accepts both
+function cleanRestoreRow(row) {
+  const out = {};
+  for (const [k, v] of Object.entries(row)) {
+    if (v === null || v === undefined) { out[k] = null; }
+    else if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(v)) {
+      out[k] = new Date(v);
+    } else {
+      out[k] = v;
+    }
+  }
+  return out;
+}
 
 async function exportBackup(req, res) {
   const backup = {
@@ -16,8 +58,12 @@ async function exportBackup(req, res) {
     tables:      {},
   };
 
-  for (const table of TABLE_ORDER) {
-    backup.tables[table] = await prisma[table].findMany();
+  // Use raw SQL so enum validation in Prisma's ORM layer is bypassed entirely.
+  // This handles cases where DB has stale enum values (e.g. action='' after
+  // a migration that changed the PermissionAction enum).
+  for (const [key, tableName] of TABLE_MAP) {
+    const rows = await prisma.$queryRawUnsafe(`SELECT * FROM \`${tableName}\``);
+    backup.tables[key] = rows.map(cleanExportRow);
   }
 
   const filename = `ams-backup-${new Date().toISOString().slice(0, 10)}.json`;
@@ -43,39 +89,34 @@ async function restoreBackup(req, res) {
   try {
     await prisma.$executeRaw`SET FOREIGN_KEY_CHECKS = 0`;
 
-    // Clear all tables in reverse dependency order
-    for (const table of [...TABLE_ORDER].reverse()) {
-      await prisma[table].deleteMany();
+    // Clear all tables in reverse dependency order using raw SQL
+    // (avoids Prisma enum validation on deleteMany too)
+    for (const [, tableName] of [...TABLE_MAP].reverse()) {
+      await prisma.$executeRawUnsafe(`DELETE FROM \`${tableName}\``);
     }
 
     // Reinsert in forward dependency order
-    for (const table of TABLE_ORDER) {
-      const rows = backup.tables[table];
+    for (const [key, tableName] of TABLE_MAP) {
+      const rows = backup.tables[key];
       if (!rows || rows.length === 0) continue;
 
-      // Normalize: convert date strings → Date objects, keep nulls as-is
-      const normalized = rows.map(row => {
-        const out = {};
-        for (const [k, v] of Object.entries(row)) {
-          if (v === null || v === undefined) { out[k] = null; continue; }
-          // Detect ISO date strings
-          if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(v)) {
-            out[k] = new Date(v);
-          } else {
-            out[k] = v;
-          }
-        }
-        return out;
-      });
-
-      await prisma[table].createMany({ data: normalized, skipDuplicates: true });
+      for (const row of rows) {
+        const clean = cleanRestoreRow(row);
+        const cols  = Object.keys(clean).map(c => `\`${c}\``).join(', ');
+        const vals  = Object.values(clean);
+        const placeholders = vals.map(() => '?').join(', ');
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO \`${tableName}\` (${cols}) VALUES (${placeholders})`,
+          ...vals,
+        );
+      }
     }
 
     await prisma.$executeRaw`SET FOREIGN_KEY_CHECKS = 1`;
 
     const counts = {};
-    for (const [t, rows] of Object.entries(backup.tables)) {
-      counts[t] = rows?.length ?? 0;
+    for (const [key, rows] of Object.entries(backup.tables)) {
+      counts[key] = rows?.length ?? 0;
     }
 
     res.json({ message: 'Backup restored successfully', counts });
