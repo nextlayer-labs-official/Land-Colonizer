@@ -341,8 +341,14 @@ function InventoryReport() {
 }
 
 // ── Purchase Report ───────────────────────────────────────────────────────────
+const STAGE_STYLE = {
+  'Registered':   'bg-green-100 text-green-700',
+  'Payment Done': 'bg-blue-100 text-blue-700',
+  'In Progress':  'bg-yellow-100 text-yellow-700',
+};
+
 function PurchaseReport() {
-  const [filters, setFilters] = useState({ date_from: '', date_to: '' });
+  const [filters, setFilters] = useState({ date_from: '', date_to: '', category: '', type: '', status: '' });
   const [result, setResult]   = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -359,13 +365,19 @@ function PurchaseReport() {
   const doExcel = async () => {
     if (!result) return;
     const rows = result.purchases.map((p, i) => ({
-      '#':             i + 1,
-      'Purchase Code': p.purchase_code || `PUR-${String(p.id).padStart(4,'0')}`,
-      'Seller':        p.seller_name || '',
-      'Total Area':    fmtNum(p.total_area),
-      'Rate':          fmtNum(p.rate_per_sqyd),
-      'Total Cost':    fmtNum(p.total_cost),
-      'Purchase Date': fmtDate(p.purchase_date),
+      '#':                i + 1,
+      'Purchase Code':    p.purchase_code || `PUR-${String(p.id).padStart(4,'0')}`,
+      'Category':         p.purchase_category || '',
+      'Type':             p.type || '',
+      'Status':           p.status || '',
+      'SL No.':           p.sl_no || '',
+      'Location':         p.location || '',
+      'Purchased Area':   fmtNum(p.purchased_area),
+      'Total Amount':     fmtNum(p.total_amount),
+      'Total Cost':       fmtNum(p.total_cost),
+      'Balance to Pay':   fmtNum(p.balance_to_pay),
+      'Stage':            p.stage || '',
+      'Registration Date': fmtDate(p.registration_date),
     }));
     await exportXlsx([{ name: 'Purchases', rows }], `purchase_report_${new Date().toISOString().slice(0,10)}.xlsx`);
   };
@@ -376,6 +388,29 @@ function PurchaseReport() {
         <FilterRow>
           <Field label="From"><input type="date" value={filters.date_from} onChange={e => set('date_from', e.target.value)} className={inputCls} /></Field>
           <Field label="To"><input type="date" value={filters.date_to} onChange={e => set('date_to', e.target.value)} className={inputCls} /></Field>
+          <Field label="Category">
+            <select value={filters.category} onChange={e => set('category', e.target.value)} className={selectCls}>
+              <option value="">All</option>
+              <option value="SINGLE">Single</option>
+              <option value="DIVIDED">Divided</option>
+            </select>
+          </Field>
+          <Field label="Type">
+            <select value={filters.type} onChange={e => set('type', e.target.value)} className={selectCls}>
+              <option value="">All</option>
+              <option value="LAND">Land</option>
+              <option value="PLOT">Plot</option>
+              <option value="SHOP">Shop</option>
+              <option value="FLAT">Flat</option>
+            </select>
+          </Field>
+          <Field label="Status">
+            <select value={filters.status} onChange={e => set('status', e.target.value)} className={selectCls}>
+              <option value="">All</option>
+              <option value="ACTIVE">Active</option>
+              <option value="INACTIVE">Inactive</option>
+            </select>
+          </Field>
           <RunBtn onClick={run} loading={loading} />
           {result && <><PrintBtn /><ExcelBtn onClick={doExcel} /></>}
         </FilterRow>
@@ -383,32 +418,43 @@ function PurchaseReport() {
 
       {result && (
         <>
-          <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className="grid grid-cols-4 gap-3 mb-4">
             <SummaryCard label="Total Purchases" value={result.summary.count} />
             <SummaryCard label="Total Area"      value={fmtN(result.summary.total_area) + ' sq.yd'} />
+            <SummaryCard label="Total Amount"    value={'₹ ' + fmt(result.summary.total_amount)} />
             <SummaryCard label="Total Cost"      value={'₹ ' + fmt(result.summary.total_cost)} />
           </div>
-          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  {['#','Purchase Code','Seller','Total Area','Rate','Total Cost','Purchase Date'].map(h => (
+                  {['#','Purchase Code','Category','Type','Status','SL No.','Location','Purchased Area','Total Amount','Total Cost','Balance to Pay','Stage','Reg. Date'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {result.purchases.length === 0 ? (
-                  <tr><td colSpan={7} className="py-10 text-center text-sm text-gray-400">No purchases found</td></tr>
+                  <tr><td colSpan={13} className="py-10 text-center text-sm text-gray-400">No purchases found</td></tr>
                 ) : result.purchases.map((p, i) => (
                   <tr key={p.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
-                    <td className="px-3 py-2.5"><span className="font-mono text-xs font-semibold text-[#875A7B] bg-[#875A7B]/8 px-1.5 py-0.5 rounded">{p.purchase_code || `PUR-${String(p.id).padStart(4,'0')}`}</span></td>
-                    <td className="px-3 py-2.5 text-gray-600">{p.seller_name || '—'}</td>
-                    <td className="px-3 py-2.5 text-gray-600">{fmtN(p.total_area)} sq.yd</td>
-                    <td className="px-3 py-2.5 text-gray-600">₹ {fmt(p.rate_per_sqyd)}</td>
-                    <td className="px-3 py-2.5 font-medium text-gray-800">₹ {fmt(p.total_cost)}</td>
-                    <td className="px-3 py-2.5 text-xs text-gray-400 whitespace-nowrap">{fmtDate(p.purchase_date)}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap"><span className="font-mono text-xs font-semibold text-[#875A7B] bg-[#875A7B]/8 px-1.5 py-0.5 rounded">{p.purchase_code || `PUR-${String(p.id).padStart(4,'0')}`}</span></td>
+                    <td className="px-3 py-2.5 text-gray-600 capitalize">{p.purchase_category ? p.purchase_category.charAt(0) + p.purchase_category.slice(1).toLowerCase() : '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-600 capitalize">{p.type ? p.type.charAt(0) + p.type.slice(1).toLowerCase() : '—'}</td>
+                    <td className="px-3 py-2.5">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${p.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{p.status ? p.status.charAt(0) + p.status.slice(1).toLowerCase() : '—'}</span>
+                    </td>
+                    <td className="px-3 py-2.5 text-gray-600">{p.sl_no || '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-600 max-w-[140px] truncate">{p.location || '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{p.purchased_area ? fmtN(p.purchased_area) + ' sq.yd' : '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap">{p.total_amount ? '₹ ' + fmt(p.total_amount) : '—'}</td>
+                    <td className="px-3 py-2.5 font-medium text-gray-800 whitespace-nowrap">{p.total_cost ? '₹ ' + fmt(p.total_cost) : '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap">{p.balance_to_pay ? '₹ ' + fmt(p.balance_to_pay) : '—'}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STAGE_STYLE[p.stage] || ''}`}>{p.stage}</span>
+                    </td>
+                    <td className="px-3 py-2.5 text-xs text-gray-400 whitespace-nowrap">{fmtDate(p.registration_date)}</td>
                   </tr>
                 ))}
               </tbody>

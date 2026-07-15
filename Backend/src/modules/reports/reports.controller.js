@@ -82,7 +82,7 @@ const inventoryReport = async (req, res) => {
 
 // ── Purchase Report ──────────────────────────────────────────────────────────
 const purchaseReport = async (req, res) => {
-  const { date_from, date_to } = req.query;
+  const { date_from, date_to, category, type, status } = req.query;
 
   const where = {};
   if (date_from || date_to) {
@@ -90,29 +90,48 @@ const purchaseReport = async (req, res) => {
     if (date_from) where.created_at.gte = new Date(date_from);
     if (date_to)   where.created_at.lte = new Date(date_to + 'T23:59:59.999Z');
   }
+  if (category) where.purchase_category = category;
+  if (type)     where.type              = type;
+  if (status)   where.status            = status;
 
   const purchases = await prisma.purchase.findMany({
     where,
+    select: {
+      id: true, purchase_code: true, purchase_category: true, type: true, status: true,
+      sl_no: true, location: true, purchased_area: true,
+      purchase_price: true, advance_paid: true,
+      brokerage: true, extra_expenses: true, registration_charges: true, extra_income: true,
+      registration_date: true, registration_completed: true, remaining_paid: true,
+    },
     orderBy: { created_at: 'desc' },
   });
 
   const rows = purchases.map(p => {
-    const area = Number(p.purchased_area || 0);
-    const rate = Number(p.rate || 0);
-    const total_cost = area > 0 && rate > 0 ? parseFloat((area * rate).toFixed(2)) : null;
+    const area          = Number(p.purchased_area || 0);
+    const total_amount  = Number(p.purchase_price || 0);
+    const advance       = Number(p.advance_paid || 0);
+    const brokerage     = Number(p.brokerage || 0);
+    const extra_exp     = Number(p.extra_expenses || 0);
+    const reg_charges   = Number(p.registration_charges || 0);
+    const extra_income  = Number(p.extra_income || 0);
+    const total_cost    = parseFloat((advance + brokerage + extra_exp + reg_charges - extra_income).toFixed(2));
+    const balance_to_pay = parseFloat((total_amount - advance).toFixed(2));
+    const stage = p.registration_completed ? 'Registered' : p.remaining_paid ? 'Payment Done' : 'In Progress';
     return {
       ...p,
-      total_area: area || null,
-      rate_per_sqyd: rate || null,
-      total_cost,
-      seller_name: p.seller_details ? p.seller_details.substring(0, 60) : null,
+      purchased_area: area || null,
+      total_amount:   total_amount || null,
+      total_cost:     total_cost || null,
+      balance_to_pay: balance_to_pay > 0 ? balance_to_pay : null,
+      stage,
     };
   });
 
   const summary = {
-    count:      rows.length,
-    total_area: rows.reduce((s, r) => s + Number(r.total_area || 0), 0),
-    total_cost: rows.reduce((s, r) => s + Number(r.total_cost || 0), 0),
+    count:        rows.length,
+    total_area:   rows.reduce((s, r) => s + Number(r.purchased_area || 0), 0),
+    total_amount: rows.reduce((s, r) => s + Number(r.total_amount || 0), 0),
+    total_cost:   rows.reduce((s, r) => s + Number(r.total_cost || 0), 0),
   };
 
   res.json({ purchases: rows, summary });
