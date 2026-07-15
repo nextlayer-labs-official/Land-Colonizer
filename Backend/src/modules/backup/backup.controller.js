@@ -1,4 +1,8 @@
 const prisma = require('../../lib/prisma');
+const fs   = require('fs');
+const path = require('path');
+
+const UPLOADS_DIR = path.join(__dirname, '../../../uploads');
 
 // Prisma model name → MySQL table name (PascalCase)
 const TABLE_MAP = [
@@ -63,6 +67,23 @@ async function exportBackup(req, res) {
     backup.tables[key] = rows.map(cleanExportRow);
   }
 
+  // ── Include logo file if one is set ────────────────────────────────────────
+  backup.files = {};
+  const settings = backup.tables.companySettings?.[0];
+  if (settings?.company_logo) {
+    // company_logo is stored as "/uploads/logos/logo-xxx.ext"
+    const logoAbs = path.join(__dirname, '../../../', settings.company_logo);
+    if (fs.existsSync(logoAbs)) {
+      const ext = path.extname(settings.company_logo).slice(1).toLowerCase();
+      const mime = ext === 'png' ? 'image/png' : ext === 'gif' ? 'image/gif' : 'image/jpeg';
+      backup.files.logo = {
+        relativePath: settings.company_logo, // e.g. /uploads/logos/logo-123.jpg
+        mimetype:     mime,
+        data:         fs.readFileSync(logoAbs).toString('base64'),
+      };
+    }
+  }
+
   const filename = `ams-backup-${new Date().toISOString().slice(0, 10)}.json`;
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
   res.setHeader('Content-Type', 'application/json');
@@ -123,6 +144,20 @@ async function restoreBackup(req, res) {
       await tx.$executeRaw`SET sql_mode = DEFAULT`;
 
     }, { timeout: 120000 }); // 2-minute cap for large databases
+
+    // ── Restore logo file if included in backup ─────────────────────────────
+    if (backup.files?.logo) {
+      try {
+        const { relativePath, data } = backup.files.logo;
+        // relativePath is like /uploads/logos/logo-123.jpg
+        const dest = path.join(__dirname, '../../../', relativePath);
+        fs.mkdirSync(path.dirname(dest), { recursive: true });
+        fs.writeFileSync(dest, Buffer.from(data, 'base64'));
+      } catch (logoErr) {
+        console.warn('Logo restore warning:', logoErr.message);
+        // Non-fatal — DB is restored even if logo write fails
+      }
+    }
 
     const counts = {};
     for (const [key, rows] of Object.entries(backup.tables)) {
