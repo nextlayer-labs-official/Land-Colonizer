@@ -22,21 +22,20 @@ const TABLE_MAP = [
   ['auditLog',            'AuditLog'],
 ];
 
-// Raw SQL results can contain BigInt (integer IDs) and Buffer (BIT/TINYINT(1) booleans)
-// Normalise them so JSON.stringify works and restore receives clean types
+// Raw SQL results contain BigInt (IDs) and Buffer (BIT/TINYINT booleans).
+// Convert them so JSON.stringify works correctly.
 function cleanExportRow(row) {
   const out = {};
   for (const [k, v] of Object.entries(row)) {
-    if (v === null || v === undefined)  { out[k] = null; }
-    else if (typeof v === 'bigint')     { out[k] = Number(v); }
-    else if (Buffer.isBuffer(v))        { out[k] = v[0] === 1; } // BIT(1) → boolean
-    else                                { out[k] = v; }
+    if (v === null || v === undefined)  out[k] = null;
+    else if (typeof v === 'bigint')     out[k] = Number(v);
+    else if (Buffer.isBuffer(v))        out[k] = v[0] === 1; // BIT(1) → boolean
+    else                                out[k] = v;
   }
   return out;
 }
 
-// Restore rows come from JSON — convert ISO date strings back to Date objects
-// Booleans may be true/false or 0/1 — leave as-is, MySQL/Prisma accepts both
+// JSON strings that look like ISO dates need to become Date objects for MySQL.
 function cleanRestoreRow(row) {
   const out = {};
   for (const [k, v] of Object.entries(row)) {
@@ -58,9 +57,7 @@ async function exportBackup(req, res) {
     tables:      {},
   };
 
-  // Use raw SQL so enum validation in Prisma's ORM layer is bypassed entirely.
-  // This handles cases where DB has stale enum values (e.g. action='' after
-  // a migration that changed the PermissionAction enum).
+  // Raw SQL bypasses Prisma enum validation — handles stale enum values (e.g. action='')
   for (const [key, tableName] of TABLE_MAP) {
     const rows = await prisma.$queryRawUnsafe(`SELECT * FROM \`${tableName}\``);
     backup.tables[key] = rows.map(cleanExportRow);
@@ -87,46 +84,60 @@ async function restoreBackup(req, res) {
   }
 
   try {
-    await prisma.$executeRaw`SET FOREIGN_KEY_CHECKS = 0`;
-    // Disable strict mode so stale enum values (e.g. action='') can be reinserted as-is
-    await prisma.$executeRaw`SET sql_mode = ''`;
+    // $transaction pins all operations to a SINGLE MySQL connection.
+    // This is critical: SET FOREIGN_KEY_CHECKS and SET sql_mode are session-level
+    // variables. Without a transaction, Prisma's connection pool can route each
+    // statement to a different connection where those settings were never applied —
+    // DELETEs clear the data, INSERTs fail halfway, DB ends up mostly empty.
+    await prisma.$transaction(async (tx) => {
 
-    // Clear all tables in reverse dependency order using raw SQL
-    // (avoids Prisma enum validation on deleteMany too)
-    for (const [, tableName] of [...TABLE_MAP].reverse()) {
-      await prisma.$executeRawUnsafe(`DELETE FROM \`${tableName}\``);
-    }
+      // Keep everything on this one connection
+      await tx.$executeRaw`SET FOREIGN_KEY_CHECKS = 0`;
+      // Allow stale enum values (e.g. Permission.action='') to be reinserted as-is
+      await tx.$executeRaw`SET sql_mode = ''`;
 
-    // Reinsert in forward dependency order
-    for (const [key, tableName] of TABLE_MAP) {
-      const rows = backup.tables[key];
-      if (!rows || rows.length === 0) continue;
-
-      for (const row of rows) {
-        const clean = cleanRestoreRow(row);
-        const cols  = Object.keys(clean).map(c => `\`${c}\``).join(', ');
-        const vals  = Object.values(clean);
-        const placeholders = vals.map(() => '?').join(', ');
-        await prisma.$executeRawUnsafe(
-          `INSERT INTO \`${tableName}\` (${cols}) VALUES (${placeholders})`,
-          ...vals,
-        );
+      // ── 1. Clear all tables in reverse FK order ───────────────────────────
+      for (const [, tableName] of [...TABLE_MAP].reverse()) {
+        await tx.$executeRawUnsafe(`DELETE FROM \`${tableName}\``);
       }
-    }
 
-    await prisma.$executeRaw`SET FOREIGN_KEY_CHECKS = 1`;
-    await prisma.$executeRaw`SET sql_mode = DEFAULT`;
+      // ── 2. Reinsert from backup in forward FK order ───────────────────────
+      for (const [key, tableName] of TABLE_MAP) {
+        const rows = backup.tables[key];
+        if (!rows || rows.length === 0) continue;
+
+        for (const row of rows) {
+          const clean        = cleanRestoreRow(row);
+          const cols         = Object.keys(clean).map(c => `\`${c}\``).join(', ');
+          const vals         = Object.values(clean);
+          const placeholders = vals.map(() => '?').join(', ');
+          await tx.$executeRawUnsafe(
+            `INSERT INTO \`${tableName}\` (${cols}) VALUES (${placeholders})`,
+            ...vals,
+          );
+        }
+      }
+
+      // Restore session variables before this connection returns to the pool
+      await tx.$executeRaw`SET FOREIGN_KEY_CHECKS = 1`;
+      await tx.$executeRaw`SET sql_mode = DEFAULT`;
+
+    }, { timeout: 120000 }); // 2-minute cap for large databases
 
     const counts = {};
     for (const [key, rows] of Object.entries(backup.tables)) {
       counts[key] = rows?.length ?? 0;
     }
 
-    res.json({ message: 'Backup restored successfully', counts });
+    // The current user's session was wiped and re-created from backup.
+    // Tell the frontend to clear the token and redirect to login.
+    res.json({ message: 'Backup restored successfully', counts, requireRelogin: true });
+
   } catch (err) {
-    await prisma.$executeRaw`SET FOREIGN_KEY_CHECKS = 1`.catch(() => {});
-    await prisma.$executeRaw`SET sql_mode = DEFAULT`.catch(() => {});
     console.error('Restore failed:', err);
+    // If the transaction threw, Prisma automatically rolled back — the original
+    // data is intact. The connection is returned to the pool; the ROLLBACK
+    // also resets FOREIGN_KEY_CHECKS and sql_mode on that connection.
     res.status(500).json({ message: 'Restore failed: ' + err.message });
   }
 }

@@ -1,11 +1,13 @@
 'use client';
 
-import { Suspense, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { apiPost } from '@/lib/api';
 
 function LoginForm() {
-  const router = useRouter();
+  const router       = useRouter();
+  const searchParams = useSearchParams();
+  const restored     = searchParams.get('restored') === '1';
 
   const [form, setForm]       = useState({ email: '', password: '' });
   const [error, setError]     = useState('');
@@ -33,6 +35,11 @@ function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {restored && (
+        <div className="px-3 py-2.5 rounded bg-green-50 border border-green-200 text-green-700 text-sm">
+          Database restored successfully. Please log in again.
+        </div>
+      )}
       {error && (
         <div className="px-3 py-2.5 rounded bg-red-50 border border-red-200 text-red-600 text-sm">{error}</div>
       )}

@@ -799,9 +799,10 @@ function BackupTab() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Restore failed');
-      setRestoreMsg({ type: 'success', text: `${data.message}. All data has been replaced from the backup file.` });
-      setRestoreFile(null);
-      if (fileRef.current) fileRef.current.value = '';
+      // Clear the session token — the user account was wiped and restored from backup,
+      // so the current JWT must be discarded and the user must log in again.
+      localStorage.removeItem('token');
+      window.location.href = '/login?restored=1';
     } catch (err) {
       setRestoreMsg({ type: 'error', text: err.message });
     } finally { setRestoring(false); }
