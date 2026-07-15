@@ -82,7 +82,7 @@ const inventoryReport = async (req, res) => {
 
 // ── Purchase Report ──────────────────────────────────────────────────────────
 const purchaseReport = async (req, res) => {
-  const { date_from, date_to, project_id } = req.query;
+  const { date_from, date_to } = req.query;
 
   const where = {};
   if (date_from || date_to) {
@@ -90,18 +90,9 @@ const purchaseReport = async (req, res) => {
     if (date_from) where.created_at.gte = new Date(date_from);
     if (date_to)   where.created_at.lte = new Date(date_to + 'T23:59:59.999Z');
   }
-  if (project_id) {
-    where.inventory = { some: { project_id: parseInt(project_id) } };
-  }
 
   const purchases = await prisma.purchase.findMany({
     where,
-    include: {
-      inventory: {
-        take: 1,
-        include: { project: { select: { id: true, name: true } } },
-      },
-    },
     orderBy: { created_at: 'desc' },
   });
 
@@ -111,7 +102,6 @@ const purchaseReport = async (req, res) => {
     const total_cost = area > 0 && rate > 0 ? parseFloat((area * rate).toFixed(2)) : null;
     return {
       ...p,
-      project: p.inventory?.[0]?.project || null,
       total_area: area || null,
       rate_per_sqyd: rate || null,
       total_cost,

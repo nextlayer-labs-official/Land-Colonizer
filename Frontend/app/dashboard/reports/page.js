@@ -342,14 +342,9 @@ function InventoryReport() {
 
 // ── Purchase Report ───────────────────────────────────────────────────────────
 function PurchaseReport() {
-  const [filters, setFilters] = useState({ date_from: '', date_to: '', project_id: '' });
+  const [filters, setFilters] = useState({ date_from: '', date_to: '' });
   const [result, setResult]   = useState(null);
   const [loading, setLoading] = useState(false);
-  const [projects, setProjects] = useState([]);
-
-  useEffect(() => {
-    apiGet('/lookup/projects').then(d => setProjects(d || [])).catch(() => {});
-  }, []);
 
   const run = async () => {
     setLoading(true);
@@ -366,7 +361,6 @@ function PurchaseReport() {
     const rows = result.purchases.map((p, i) => ({
       '#':             i + 1,
       'Purchase Code': p.purchase_code || `PUR-${String(p.id).padStart(4,'0')}`,
-      'Project':       p.project?.name || '',
       'Seller':        p.seller_name || '',
       'Total Area':    fmtNum(p.total_area),
       'Rate':          fmtNum(p.rate_per_sqyd),
@@ -382,12 +376,6 @@ function PurchaseReport() {
         <FilterRow>
           <Field label="From"><input type="date" value={filters.date_from} onChange={e => set('date_from', e.target.value)} className={inputCls} /></Field>
           <Field label="To"><input type="date" value={filters.date_to} onChange={e => set('date_to', e.target.value)} className={inputCls} /></Field>
-          <Field label="Project">
-            <select value={filters.project_id} onChange={e => set('project_id', e.target.value)} className={selectCls} style={{ minWidth: 160 }}>
-              <option value="">All Projects</option>
-              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          </Field>
           <RunBtn onClick={run} loading={loading} />
           {result && <><PrintBtn /><ExcelBtn onClick={doExcel} /></>}
         </FilterRow>
@@ -404,19 +392,18 @@ function PurchaseReport() {
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  {['#','Purchase Code','Project','Seller','Total Area','Rate','Total Cost','Purchase Date'].map(h => (
+                  {['#','Purchase Code','Seller','Total Area','Rate','Total Cost','Purchase Date'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {result.purchases.length === 0 ? (
-                  <tr><td colSpan={8} className="py-10 text-center text-sm text-gray-400">No purchases found</td></tr>
+                  <tr><td colSpan={7} className="py-10 text-center text-sm text-gray-400">No purchases found</td></tr>
                 ) : result.purchases.map((p, i) => (
                   <tr key={p.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
                     <td className="px-3 py-2.5"><span className="font-mono text-xs font-semibold text-[#875A7B] bg-[#875A7B]/8 px-1.5 py-0.5 rounded">{p.purchase_code || `PUR-${String(p.id).padStart(4,'0')}`}</span></td>
-                    <td className="px-3 py-2.5 text-gray-700">{p.project?.name || '—'}</td>
                     <td className="px-3 py-2.5 text-gray-600">{p.seller_name || '—'}</td>
                     <td className="px-3 py-2.5 text-gray-600">{fmtN(p.total_area)} sq.yd</td>
                     <td className="px-3 py-2.5 text-gray-600">₹ {fmt(p.rate_per_sqyd)}</td>
