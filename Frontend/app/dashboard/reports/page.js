@@ -790,8 +790,6 @@ function AvailabilityReport() {
       'Plot No.':    u.plot_no || '',
       'Total Area':  fmtNum(u.total_area),
       'Status':      u.status,
-      'Added By':    u.created_by_name || '',
-      'Sold By':     u.sold_by_name    || '',
     }));
     await exportXlsx([{ name: 'Availability', rows }], `availability_report_${new Date().toISOString().slice(0,10)}.xlsx`);
   };
@@ -866,14 +864,14 @@ function AvailabilityReport() {
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  {['#', 'SL No.', 'Plot No.', 'Total Area', 'Status', 'Added By', 'Sold By'].map(h => (
+                  {['#', 'SL No.', 'Plot No.', 'Total Area', 'Status'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {result.units.length === 0 ? (
-                  <tr><td colSpan={7} className="py-10 text-center text-sm text-gray-400">No inventory found</td></tr>
+                  <tr><td colSpan={5} className="py-10 text-center text-sm text-gray-400">No inventory found</td></tr>
                 ) : result.units.map((u, i) => (
                   <tr key={u.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
@@ -881,8 +879,6 @@ function AvailabilityReport() {
                     <td className="px-3 py-2.5 text-gray-700">{u.plot_no || '—'}</td>
                     <td className="px-3 py-2.5 text-gray-600">{u.total_area ? fmtN(u.total_area) + ' sq.yd' : '—'}</td>
                     <td className="px-3 py-2.5">{statusBadge(u.status)}</td>
-                    <td className="px-3 py-2.5 text-gray-500 text-xs">{u.created_by_name || '—'}</td>
-                    <td className="px-3 py-2.5 text-gray-500 text-xs">{u.sold_by_name    || '—'}</td>
                   </tr>
                 ))}
               </tbody>
