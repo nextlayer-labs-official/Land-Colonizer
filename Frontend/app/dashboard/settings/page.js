@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import useAuth from '@/lib/useAuth';
 import usePermissions from '@/lib/usePermissions';
 import { apiGet, apiPut, apiPost, apiPostForm } from '@/lib/api';
-import { UPLOADS_URL } from '@/lib/config';
+import { API_URL, UPLOADS_URL } from '@/lib/config';
 
 // ── Shared UI ─────────────────────────────────────────────────────────────────
 function Section({ title, description, children }) {
@@ -752,6 +752,164 @@ function IntegrationsTab() {
   );
 }
 
+// ── Backup Tab ────────────────────────────────────────────────────────────────
+function BackupTab() {
+  const [exporting,  setExporting]  = useState(false);
+  const [exportMsg,  setExportMsg]  = useState({ type: '', text: '' });
+  const [restoreFile, setRestoreFile] = useState(null);
+  const [restoring,  setRestoring]  = useState(false);
+  const [restoreMsg, setRestoreMsg] = useState({ type: '', text: '' });
+  const [confirm,    setConfirm]    = useState(false);
+  const fileRef = useRef(null);
+
+  const handleExport = async () => {
+    setExporting(true); setExportMsg({ type: '', text: '' });
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const res = await fetch(`${API_URL}/backup/export`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.message || 'Export failed'); }
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `ams-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setExportMsg({ type: 'success', text: 'Backup downloaded successfully' });
+    } catch (err) {
+      setExportMsg({ type: 'error', text: err.message });
+    } finally { setExporting(false); }
+  };
+
+  const handleRestore = async () => {
+    if (!restoreFile) return;
+    setRestoring(true); setRestoreMsg({ type: '', text: '' }); setConfirm(false);
+    try {
+      const fd = new FormData();
+      fd.append('backup', restoreFile);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const res = await fetch(`${API_URL}/backup/restore`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: fd,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Restore failed');
+      setRestoreMsg({ type: 'success', text: `${data.message}. All data has been replaced from the backup file.` });
+      setRestoreFile(null);
+      if (fileRef.current) fileRef.current.value = '';
+    } catch (err) {
+      setRestoreMsg({ type: 'error', text: err.message });
+    } finally { setRestoring(false); }
+  };
+
+  return (
+    <div className="space-y-5">
+      {/* Export */}
+      <Section title="Download Backup" description="Export all data to a JSON file you can store safely">
+        <div className="space-y-4">
+          <Alert type={exportMsg.type} message={exportMsg.text} />
+          <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <svg className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div className="text-xs text-blue-700 space-y-1">
+              <p className="font-semibold">What is included in the backup?</p>
+              <p>All database records: users, roles, purchases, inventory, sales, customers, brokers, projects, instalments, and audit logs. The database name is <strong>not</strong> included — the file is safe to restore to any environment.</p>
+            </div>
+          </div>
+          <div className="flex justify-start">
+            <button onClick={handleExport} disabled={exporting} className="btn-primary flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              {exporting ? 'Exporting…' : 'Download Backup'}
+            </button>
+          </div>
+        </div>
+      </Section>
+
+      {/* Restore */}
+      <Section title="Restore from Backup" description="Replace all current data with a previously exported backup file">
+        <div className="space-y-4">
+          <Alert type={restoreMsg.type} message={restoreMsg.text} />
+
+          <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <svg className="w-5 h-5 text-red-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <div className="text-xs text-red-700 space-y-1">
+              <p className="font-semibold">Warning — this action cannot be undone</p>
+              <p>Restoring will permanently delete all current data and replace it with the contents of the backup file. Only upload a file that was exported from this application.</p>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Select Backup File (.json)</label>
+            <div className="flex items-center gap-3">
+              <label className="btn-secondary cursor-pointer text-sm">
+                Choose File
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept=".json,application/json"
+                  onChange={e => { setRestoreFile(e.target.files?.[0] || null); setRestoreMsg({ type: '', text: '' }); }}
+                  className="hidden"
+                />
+              </label>
+              {restoreFile && (
+                <span className="text-xs text-gray-600 truncate max-w-52">{restoreFile.name}</span>
+              )}
+            </div>
+          </div>
+
+          {restoreFile && !confirm && (
+            <button
+              onClick={() => setConfirm(true)}
+              className="btn-secondary border-red-200 text-red-600 hover:bg-red-50 flex items-center gap-2 text-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Restore from this file
+            </button>
+          )}
+
+          {confirm && (
+            <div className="border border-red-200 rounded-lg p-4 bg-red-50 space-y-3">
+              <p className="text-sm font-semibold text-red-700">Are you absolutely sure?</p>
+              <p className="text-xs text-red-600">
+                This will delete <strong>all</strong> existing records and replace them with data from <strong>{restoreFile?.name}</strong>. There is no way to undo this.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleRestore}
+                  disabled={restoring}
+                  className="btn-primary text-sm"
+                  style={{ backgroundColor: '#dc2626' }}
+                >
+                  {restoring ? 'Restoring…' : 'Yes, restore now'}
+                </button>
+                <button
+                  onClick={() => setConfirm(false)}
+                  disabled={restoring}
+                  className="btn-secondary text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </Section>
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function SettingsPage() {
   useAuth();
@@ -764,6 +922,7 @@ export default function SettingsPage() {
       { key: 'company',      label: 'Company'      },
       { key: 'security',     label: 'Security'     },
       { key: 'integrations', label: 'Integrations' },
+      { key: 'backup',       label: 'Backup'       },
     ] : []),
   ];
 
@@ -805,6 +964,7 @@ export default function SettingsPage() {
       {activeTab === 'company'       && <CompanyTab       />}
       {activeTab === 'security'      && <SecurityTab      />}
       {activeTab === 'integrations'  && <IntegrationsTab  />}
+      {activeTab === 'backup'        && <BackupTab        />}
     </div>
   );
 }
