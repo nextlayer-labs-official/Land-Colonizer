@@ -293,6 +293,7 @@ const availabilityReport = async (req, res) => {
       area: true,
       front_area: true,
       back_area: true,
+      area_unit: true,
       status: true,
       created_by_id: true,
       created_by_name: true,
