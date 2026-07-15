@@ -86,6 +86,12 @@ function ExcelBtn({ onClick }) {
 }
 
 // ── Sales Report ──────────────────────────────────────────────────────────────
+const POSSESSION_STYLE = {
+  PENDING:  'bg-amber-50 text-amber-700',
+  SYMBOLIC: 'bg-blue-50 text-blue-700',
+  PHYSICAL: 'bg-emerald-50 text-emerald-700',
+};
+
 function SalesReport() {
   const [filters, setFilters] = useState({ date_from: '', date_to: '', project_id: '', broker_id: '', status: '', sold_by_id: '' });
   const [result, setResult]   = useState(null);
@@ -113,18 +119,25 @@ function SalesReport() {
   const doExcel = async () => {
     if (!result) return;
     const rows = result.sales.map((s, i) => ({
-      '#':            i + 1,
-      'Sale Code':    s.sale_code || `SL-${String(s.id).padStart(4,'0')}`,
-      'Customer':     s.customer?.name || '',
-      'Project':      s.project?.name || '',
-      'Broker':       s.broker?.name || '',
-      'Total Area':   fmtNum(s.total_area),
-      'Actual Price': fmtNum(s.actual_price),
-      'Advance':      fmtNum(s.advance_payment),
-      'Balance':      fmtNum(s.balance_amount),
-      'Status':       s.sale_confirmed ? 'Confirmed' : 'Pending',
-      'Sold By':      s.sold_by_name || '',
-      'Date':         fmtDate(s.created_at),
+      '#':                   i + 1,
+      'Sale Code':           s.sale_code || `SL-${String(s.id).padStart(4,'0')}`,
+      'Customer':            s.customer?.name || '',
+      'Broker':              s.broker?.name || '',
+      'Project':             s.project?.name || '',
+      'Inventory Unit':      s.inventory_unit || '',
+      'Type':                s.type || '',
+      'Total Area':          fmtNum(s.total_area),
+      'Plot Rate':           fmtNum(s.plot_rate),
+      'Total Value':         fmtNum(s.total_value),
+      'Selling Rate':        fmtNum(s.selling_rate),
+      'Actual Price':        fmtNum(s.actual_price),
+      'Balance':             fmtNum(s.balance_amount),
+      'Status':              s.sale_confirmed ? 'Confirmed' : 'Pending',
+      'Date of Registration': fmtDate(s.date_of_registration),
+      'Intkaal Number':      s.intkaal_number || '',
+      'Vasika':              s.vasika || '',
+      'Possession':          s.possession || '',
+      'Sold By':             s.sold_by_name || '',
     }));
     await exportXlsx([{ name: 'Sales', rows }], `sales_report_${new Date().toISOString().slice(0,10)}.xlsx`);
   };
@@ -168,42 +181,53 @@ function SalesReport() {
       {result && (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-            <SummaryCard label="Total Sales"     value={result.summary.count} />
-            <SummaryCard label="Total Value"     value={'₹ ' + fmt(result.summary.total_value)} />
-            <SummaryCard label="Actual Price"    value={'₹ ' + fmt(result.summary.total_amount)} />
-            <SummaryCard label="Advance Received" value={'₹ ' + fmt(result.summary.total_advance)} />
+            <SummaryCard label="Total Sales"   value={result.summary.count} />
+            <SummaryCard label="Total Value"   value={'₹ ' + fmt(result.summary.total_value)} />
+            <SummaryCard label="Actual Price"  value={'₹ ' + fmt(result.summary.actual_price)} />
+            <SummaryCard label="Balance Due"   value={'₹ ' + fmt(result.summary.total_balance)} />
           </div>
-          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  {['#','Sale Code','Customer','Project','Broker','Total Area','Actual Price','Advance','Balance','Status','Sold By','Date'].map(h => (
+                  {['#','Sale Code','Customer','Broker','Project','Unit','Type','Total Area','Plot Rate','Total Value','Selling Rate','Actual Price','Balance','Status','Reg. Date','Intkaal No.','Vasika','Possession','Sold By'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {result.sales.length === 0 ? (
-                  <tr><td colSpan={12} className="py-10 text-center text-sm text-gray-400">No sales found for the selected criteria</td></tr>
+                  <tr><td colSpan={19} className="py-10 text-center text-sm text-gray-400">No sales found for the selected criteria</td></tr>
                 ) : result.sales.map((s, i) => (
                   <tr key={s.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
-                    <td className="px-3 py-2.5"><span className="font-mono text-xs font-semibold text-[#875A7B] bg-[#875A7B]/8 px-1.5 py-0.5 rounded">{s.sale_code || `SL-${String(s.id).padStart(4,'0')}`}</span></td>
-                    <td className="px-3 py-2.5 font-medium text-gray-800">{s.customer?.name || '—'}</td>
-                    <td className="px-3 py-2.5 text-gray-600">{s.project?.name || '—'}</td>
-                    <td className="px-3 py-2.5 text-gray-600">{s.broker?.name || '—'}</td>
-                    <td className="px-3 py-2.5 text-gray-600">{fmtN(s.total_area)} sq.yd</td>
-                    <td className="px-3 py-2.5 text-gray-800 font-medium">₹ {fmt(s.actual_price)}</td>
-                    <td className="px-3 py-2.5 text-emerald-700">₹ {fmt(s.advance_payment)}</td>
-                    <td className="px-3 py-2.5 text-orange-600">₹ {fmt(s.balance_amount)}</td>
-                    <td className="px-3 py-2.5">
+                    <td className="px-3 py-2.5 whitespace-nowrap"><span className="font-mono text-xs font-semibold text-[#875A7B] bg-[#875A7B]/8 px-1.5 py-0.5 rounded">{s.sale_code || `SL-${String(s.id).padStart(4,'0')}`}</span></td>
+                    <td className="px-3 py-2.5 font-medium text-gray-800 whitespace-nowrap">{s.customer?.name || '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{s.broker?.name || '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{s.project?.name || '—'}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap"><span className="font-mono text-xs text-gray-600">{s.inventory_unit || '—'}</span></td>
+                    <td className="px-3 py-2.5 text-gray-500 whitespace-nowrap">{s.type || '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{s.total_area ? fmtN(s.total_area) + ' sq.yd' : '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{s.plot_rate ? '₹ ' + fmt(s.plot_rate) : '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap">{s.total_value ? '₹ ' + fmt(s.total_value) : '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{s.selling_rate ? '₹ ' + fmt(s.selling_rate) : '—'}</td>
+                    <td className="px-3 py-2.5 font-medium text-gray-800 whitespace-nowrap">{s.actual_price ? '₹ ' + fmt(s.actual_price) : '—'}</td>
+                    <td className="px-3 py-2.5 text-orange-600 whitespace-nowrap">{s.balance_amount ? '₹ ' + fmt(s.balance_amount) : '—'}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${s.sale_confirmed ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${s.sale_confirmed ? 'bg-emerald-500' : 'bg-amber-400'}`} />
                         {s.sale_confirmed ? 'Confirmed' : 'Pending'}
                       </span>
                     </td>
-                    <td className="px-3 py-2.5 text-gray-500 text-xs">{s.sold_by_name || '—'}</td>
-                    <td className="px-3 py-2.5 text-xs text-gray-400 whitespace-nowrap">{fmtDate(s.created_at)}</td>
+                    <td className="px-3 py-2.5 text-xs text-gray-400 whitespace-nowrap">{fmtDate(s.date_of_registration)}</td>
+                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{s.intkaal_number || '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{s.vasika || '—'}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${POSSESSION_STYLE[s.possession] || 'bg-gray-100 text-gray-500'}`}>
+                        {s.possession ? s.possession.charAt(0) + s.possession.slice(1).toLowerCase() : '—'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5 text-gray-500 text-xs whitespace-nowrap">{s.sold_by_name || '—'}</td>
                   </tr>
                 ))}
               </tbody>

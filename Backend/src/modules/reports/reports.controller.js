@@ -6,39 +6,44 @@ const num = (v) => (v !== undefined && v !== '' && v !== null ? parseFloat(v) : 
 const salesReport = async (req, res) => {
   const { date_from, date_to, project_id, broker_id, customer_id, status, sold_by_id } = req.query;
 
-  const where = {};
+  const where = { archived: false };
   if (date_from || date_to) {
     where.created_at = {};
     if (date_from) where.created_at.gte = new Date(date_from);
     if (date_to)   where.created_at.lte = new Date(date_to + 'T23:59:59.999Z');
   }
-  if (project_id) where.inventory       = { project_id: parseInt(project_id) };
-  if (broker_id)  where.broker_id       = parseInt(broker_id);
-  if (customer_id) where.customer_id    = parseInt(customer_id);
+  if (project_id)  where.inventory    = { project_id: parseInt(project_id) };
+  if (broker_id)   where.broker_id    = parseInt(broker_id);
+  if (customer_id) where.customer_id  = parseInt(customer_id);
   if (status)      where.sale_confirmed = status === 'confirmed';
-  if (sold_by_id)  where.sold_by_id     = parseInt(sold_by_id);
+  if (sold_by_id)  where.sold_by_id   = parseInt(sold_by_id);
 
   const sales = await prisma.sale.findMany({
     where,
-    include: {
-      inventory: { select: { id: true, inventory_code: true, type: true,
-        project: { select: { id: true, name: true } } } },
-      broker:    { select: { id: true, name: true } },
+    select: {
+      id: true, sale_code: true, type: true, status: true, sale_confirmed: true,
+      total_area: true, plot_rate: true, total_value: true, selling_rate: true,
+      actual_price: true, balance_amount: true,
+      date_of_registration: true, intkaal_number: true, vasika: true, possession: true,
+      sold_by_name: true, sale_date: true, created_at: true,
       customer:  { select: { id: true, name: true } },
+      broker:    { select: { id: true, name: true } },
+      inventory: { select: { id: true, inventory_code: true, project: { select: { id: true, name: true } } } },
     },
     orderBy: { created_at: 'desc' },
   });
 
   const rows = sales.map(s => ({
     ...s,
-    project: s.inventory?.project || null,
+    project:        s.inventory?.project || null,
+    inventory_unit: s.inventory?.inventory_code || null,
   }));
 
   const summary = {
-    count:        rows.length,
-    total_value:  rows.reduce((s, r) => s + Number(r.total_value  || 0), 0),
-    total_amount: rows.reduce((s, r) => s + Number(r.actual_price || 0), 0),
-    total_advance:rows.reduce((s, r) => s + Number(r.advance_payment || 0), 0),
+    count:         rows.length,
+    total_value:   rows.reduce((s, r) => s + Number(r.total_value   || 0), 0),
+    actual_price:  rows.reduce((s, r) => s + Number(r.actual_price  || 0), 0),
+    total_balance: rows.reduce((s, r) => s + Number(r.balance_amount || 0), 0),
   };
 
   res.json({ sales: rows, summary });
