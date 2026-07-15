@@ -207,7 +207,7 @@ function SalesReport() {
                     <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{s.project?.name || '—'}</td>
                     <td className="px-3 py-2.5 whitespace-nowrap"><span className="font-mono text-xs text-gray-600">{s.inventory_unit || '—'}</span></td>
                     <td className="px-3 py-2.5 text-gray-500 whitespace-nowrap">{s.type || '—'}</td>
-                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{s.total_area ? fmtN(s.total_area) + ' Gaj' : '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{s.total_area ? fmtN(s.total_area) + (s.total_area_details ? ' ' + s.total_area_details : '') : '—'}</td>
                     <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{s.plot_rate ? '₹ ' + fmt(s.plot_rate) : '—'}</td>
                     <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap">{s.total_value ? '₹ ' + fmt(s.total_value) : '—'}</td>
                     <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{s.selling_rate ? '₹ ' + fmt(s.selling_rate) : '—'}</td>
@@ -270,7 +270,7 @@ function InventoryReport() {
       'Front Area':  fmtNum(u.front_area),
       'Back Area':   fmtNum(u.back_area),
       'Total Area':  fmtNum(u.total_area),
-      'Rate/Gaj':    fmtNum(u.rate_per_sqyd),
+      'Rate/Unit':   fmtNum(u.rate_per_sqyd),
       'Total Value': fmtNum(u.total_value),
       'Status':      u.status,
     }));
@@ -320,14 +320,14 @@ function InventoryReport() {
             <SummaryCard label="Booked"      value={result.summary.booked} />
           </div>
           <div className="grid grid-cols-2 gap-3 mb-4">
-            <SummaryCard label="Total Area"  value={fmtN(result.summary.total_area) + ' Gaj'} />
+            <SummaryCard label="Total Area"  value={fmtN(result.summary.total_area)} />
             <SummaryCard label="Total Value" value={'₹ ' + fmt(result.summary.total_value)} />
           </div>
           <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  {['#','Unit Code','Project','Type','Front Area','Back Area','Total Area','Rate / Gaj','Total Value','Status'].map(h => (
+                  {['#','Unit Code','Project','Type','Front Area','Back Area','Total Area','Rate / Unit','Total Value','Status'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -343,7 +343,7 @@ function InventoryReport() {
                     <td className="px-3 py-2.5 text-gray-500">{u.area_type || '—'}</td>
                     <td className="px-3 py-2.5 text-gray-600">{fmtN(u.front_area)}</td>
                     <td className="px-3 py-2.5 text-gray-600">{fmtN(u.back_area)}</td>
-                    <td className="px-3 py-2.5 font-medium text-gray-800">{fmtN(u.total_area)} {u.area_unit || 'Gaj'}</td>
+                    <td className="px-3 py-2.5 font-medium text-gray-800">{fmtN(u.total_area)}{u.area_unit ? ' ' + u.area_unit : ''}</td>
                     <td className="px-3 py-2.5 text-gray-700">₹ {fmt(u.rate_per_sqyd)}</td>
                     <td className="px-3 py-2.5 font-medium text-gray-800">₹ {fmt(u.total_value)}</td>
                     <td className="px-3 py-2.5">
@@ -444,7 +444,7 @@ function PurchaseReport() {
         <>
           <div className="grid grid-cols-4 gap-3 mb-4">
             <SummaryCard label="Total Purchases" value={result.summary.count} />
-            <SummaryCard label="Total Area"      value={fmtN(result.summary.total_area) + ' Gaj'} />
+            <SummaryCard label="Total Area"      value={fmtN(result.summary.total_area)} />
             <SummaryCard label="Total Amount"    value={'₹ ' + fmt(result.summary.total_amount)} />
             <SummaryCard label="Total Cost"      value={'₹ ' + fmt(result.summary.total_cost)} />
           </div>
@@ -471,7 +471,7 @@ function PurchaseReport() {
                     </td>
                     <td className="px-3 py-2.5 text-gray-600">{p.sl_no || '—'}</td>
                     <td className="px-3 py-2.5 text-gray-600 max-w-[140px] truncate">{p.location || '—'}</td>
-                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{p.purchased_area ? fmtN(p.purchased_area) + ' Gaj' : '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{p.purchased_area ? fmtN(p.purchased_area) + (p.purchased_area_details ? ' ' + p.purchased_area_details : '') : '—'}</td>
                     <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap">{p.total_amount ? '₹ ' + fmt(p.total_amount) : '—'}</td>
                     <td className="px-3 py-2.5 font-medium text-gray-800 whitespace-nowrap">{p.total_cost ? '₹ ' + fmt(p.total_cost) : '—'}</td>
                     <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap">{p.balance_to_pay ? '₹ ' + fmt(p.balance_to_pay) : '—'}</td>
@@ -934,7 +934,7 @@ function AvailabilityReport() {
                     <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
                     <td className="px-3 py-2.5 text-gray-700">{u.sl_no   || '—'}</td>
                     <td className="px-3 py-2.5 text-gray-700">{u.plot_no || '—'}</td>
-                    <td className="px-3 py-2.5 text-gray-600">{u.total_area ? fmtN(u.total_area) + ' ' + (u.area_unit || 'Gaj') : '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-600">{u.total_area ? fmtN(u.total_area) + (u.area_unit ? ' ' + u.area_unit : '') : '—'}</td>
                     <td className="px-3 py-2.5">{statusBadge(u.status)}</td>
                   </tr>
                 ))}

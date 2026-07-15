@@ -22,7 +22,7 @@ const salesReport = async (req, res) => {
     where,
     select: {
       id: true, sale_code: true, type: true, status: true, sale_confirmed: true,
-      total_area: true, plot_rate: true, total_value: true, selling_rate: true,
+      total_area: true, total_area_details: true, plot_rate: true, total_value: true, selling_rate: true,
       actual_price: true, balance_amount: true,
       date_of_registration: true, intkaal_number: true, vasika: true, possession: true,
       sold_by_name: true, sale_date: true, created_at: true,
@@ -103,7 +103,7 @@ const purchaseReport = async (req, res) => {
     where,
     select: {
       id: true, purchase_code: true, purchase_category: true, type: true, status: true,
-      sl_no: true, location: true, purchased_area: true,
+      sl_no: true, location: true, purchased_area: true, purchased_area_details: true,
       purchase_price: true, advance_paid: true,
       brokerage: true, extra_expenses: true, registration_charges: true, extra_income: true,
       registration_date: true, registration_completed: true, remaining_paid: true,
