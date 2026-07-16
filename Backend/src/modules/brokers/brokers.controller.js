@@ -39,8 +39,9 @@ async function getBrokers(req, res) {
 }
 
 async function getBrokerById(req, res) {
+  const id = Number(req.params.id);
   const b = await prisma.broker.findUnique({
-    where: { id: Number(req.params.id) },
+    where: { id },
     include: {
       sales: {
         orderBy: { created_at: 'desc' },
@@ -54,7 +55,25 @@ async function getBrokerById(req, res) {
     },
   });
   if (!b) return res.status(404).json({ message: 'Not found' });
-  res.json(b);
+
+  // Purchases store broker as a plain name string, not a FK — match by name
+  const purchases = await prisma.purchase.findMany({
+    where: {
+      OR: [
+        { purchase_broker_name: b.name },
+        { sell_broker_name:     b.name },
+      ],
+    },
+    select: {
+      id: true, purchase_code: true, location: true, type: true,
+      purchase_price: true, status: true, created_at: true,
+      purchase_broker_name: true, sell_broker_name: true,
+    },
+    orderBy: { created_at: 'desc' },
+    take: 20,
+  });
+
+  res.json({ ...b, purchases });
 }
 
 async function createBroker(req, res) {

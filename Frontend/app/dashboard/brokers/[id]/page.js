@@ -97,7 +97,8 @@ export default function BrokerDetailPage() {
     </div>
   );
 
-  const sales = broker?.sales || [];
+  const sales     = broker?.sales     || [];
+  const purchases = broker?.purchases || [];
 
   return (
     <div className="flex flex-col h-full bg-[#F4F5F7]">
@@ -190,14 +191,15 @@ export default function BrokerDetailPage() {
               </div>
             </div>
 
-            {/* RIGHT: stats + linked sales */}
+            {/* RIGHT: stats + linked sales + linked purchases */}
             <div className="space-y-4">
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
                 <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Summary</h4>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    ['Total Sales', sales.length],
-                    ['Member Since', fmtDate(broker?.created_at)],
+                    ['Total Sales',     sales.length],
+                    ['Total Purchases', purchases.length],
+                    ['Member Since',    fmtDate(broker?.created_at)],
                   ].map(([l, v]) => (
                     <div key={l} className="bg-gray-50 rounded-lg px-3 py-2">
                       <p className="text-[10px] text-gray-400">{l}</p>
@@ -220,6 +222,32 @@ export default function BrokerDetailPage() {
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-bold text-gray-700 group-hover:text-[#875A7B]">{s.inventory?.inventory_code || `Sale #${s.id}`}</p>
                           <p className="text-[10px] text-gray-400">{s.customer?.name} · {fmtINR(s.actual_price)}</p>
+                        </div>
+                        <svg className="w-3 h-3 text-gray-300 group-hover:text-[#875A7B] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Purchases linked to this broker */}
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Linked Purchases</h4>
+                {purchases.length === 0 ? (
+                  <p className="text-xs text-gray-400 text-center py-4">No purchases linked.</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {purchases.map(p => (
+                      <Link key={p.id} href={`/dashboard/purchases/${p.id}`}
+                        className="flex items-center gap-2.5 p-2 rounded-lg bg-gray-50 hover:bg-[#875A7B]/5 transition group">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-gray-700 group-hover:text-[#875A7B]">
+                            {p.purchase_code || `PUR-${String(p.id).padStart(4,'0')}`}
+                            <span className="ml-1.5 text-[10px] font-normal text-gray-400">
+                              {p.purchase_broker_name === broker?.name ? 'Purchase Broker' : 'Sell Broker'}
+                            </span>
+                          </p>
+                          <p className="text-[10px] text-gray-400">{p.location || p.type} · {fmtINR(p.purchase_price)}</p>
                         </div>
                         <svg className="w-3 h-3 text-gray-300 group-hover:text-[#875A7B] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                       </Link>
