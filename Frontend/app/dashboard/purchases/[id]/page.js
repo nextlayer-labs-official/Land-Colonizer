@@ -239,7 +239,7 @@ function PurchaseInstallmentPanel({ purchaseId, canEdit, onTotalPaidChange }) {
           <div className="sm:w-52 bg-gray-50 border border-gray-100 rounded-xl px-5 py-3.5 flex flex-col justify-center">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs text-gray-400 uppercase tracking-wide">Progress</span>
-              <span className="text-sm font-bold text-[#875A7B]">{paidCount}/{filledCount || 20}</span>
+              <span className="text-sm font-bold text-[#875A7B]">{paidCount}/{filledCount || 24}</span>
             </div>
             <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
               <div className="h-full bg-emerald-500 rounded-full transition-all duration-500"
@@ -248,7 +248,7 @@ function PurchaseInstallmentPanel({ purchaseId, canEdit, onTotalPaidChange }) {
             <p className="text-xs text-gray-400 mt-1.5">{paidCount} paid of {filledCount} set</p>
           </div>
         </div>
-        {/* 20-slot grid — 4 columns max so cards breathe */}
+        {/* 24-slot grid — 4 columns max so cards breathe */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {ORDINALS.map((label, i) => (
             <InstCard key={i + 1} n={i + 1} label={label} form={form} editing={editing} setF={setF} />
