@@ -118,23 +118,33 @@ const purchaseReport = async (req, res) => {
     select: {
       id: true, purchase_code: true, purchase_category: true, type: true, status: true,
       sl_no: true, location: true, purchased_area: true, purchased_area_details: true,
-      purchase_price: true, advance_paid: true,
+      purchase_price: true, global_rate: true, rate: true, advance_paid: true,
       brokerage: true, extra_expenses: true, registration_charges: true, extra_income: true,
       registration_date: true, registration_completed: true, remaining_paid: true,
+      purchaseInstallment: { select: Object.fromEntries([...Array(24)].flatMap((_, i) => [[`inst_${i+1}_amount`, true], [`inst_${i+1}_paid`, true]])) },
     },
     orderBy: { created_at: 'desc' },
   });
 
   const rows = purchases.map(p => {
-    const area          = Number(p.purchased_area || 0);
-    const total_amount  = Number(p.purchase_price || 0);
-    const advance       = Number(p.advance_paid || 0);
-    const brokerage     = Number(p.brokerage || 0);
-    const extra_exp     = Number(p.extra_expenses || 0);
-    const reg_charges   = Number(p.registration_charges || 0);
-    const extra_income  = Number(p.extra_income || 0);
-    const total_cost    = parseFloat((advance + brokerage + extra_exp + reg_charges - extra_income).toFixed(2));
-    const balance_to_pay = parseFloat((total_amount - advance).toFixed(2));
+    const area       = Number(p.purchased_area || 0);
+    const pp         = Number(p.purchase_price || 0);
+    const gr         = Number(p.global_rate    || 0);
+    const rate       = (pp > 0 && gr > 0) ? pp / gr : Number(p.rate || 0);
+    const total_amount = parseFloat((rate * area).toFixed(2));
+    const advance    = Number(p.advance_paid || 0);
+    const brokerage  = Number(p.brokerage || 0);
+    const extra_exp  = Number(p.extra_expenses || 0);
+    const reg_charges = Number(p.registration_charges || 0);
+    const extra_income = Number(p.extra_income || 0);
+    let instPaid = 0;
+    if (p.purchaseInstallment) {
+      for (let n = 1; n <= 24; n++) {
+        if (p.purchaseInstallment[`inst_${n}_paid`]) instPaid += Number(p.purchaseInstallment[`inst_${n}_amount`] || 0);
+      }
+    }
+    const balance_to_pay = total_amount > 0 ? Math.max(0, parseFloat((total_amount - advance - instPaid).toFixed(2))) : null;
+    const total_cost     = parseFloat((advance + brokerage + extra_exp + reg_charges - extra_income + instPaid).toFixed(2));
     const stage = p.registration_completed ? 'Registered' : p.remaining_paid ? 'Payment Done' : 'In Progress';
     return {
       ...p,
