@@ -345,7 +345,7 @@ function BasePicker({ value, onPick, onClear, label, endpoint, placeholder, rend
 export function BrokerPicker({ value, onPick, onClear, excludeId }) {
   return (
     <BasePicker
-      value={value?.id ? value : null}
+      value={value?.name ? value : null}
       onPick={onPick} onClear={onClear}
       label="Broker" endpoint="brokers" placeholder="Search broker…"
       allowCreate excludeId={excludeId}
