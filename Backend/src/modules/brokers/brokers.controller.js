@@ -121,21 +121,22 @@ async function deleteBroker(req, res) {
   const b  = await prisma.broker.findUnique({ where: { id } });
   if (!b) return res.status(404).json({ message: 'Not found' });
 
-  const salesCount = await prisma.sale.count({ where: { broker_id: id } });
-  if (salesCount > 0) {
-    return res.status(409).json({ message: 'Cannot delete this broker — they have linked sales. Remove the linked data first.' });
-  }
-
-  const [purchaseRows] = await prisma.$queryRawUnsafe(
-    `SELECT COUNT(DISTINCT id) AS cnt FROM (
-       SELECT id FROM \`Purchase\` WHERE purchase_broker_name = ?
-       UNION
-       SELECT id FROM \`Purchase\` WHERE sell_broker_name     = ?
-     ) t`,
-    b.name, b.name,
-  );
-  if (Number(purchaseRows.cnt) > 0) {
-    return res.status(409).json({ message: 'Cannot delete this broker — they have linked purchases. Remove the linked data first.' });
+  const [salesCount, [purchaseRows]] = await Promise.all([
+    prisma.sale.count({ where: { broker_id: id } }),
+    prisma.$queryRawUnsafe(
+      `SELECT COUNT(DISTINCT id) AS cnt FROM (
+         SELECT id FROM \`Purchase\` WHERE purchase_broker_name = ?
+         UNION
+         SELECT id FROM \`Purchase\` WHERE sell_broker_name     = ?
+       ) t`,
+      b.name, b.name,
+    ),
+  ]);
+  const hasSales     = salesCount > 0;
+  const hasPurchases = Number(purchaseRows.cnt) > 0;
+  if (hasSales || hasPurchases) {
+    const what = hasSales && hasPurchases ? 'sales and purchases' : hasSales ? 'sales' : 'purchases';
+    return res.status(409).json({ message: `Cannot delete this broker — they have linked ${what}. Remove the linked data first.` });
   }
 
   await prisma.broker.delete({ where: { id } });
