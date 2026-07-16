@@ -26,9 +26,10 @@ const salesReport = async (req, res) => {
       actual_price: true, advance_payment: true, booking_amount: true, booking_in_received: true,
       date_of_registration: true, intkaal_number: true, vasika: true, possession: true,
       sold_by_name: true, sale_date: true, created_at: true,
-      customer:  { select: { id: true, name: true } },
-      broker:    { select: { id: true, name: true } },
-      inventory: { select: { id: true, inventory_code: true, project: { select: { id: true, name: true } } } },
+      customer:     { select: { id: true, name: true } },
+      broker:       { select: { id: true, name: true } },
+      inventory:    { select: { id: true, inventory_code: true, project: { select: { id: true, name: true } } } },
+      installment:  { select: Object.fromEntries([...Array(24)].flatMap((_, i) => [[`inst_${i+1}_amount`, true], [`inst_${i+1}_paid`, true]])) },
     },
     orderBy: { created_at: 'desc' },
   });
@@ -37,7 +38,13 @@ const salesReport = async (req, res) => {
     const actual   = Number(s.actual_price    || 0);
     const advance  = Number(s.advance_payment || 0);
     const booking  = s.booking_in_received ? Number(s.booking_amount || 0) : 0;
-    const balance  = actual > 0 ? Math.max(0, parseFloat((actual - advance - booking).toFixed(2))) : null;
+    let instPaid = 0;
+    if (s.installment) {
+      for (let n = 1; n <= 24; n++) {
+        if (s.installment[`inst_${n}_paid`]) instPaid += Number(s.installment[`inst_${n}_amount`] || 0);
+      }
+    }
+    const balance = actual > 0 ? Math.max(0, parseFloat((actual - advance - booking - instPaid).toFixed(2))) : null;
     return {
       ...s,
       balance_amount: balance,
