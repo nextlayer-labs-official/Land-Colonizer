@@ -175,13 +175,12 @@ const purchaseReport = async (req, res) => {
 const brokerReport = async (req, res) => {
   const { date_from, date_to, broker_id } = req.query;
 
-  const saleWhere = {};
+  const dateFilter = {};
   if (date_from || date_to) {
-    saleWhere.created_at = {};
-    if (date_from) saleWhere.created_at.gte = new Date(date_from);
-    if (date_to)   saleWhere.created_at.lte = new Date(date_to + 'T23:59:59.999Z');
+    dateFilter.created_at = {};
+    if (date_from) dateFilter.created_at.gte = new Date(date_from);
+    if (date_to)   dateFilter.created_at.lte = new Date(date_to + 'T23:59:59.999Z');
   }
-  if (broker_id) saleWhere.broker_id = parseInt(broker_id);
 
   const brokerWhere = broker_id ? { id: parseInt(broker_id) } : {};
 
@@ -189,10 +188,9 @@ const brokerReport = async (req, res) => {
     where: brokerWhere,
     include: {
       sales: {
-        where: saleWhere,
+        where: dateFilter,
         select: {
-          id: true, sale_code: true, actual_price: true, advance_payment: true,
-          sale_confirmed: true, created_at: true,
+          id: true, sale_code: true, actual_price: true, status: true, created_at: true,
           customer:  { select: { name: true } },
           inventory: { select: { project: { select: { name: true } } } },
         },
@@ -201,19 +199,65 @@ const brokerReport = async (req, res) => {
     orderBy: { name: 'asc' },
   });
 
-  const rows = brokers.map(b => ({
-    id:           b.id,
-    name:         b.name,
-    phone:        b.phone,
-    sales_count:  b.sales.length,
-    total_value:  b.sales.reduce((s, r) => s + Number(r.actual_price || 0), 0),
-    sales:        b.sales.map(s => ({ ...s, project: s.inventory?.project || null })),
-  }));
+  // Purchases store broker as plain name strings — fetch and group by broker name
+  const names = brokers.map(b => b.name).filter(Boolean);
+  const purchasesByBroker = {};
+  if (names.length > 0) {
+    const purchaseFilter = {
+      OR: [
+        { purchase_broker_name: { in: names } },
+        { sell_broker_name:     { in: names } },
+      ],
+    };
+    if (dateFilter.created_at) purchaseFilter.created_at = dateFilter.created_at;
+
+    const purchases = await prisma.purchase.findMany({
+      where: purchaseFilter,
+      select: {
+        id: true, purchase_code: true, location: true, type: true, status: true,
+        purchase_price: true, global_rate: true, rate: true, purchased_area: true,
+        purchase_broker_name: true, sell_broker_name: true, created_at: true,
+      },
+    });
+
+    for (const p of purchases) {
+      const pp  = Number(p.purchase_price || 0);
+      const gr  = Number(p.global_rate    || 0);
+      const rt  = (pp > 0 && gr > 0) ? pp / gr : Number(p.rate || 0);
+      const area = Number(p.purchased_area || 0);
+      const total_amount = parseFloat((rt * area).toFixed(2));
+      const enriched = { ...p, total_amount };
+      const matched = new Set([p.purchase_broker_name, p.sell_broker_name].filter(Boolean));
+      for (const n of matched) {
+        if (!purchasesByBroker[n]) purchasesByBroker[n] = [];
+        purchasesByBroker[n].push(enriched);
+      }
+    }
+  }
+
+  const rows = brokers.map(b => {
+    const purchases       = purchasesByBroker[b.name] || [];
+    const sales_total     = b.sales.reduce((s, r) => s + Number(r.actual_price   || 0), 0);
+    const purchases_total = purchases.reduce((s, p) => s + Number(p.total_amount || 0), 0);
+    return {
+      id:               b.id,
+      name:             b.name,
+      phone:            b.phone,
+      sales_count:      b.sales.length,
+      purchases_count:  purchases.length,
+      sales_total,
+      purchases_total,
+      total_value:      parseFloat((sales_total + purchases_total).toFixed(2)),
+      sales:            b.sales.map(s => ({ ...s, project: s.inventory?.project || null })),
+      purchases,
+    };
+  });
 
   const summary = {
-    broker_count: rows.length,
-    total_sales:  rows.reduce((s, r) => s + r.sales_count, 0),
-    total_value:  rows.reduce((s, r) => s + r.total_value, 0),
+    broker_count:    rows.length,
+    total_sales:     rows.reduce((s, r) => s + r.sales_count,     0),
+    total_purchases: rows.reduce((s, r) => s + r.purchases_count, 0),
+    total_value:     rows.reduce((s, r) => s + r.total_value,     0),
   };
 
   res.json({ brokers: rows, summary });

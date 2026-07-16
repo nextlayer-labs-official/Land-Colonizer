@@ -514,25 +514,36 @@ function BrokerReport() {
 
   const doExcel = async () => {
     if (!result) return;
-    const rows = [];
+    const salesRows = [], purchaseRows = [];
     for (const b of result.brokers) {
-      if (b.sales.length === 0) {
-        rows.push({ Broker: b.name, Phone: b.phone || '', 'Sale Code': '', Customer: '', Project: '', Status: '', 'Total Value': 0 });
-      } else {
-        for (const s of b.sales) {
-          rows.push({
-            Broker:        b.name,
-            Phone:         b.phone || '',
-            'Sale Code':   s.sale_code || `SL-${String(s.id).padStart(4,'0')}`,
-            Customer:      s.customer?.name || '',
-            Project:       s.project?.name || '',
-            Status:        s.status === 'ACTIVE' ? 'Active' : 'Inactive',
-            'Total Value': fmtNum(s.actual_price),
-          });
-        }
+      for (const s of b.sales) {
+        salesRows.push({
+          Broker:        b.name,
+          Phone:         b.phone || '',
+          'Sale Code':   s.sale_code || `SL-${String(s.id).padStart(4,'0')}`,
+          Customer:      s.customer?.name || '',
+          Project:       s.project?.name || '',
+          Status:        s.status === 'ACTIVE' ? 'Active' : 'Inactive',
+          'Sale Value':  fmtNum(s.actual_price),
+        });
+      }
+      for (const p of b.purchases) {
+        purchaseRows.push({
+          Broker:           b.name,
+          Phone:            b.phone || '',
+          'Purchase Code':  p.purchase_code || `PUR-${String(p.id).padStart(4,'0')}`,
+          Location:         p.location || '',
+          Type:             p.type || '',
+          Role:             p.purchase_broker_name === b.name && p.sell_broker_name === b.name ? 'Both'
+                          : p.purchase_broker_name === b.name ? 'Purchase Broker' : 'Sell Broker',
+          'Total Amount':   fmtNum(p.total_amount),
+        });
       }
     }
-    await exportXlsx([{ name: 'Brokers', rows }], `broker_report_${new Date().toISOString().slice(0,10)}.xlsx`);
+    await exportXlsx(
+      [{ name: 'Sales', rows: salesRows }, { name: 'Purchases', rows: purchaseRows }],
+      `broker_report_${new Date().toISOString().slice(0,10)}.xlsx`
+    );
   };
 
   return (
@@ -554,29 +565,32 @@ function BrokerReport() {
 
       {result && (
         <>
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            <SummaryCard label="Brokers"     value={result.summary.broker_count} />
-            <SummaryCard label="Total Sales" value={result.summary.total_sales} />
-            <SummaryCard label="Total Value" value={'₹ ' + fmt(result.summary.total_value)} />
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            <SummaryCard label="Brokers"          value={result.summary.broker_count} />
+            <SummaryCard label="Total Sales"      value={result.summary.total_sales} />
+            <SummaryCard label="Total Purchases"  value={result.summary.total_purchases} />
+            <SummaryCard label="Total Value"      value={'₹ ' + fmt(result.summary.total_value)} />
           </div>
           <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  {['','#','Broker','Phone','Sales Count','Total Value'].map(h => (
+                  {['','#','Broker','Phone','Sales','Purchases','Total Value'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {result.brokers.length === 0 ? (
-                  <tr><td colSpan={6} className="py-10 text-center text-sm text-gray-400">No broker data found</td></tr>
-                ) : result.brokers.map((b, i) => (
+                  <tr><td colSpan={7} className="py-10 text-center text-sm text-gray-400">No broker data found</td></tr>
+                ) : result.brokers.map((b, i) => {
+                  const hasRows = b.sales_count > 0 || b.purchases_count > 0;
+                  return (
                   <>
-                    <tr key={b.id} className={`border-b border-gray-100 ${b.sales_count > 0 ? 'cursor-pointer hover:bg-gray-50' : ''}`}
-                      onClick={() => b.sales_count > 0 && toggle(b.id)}>
+                    <tr key={b.id} className={`border-b border-gray-100 ${hasRows ? 'cursor-pointer hover:bg-gray-50' : ''}`}
+                      onClick={() => hasRows && toggle(b.id)}>
                       <td className="px-3 py-2.5 w-8">
-                        {b.sales_count > 0 && (
+                        {hasRows && (
                           <svg className={`w-4 h-4 text-gray-400 transition-transform ${expanded[b.id] ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                           </svg>
@@ -587,30 +601,70 @@ function BrokerReport() {
                       <td className="px-3 py-2.5 text-gray-500">{b.phone || '—'}</td>
                       <td className="px-3 py-2.5">
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-violet-50 text-violet-700 ring-1 ring-violet-200">
-                          {b.sales_count} sale{b.sales_count !== 1 ? 's' : ''}
+                          {b.sales_count}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 ring-1 ring-amber-200">
+                          {b.purchases_count}
                         </span>
                       </td>
                       <td className="px-3 py-2.5 font-medium text-gray-800">₹ {fmt(b.total_value)}</td>
                     </tr>
-                    {expanded[b.id] && b.sales.map(s => (
-                      <tr key={s.id} className="border-b border-gray-50 bg-gray-50/60">
-                        <td className="px-3 py-2" /><td className="px-3 py-2" />
-                        <td className="px-3 py-2 pl-6">
-                          <span className="font-mono text-xs text-[#875A7B]">{s.sale_code || `SL-${String(s.id).padStart(4,'0')}`}</span>
-                          <span className="text-xs text-gray-500 ml-2">{s.customer?.name}</span>
-                        </td>
-                        <td className="px-3 py-2 text-xs text-gray-500">{s.project?.name}</td>
-                        <td className="px-3 py-2">
-                          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium ${s.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${s.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-gray-400'}`} />
-                            {s.status === 'ACTIVE' ? 'Active' : 'Inactive'}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 text-xs text-gray-700">₹ {fmt(s.actual_price)}</td>
-                      </tr>
-                    ))}
+                    {expanded[b.id] && (
+                      <>
+                        {b.sales.length > 0 && (
+                          <tr className="bg-violet-50/40">
+                            <td colSpan={7} className="px-3 py-1 text-[10px] font-bold text-violet-500 uppercase tracking-widest">Sales</td>
+                          </tr>
+                        )}
+                        {b.sales.map(s => (
+                          <tr key={`s-${s.id}`} className="border-b border-gray-50 bg-gray-50/60">
+                            <td className="px-3 py-2" /><td className="px-3 py-2" />
+                            <td className="px-3 py-2 pl-6">
+                              <span className="font-mono text-xs text-[#875A7B]">{s.sale_code || `SL-${String(s.id).padStart(4,'0')}`}</span>
+                              <span className="text-xs text-gray-500 ml-2">{s.customer?.name}</span>
+                            </td>
+                            <td className="px-3 py-2 text-xs text-gray-500">{s.project?.name}</td>
+                            <td colSpan={2} className="px-3 py-2">
+                              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium ${s.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${s.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-gray-400'}`} />
+                                {s.status === 'ACTIVE' ? 'Active' : 'Inactive'}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-xs text-gray-700">₹ {fmt(s.actual_price)}</td>
+                          </tr>
+                        ))}
+                        {b.purchases.length > 0 && (
+                          <tr className="bg-amber-50/40">
+                            <td colSpan={7} className="px-3 py-1 text-[10px] font-bold text-amber-600 uppercase tracking-widest">Purchases</td>
+                          </tr>
+                        )}
+                        {b.purchases.map(p => {
+                          const role = p.purchase_broker_name === b.name && p.sell_broker_name === b.name ? 'Both'
+                                     : p.purchase_broker_name === b.name ? 'Purchase Broker' : 'Sell Broker';
+                          return (
+                            <tr key={`p-${p.id}`} className="border-b border-gray-50 bg-amber-50/20">
+                              <td className="px-3 py-2" /><td className="px-3 py-2" />
+                              <td className="px-3 py-2 pl-6">
+                                <span className="font-mono text-xs text-amber-700">{p.purchase_code || `PUR-${String(p.id).padStart(4,'0')}`}</span>
+                                <span className="text-xs text-gray-500 ml-2">{p.location}</span>
+                              </td>
+                              <td className="px-3 py-2 text-xs text-gray-500">{p.type || '—'}</td>
+                              <td colSpan={2} className="px-3 py-2">
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 ring-1 ring-amber-200">
+                                  {role}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 text-xs text-gray-700">₹ {fmt(p.total_amount)}</td>
+                            </tr>
+                          );
+                        })}
+                      </>
+                    )}
                   </>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
