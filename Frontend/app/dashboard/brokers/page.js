@@ -77,11 +77,11 @@ export default function BrokersPage() {
     const data  = await apiGet(`/brokers?${q}`);
     const items = data.brokers || [];
     const date  = new Date().toISOString().slice(0, 10);
-    const HEADERS = ['Code','Name','Phone','Email','Sales Count','Status','Created'];
+    const HEADERS = ['Code','Name','Phone','Email','Sales Count','Purchase Count','Status','Created'];
     const toRow   = r => [
       r.broker_code || `BRK-${String(r.id).padStart(4,'0')}`,
       r.name || '', r.phone || '', r.email || '',
-      r._count?.sales ?? 0, r.status || '', fmtDate(r.created_at),
+      r._count?.sales ?? 0, r.purchase_count ?? 0, r.status || '', fmtDate(r.created_at),
     ];
     if (format === 'csv') {
       dlCSV(toCSV(HEADERS, items.map(toRow)), `brokers_${date}.csv`);
@@ -110,7 +110,7 @@ export default function BrokersPage() {
       const failed   = results.filter(r => r.status === 'rejected');
       if (failed.length > 0) {
         const succeeded = selected.length - failed.length;
-        setDelError(`${succeeded > 0 ? `${succeeded} deleted. ` : ''}${failed.length} could not be deleted — they have linked sales.`);
+        setDelError(`${succeeded > 0 ? `${succeeded} deleted. ` : ''}${failed.length} could not be deleted — they have linked sales or purchases.`);
         setSelected([]);
         load(page);
         return;
@@ -182,7 +182,7 @@ export default function BrokersPage() {
                 <input type="checkbox" checked={selected.length === rows.length && rows.length > 0} onChange={toggleAll}
                   className="rounded border-gray-300 text-[#875A7B] focus:ring-[#875A7B]" />
               </th>
-              {['Code', 'Name', 'Phone', 'Email', 'Sales', 'Status', 'Created', ''].map(h => (
+              {['Code', 'Name', 'Phone', 'Email', 'Sales', 'Purchases', 'Status', 'Created', ''].map(h => (
                 <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
               ))}
             </tr>
@@ -191,11 +191,11 @@ export default function BrokersPage() {
             {loading ? Array(6).fill(0).map((_, i) => (
               <tr key={i} className="border-b border-gray-100">
                 <td className="px-3 py-3" />
-                {Array(8).fill(0).map((__, j) => <td key={j} className="px-3 py-3"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td>)}
+                {Array(9).fill(0).map((__, j) => <td key={j} className="px-3 py-3"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td>)}
               </tr>
             )) : rows.length === 0 ? (
               <tr>
-                <td colSpan={9} className="py-20 text-center">
+                <td colSpan={10} className="py-20 text-center">
                   <p className="text-sm text-gray-400 mb-2">No brokers found</p>
                   {canCreate && <button onClick={() => router.push('/dashboard/brokers/new')} className="btn-primary text-sm">New Broker</button>}
                 </td>
@@ -217,6 +217,11 @@ export default function BrokersPage() {
                 <td className="px-3 py-2.5">
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-violet-50 text-violet-700 ring-1 ring-violet-200">
                     {row._count?.sales ?? 0} sale{(row._count?.sales ?? 0) !== 1 ? 's' : ''}
+                  </span>
+                </td>
+                <td className="px-3 py-2.5">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 ring-1 ring-amber-200">
+                    {row.purchase_count ?? 0} purchase{(row.purchase_count ?? 0) !== 1 ? 's' : ''}
                   </span>
                 </td>
                 <td className="px-3 py-2.5">

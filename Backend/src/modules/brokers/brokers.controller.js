@@ -35,7 +35,25 @@ async function getBrokers(req, res) {
     }),
     prisma.broker.count({ where }),
   ]);
-  res.json({ brokers, total, page: Number(page), limit: Number(limit) });
+
+  // Count purchases per broker name (purchases store broker as a plain name string, no FK)
+  const names = brokers.map(b => b.name).filter(Boolean);
+  let purchaseCountMap = {};
+  if (names.length > 0) {
+    const placeholders = names.map(() => '?').join(',');
+    const rows = await prisma.$queryRawUnsafe(
+      `SELECT b_name, COUNT(DISTINCT id) as cnt FROM (
+         SELECT id, purchase_broker_name AS b_name FROM \`Purchase\` WHERE purchase_broker_name IN (${placeholders})
+         UNION
+         SELECT id, sell_broker_name     AS b_name FROM \`Purchase\` WHERE sell_broker_name     IN (${placeholders})
+       ) t GROUP BY b_name`,
+      ...names, ...names,
+    );
+    for (const r of rows) purchaseCountMap[r.b_name] = Number(r.cnt);
+  }
+  const enriched = brokers.map(b => ({ ...b, purchase_count: purchaseCountMap[b.name] || 0 }));
+
+  res.json({ brokers: enriched, total, page: Number(page), limit: Number(limit) });
 }
 
 async function getBrokerById(req, res) {
@@ -101,10 +119,25 @@ async function updateBroker(req, res) {
 async function deleteBroker(req, res) {
   const id = Number(req.params.id);
   const b  = await prisma.broker.findUnique({ where: { id } });
+  if (!b) return res.status(404).json({ message: 'Not found' });
+
   const salesCount = await prisma.sale.count({ where: { broker_id: id } });
   if (salesCount > 0) {
     return res.status(409).json({ message: 'Cannot delete this broker — they have linked sales. Remove the linked data first.' });
   }
+
+  const [purchaseRows] = await prisma.$queryRawUnsafe(
+    `SELECT COUNT(DISTINCT id) AS cnt FROM (
+       SELECT id FROM \`Purchase\` WHERE purchase_broker_name = ?
+       UNION
+       SELECT id FROM \`Purchase\` WHERE sell_broker_name     = ?
+     ) t`,
+    b.name, b.name,
+  );
+  if (Number(purchaseRows.cnt) > 0) {
+    return res.status(409).json({ message: 'Cannot delete this broker — they have linked purchases. Remove the linked data first.' });
+  }
+
   await prisma.broker.delete({ where: { id } });
   auditLog({ req, action: 'DELETE', entity: 'broker', entityId: id, entityCode: b?.broker_code });
   res.json({ message: 'Deleted' });
