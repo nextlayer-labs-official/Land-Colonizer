@@ -104,7 +104,7 @@ function LinkedRecordsPanel({ sales, purchases, brokerName }) {
                       {p.purchase_broker_name === brokerName ? 'Purchase' : 'Sell'}
                     </span>
                   </td>
-                  <td className="px-4 py-2.5 text-gray-700 font-semibold tabular-nums">{fmtINR(p.purchase_price)}</td>
+                  <td className="px-4 py-2.5 text-gray-700 font-semibold tabular-nums">{(() => { const pp = Number(p.purchase_price||0), gr = Number(p.global_rate||0), rt = Number(p.rate||0), area = Number(p.purchased_area||0); const rate = pp > 0 && gr > 0 ? pp / gr : rt; const total = rate * area; return fmtINR(total || pp); })()}</td>
                   <td className="px-4 py-2.5">
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${p.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${p.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-gray-400'}`} />

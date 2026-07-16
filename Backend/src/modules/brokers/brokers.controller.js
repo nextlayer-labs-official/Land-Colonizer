@@ -84,7 +84,8 @@ async function getBrokerById(req, res) {
     },
     select: {
       id: true, purchase_code: true, location: true, type: true,
-      purchase_price: true, status: true, created_at: true,
+      purchase_price: true, global_rate: true, rate: true, purchased_area: true,
+      status: true, created_at: true,
       purchase_broker_name: true, sell_broker_name: true,
     },
     orderBy: { created_at: 'desc' },
