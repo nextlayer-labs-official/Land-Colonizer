@@ -234,24 +234,8 @@ function PurchaseInstallmentPanel({ purchaseId, canEdit, onTotalPaidChange }) {
             </div>
           ))}
         </div>
-        {/* SL No + Details + Progress */}
-        <div className="flex flex-col sm:flex-row gap-4 items-stretch">
-          <div className="flex gap-4 flex-1">
-            <div className="flex-1">
-              <p className="text-xs text-gray-400 uppercase tracking-wide mb-1.5">SL. No.</p>
-              {editing
-                ? <input value={form.sl_no} onChange={e => setF('sl_no', e.target.value)} placeholder="SL No."
-                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[#875A7B] bg-white" />
-                : <p className="text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100 min-h-[38px]">{form.sl_no || '—'}</p>}
-            </div>
-            <div className="flex-1">
-              <p className="text-xs text-gray-400 uppercase tracking-wide mb-1.5">Details</p>
-              {editing
-                ? <input value={form.installment_details} onChange={e => setF('installment_details', e.target.value)} placeholder="Notes…"
-                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[#875A7B] bg-white" />
-                : <p className="text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100 min-h-[38px]">{form.installment_details || '—'}</p>}
-            </div>
-          </div>
+        {/* Progress */}
+        <div className="flex justify-end">
           <div className="sm:w-52 bg-gray-50 border border-gray-100 rounded-xl px-5 py-3.5 flex flex-col justify-center">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs text-gray-400 uppercase tracking-wide">Progress</span>
