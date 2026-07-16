@@ -125,7 +125,6 @@ function SalesReport() {
       'Broker':              s.broker?.name || '',
       'Project':             s.project?.name || '',
       'Inventory Unit':      s.inventory_unit || '',
-      'Type':                s.type || '',
       'Total Area':          fmtNum(s.total_area),
       'Plot Rate':           fmtNum(s.plot_rate),
       'Total Value':         fmtNum(s.total_value),
@@ -190,14 +189,14 @@ function SalesReport() {
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  {['#','Sale Code','Customer','Broker','Project','Unit','Type','Total Area','Plot Rate','Total Value','Selling Rate','Actual Price','Balance','Status','Reg. Date','Intkaal No.','Vasika','Possession','Sold By'].map(h => (
+                  {['#','Sale Code','Customer','Broker','Project','Unit','Total Area','Plot Rate','Total Value','Selling Rate','Actual Price','Balance','Status','Reg. Date','Intkaal No.','Vasika','Possession','Sold By'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {result.sales.length === 0 ? (
-                  <tr><td colSpan={19} className="py-10 text-center text-sm text-gray-400">No sales found for the selected criteria</td></tr>
+                  <tr><td colSpan={18} className="py-10 text-center text-sm text-gray-400">No sales found for the selected criteria</td></tr>
                 ) : result.sales.map((s, i) => (
                   <tr key={s.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
@@ -206,7 +205,6 @@ function SalesReport() {
                     <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{s.broker?.name || '—'}</td>
                     <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{s.project?.name || '—'}</td>
                     <td className="px-3 py-2.5 whitespace-nowrap"><span className="font-mono text-xs text-gray-600">{s.inventory_unit || '—'}</span></td>
-                    <td className="px-3 py-2.5 text-gray-500 whitespace-nowrap">{s.type || '—'}</td>
                     <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{s.total_area ? fmtN(s.total_area) + (s.total_area_details ? ' ' + s.total_area_details : '') : '—'}</td>
                     <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{s.plot_rate ? '₹ ' + fmt(s.plot_rate) : '—'}</td>
                     <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap">{s.total_value ? '₹ ' + fmt(s.total_value) : '—'}</td>

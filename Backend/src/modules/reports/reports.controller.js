@@ -23,7 +23,7 @@ const salesReport = async (req, res) => {
     select: {
       id: true, sale_code: true, type: true, status: true, sale_confirmed: true,
       total_area: true, total_area_details: true, plot_rate: true, total_value: true, selling_rate: true,
-      actual_price: true, balance_amount: true,
+      actual_price: true, advance_payment: true,
       date_of_registration: true, intkaal_number: true, vasika: true, possession: true,
       sold_by_name: true, sale_date: true, created_at: true,
       customer:  { select: { id: true, name: true } },
@@ -33,16 +33,22 @@ const salesReport = async (req, res) => {
     orderBy: { created_at: 'desc' },
   });
 
-  const rows = sales.map(s => ({
-    ...s,
-    project:        s.inventory?.project || null,
-    inventory_unit: s.inventory?.inventory_code || null,
-  }));
+  const rows = sales.map(s => {
+    const actual  = Number(s.actual_price    || 0);
+    const advance = Number(s.advance_payment || 0);
+    const balance = actual > 0 ? parseFloat((actual - advance).toFixed(2)) : null;
+    return {
+      ...s,
+      balance_amount: balance,
+      project:        s.inventory?.project || null,
+      inventory_unit: s.inventory?.inventory_code || null,
+    };
+  });
 
   const summary = {
     count:         rows.length,
-    total_value:   rows.reduce((s, r) => s + Number(r.total_value   || 0), 0),
-    actual_price:  rows.reduce((s, r) => s + Number(r.actual_price  || 0), 0),
+    total_value:   rows.reduce((s, r) => s + Number(r.total_value    || 0), 0),
+    actual_price:  rows.reduce((s, r) => s + Number(r.actual_price   || 0), 0),
     total_balance: rows.reduce((s, r) => s + Number(r.balance_amount || 0), 0),
   };
 
