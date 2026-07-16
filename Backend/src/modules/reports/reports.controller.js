@@ -145,7 +145,12 @@ const purchaseReport = async (req, res) => {
     }
     const balance_to_pay = total_amount > 0 ? Math.max(0, parseFloat((total_amount - advance - instPaid).toFixed(2))) : null;
     const total_cost     = parseFloat((advance + brokerage + extra_exp + reg_charges - extra_income + instPaid).toFixed(2));
-    const stage = p.registration_completed ? 'Registered' : p.remaining_paid ? 'In Installments' : 'In Progress';
+    const effBal  = total_amount > 0 ? Math.max(0, total_amount - advance - instPaid) : 0;
+    const effPct  = total_amount > 0 ? Math.min(100, ((total_amount - effBal) / total_amount) * 100) : (advance > 0 ? 100 : 0);
+    const stage   = (p.registration_completed && effPct >= 100) ? 'Completed'
+                  : p.registration_completed                     ? 'Registered'
+                  : effPct > 0                                   ? 'In Progress'
+                  :                                                'Draft';
     return {
       ...p,
       purchased_area: area || null,
