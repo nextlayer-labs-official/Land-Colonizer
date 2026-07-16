@@ -365,7 +365,7 @@ function InventoryReport() {
 // ── Purchase Report ───────────────────────────────────────────────────────────
 const STAGE_STYLE = {
   'Registered':   'bg-green-100 text-green-700',
-  'Payment Done': 'bg-blue-100 text-blue-700',
+  'In Installments': 'bg-blue-100 text-blue-700',
   'In Progress':  'bg-yellow-100 text-yellow-700',
 };
 
