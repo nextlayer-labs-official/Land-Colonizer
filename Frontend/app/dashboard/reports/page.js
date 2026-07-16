@@ -131,7 +131,7 @@ function SalesReport() {
       'Selling Rate':        fmtNum(s.selling_rate),
       'Actual Price':        fmtNum(s.actual_price),
       'Balance':             fmtNum(s.balance_amount),
-      'Status':              s.sale_confirmed ? 'Confirmed' : 'Pending',
+      'Status':              s.registration_completed ? 'Registered' : s.status === 'ACTIVE' ? 'Active' : 'Inactive',
       'Date of Registration': fmtDate(s.date_of_registration),
       'Intkaal Number':      s.intkaal_number || '',
       'Vasika':              s.vasika || '',
@@ -212,9 +212,9 @@ function SalesReport() {
                     <td className="px-3 py-2.5 font-medium text-gray-800 whitespace-nowrap">{s.actual_price ? '₹ ' + fmt(s.actual_price) : '—'}</td>
                     <td className="px-3 py-2.5 text-orange-600 whitespace-nowrap">{s.balance_amount ? '₹ ' + fmt(s.balance_amount) : '—'}</td>
                     <td className="px-3 py-2.5 whitespace-nowrap">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${s.sale_confirmed ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${s.sale_confirmed ? 'bg-emerald-500' : 'bg-amber-400'}`} />
-                        {s.sale_confirmed ? 'Confirmed' : 'Pending'}
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${s.registration_completed ? 'bg-blue-50 text-blue-700' : s.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${s.registration_completed ? 'bg-blue-500' : s.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-gray-400'}`} />
+                        {s.registration_completed ? 'Registered' : s.status === 'ACTIVE' ? 'Active' : 'Inactive'}
                       </span>
                     </td>
                     <td className="px-3 py-2.5 text-xs text-gray-400 whitespace-nowrap">{fmtDate(s.date_of_registration)}</td>
@@ -525,7 +525,7 @@ function BrokerReport() {
             'Sale Code':   s.sale_code || `SL-${String(s.id).padStart(4,'0')}`,
             Customer:      s.customer?.name || '',
             Project:       s.project?.name || '',
-            Status:        s.sale_confirmed ? 'Confirmed' : 'Pending',
+            Status:        s.status === 'ACTIVE' ? 'Active' : 'Inactive',
             'Total Value': fmtNum(s.actual_price),
           });
         }
@@ -600,8 +600,9 @@ function BrokerReport() {
                         </td>
                         <td className="px-3 py-2 text-xs text-gray-500">{s.project?.name}</td>
                         <td className="px-3 py-2">
-                          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium ${s.sale_confirmed ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
-                            {s.sale_confirmed ? 'Confirmed' : 'Pending'}
+                          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium ${s.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${s.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-gray-400'}`} />
+                            {s.status === 'ACTIVE' ? 'Active' : 'Inactive'}
                           </span>
                         </td>
                         <td className="px-3 py-2 text-xs text-gray-700">₹ {fmt(s.actual_price)}</td>

@@ -21,7 +21,7 @@ const salesReport = async (req, res) => {
   const sales = await prisma.sale.findMany({
     where,
     select: {
-      id: true, sale_code: true, type: true, status: true, sale_confirmed: true,
+      id: true, sale_code: true, type: true, status: true, sale_confirmed: true, registration_completed: true,
       total_area: true, total_area_details: true, plot_rate: true, total_value: true, selling_rate: true,
       actual_price: true, advance_payment: true, booking_amount: true, booking_in_received: true,
       date_of_registration: true, intkaal_number: true, vasika: true, possession: true,
