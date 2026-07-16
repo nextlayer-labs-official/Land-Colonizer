@@ -38,9 +38,8 @@ async function getInstallment(req, res) {
   const sale = await prisma.sale.findUnique({
     where:  { id: sale_id },
     select: {
-      actual_price:        true,
-      advance_payment:     true,
-      booking_amount:      true,
+      balance_amount:     true,
+      booking_amount:     true,
       booking_in_received: true,
       customer: { select: { name: true, phone: true, customer_code: true } },
     },
@@ -55,11 +54,9 @@ async function getInstallment(req, res) {
 }
 
 function instNetAmount(sale) {
-  const actual   = Number(sale?.actual_price    || 0);
-  const advance  = Number(sale?.advance_payment || 0);
-  const booking  = Number(sale?.booking_amount  || 0);
+  const balance  = Number(sale?.balance_amount || 0);
+  const booking  = Number(sale?.booking_amount || 0);
   const included = sale?.booking_in_received !== false;
-  const balance  = actual > 0 ? actual - advance : 0;
   return Math.max(0, balance - (included ? booking : 0));
 }
 
@@ -76,9 +73,8 @@ async function updateInstallment(req, res) {
   const sale = await prisma.sale.findUnique({
     where:  { id: sale_id },
     select: {
-      actual_price:        true,
-      advance_payment:     true,
-      booking_amount:      true,
+      balance_amount:     true,
+      booking_amount:     true,
       booking_in_received: true,
       customer: { select: { name: true, phone: true, customer_code: true } },
     },
