@@ -2105,17 +2105,18 @@ export default function SaleDetailPage() {
                   <div className="bg-emerald-50 rounded-lg p-2.5 border border-emerald-100">
                     <div className="flex items-center justify-between mb-0.5">
                       <p className="text-[8px] text-gray-400 uppercase tracking-wide">Booking</p>
-                      <label className="flex items-center gap-1 cursor-pointer" title="Include booking in received">
+                      <label className={`flex items-center gap-1 ${editing ? 'cursor-pointer' : 'pointer-events-none'}`} title="Include booking in received">
                         <input
                           type="checkbox"
                           checked={bookingInReceived}
+                          disabled={!editing}
                           onChange={async (e) => {
                             const val = e.target.checked;
                             setForm(p => ({ ...p, booking_in_received: val }));
                             try { await apiPut(`/sales/${params.id}`, { ...form, booking_in_received: val }); }
                             catch { setForm(p => ({ ...p, booking_in_received: !val })); }
                           }}
-                          className="w-3 h-3 accent-emerald-600 cursor-pointer"
+                          className="w-3 h-3 accent-emerald-600 cursor-pointer disabled:cursor-default"
                         />
                         <span className="text-[8px] text-gray-400">incl.</span>
                       </label>
