@@ -10,7 +10,7 @@ const salesReport = async (req, res) => {
   if (date_from || date_to) {
     where.created_at = {};
     if (date_from) where.created_at.gte = new Date(date_from);
-    if (date_to)   where.created_at.lte = new Date(date_to + 'T23:59:59.999Z');
+    if (date_to)   where.created_at.lte = new Date(date_to + 'T23:59:59.999');
   }
   if (project_id)  where.inventory    = { project_id: parseInt(project_id) };
   if (broker_id)   where.broker_id    = parseInt(broker_id);
@@ -107,7 +107,7 @@ const purchaseReport = async (req, res) => {
   if (date_from || date_to) {
     where.created_at = {};
     if (date_from) where.created_at.gte = new Date(date_from);
-    if (date_to)   where.created_at.lte = new Date(date_to + 'T23:59:59.999Z');
+    if (date_to)   where.created_at.lte = new Date(date_to + 'T23:59:59.999');
   }
   if (category) where.purchase_category = category;
   if (type)     where.type              = type;
@@ -179,7 +179,7 @@ const brokerReport = async (req, res) => {
   if (date_from || date_to) {
     dateFilter.created_at = {};
     if (date_from) dateFilter.created_at.gte = new Date(date_from);
-    if (date_to)   dateFilter.created_at.lte = new Date(date_to + 'T23:59:59.999Z');
+    if (date_to)   dateFilter.created_at.lte = new Date(date_to + 'T23:59:59.999');
   }
 
   const brokerWhere = broker_id ? { id: parseInt(broker_id) } : {};
