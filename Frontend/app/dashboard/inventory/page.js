@@ -102,12 +102,12 @@ export default function InventoryPage() {
   const [showFilter,   setShowFilter]   = useState(false);
   const filterRef = useRef(null);
 
-  const LIMIT = 15;
+  const [limit, setLimit] = useState(15);
 
   const load = useCallback(async (p = 1) => {
     setLoading(true);
     try {
-      const q = new URLSearchParams({ page: p, limit: LIMIT });
+      const q = new URLSearchParams({ page: p, limit });
       if (search)       q.set('search',    search);
       if (statusFilter) q.set('status',    statusFilter);
       if (typeFilter)   q.set('type', typeFilter);
@@ -116,9 +116,9 @@ export default function InventoryPage() {
       setTotal(data.total    || 0);
       setPage(p);
     } finally { setLoading(false); }
-  }, [search, statusFilter, typeFilter]);
+  }, [search, statusFilter, typeFilter, limit]);
 
-  useEffect(() => { load(1); }, [search, statusFilter, typeFilter]);
+  useEffect(() => { load(1); }, [search, statusFilter, typeFilter, limit]);
 
   useEffect(() => {
     const h = (e) => { if (filterRef.current && !filterRef.current.contains(e.target)) setShowFilter(false); };
@@ -163,10 +163,10 @@ export default function InventoryPage() {
     } finally { setExporting(false); }
   };
 
-  const totalPages = Math.ceil(total / LIMIT);
+  const totalPages = Math.ceil(total / limit);
   const canDelete  = can('INVENTORY_DELETE') || me?.is_system;
-  const from = total === 0 ? 0 : (page - 1) * LIMIT + 1;
-  const to   = Math.min(page * LIMIT, total);
+  const from = total === 0 ? 0 : (page - 1) * limit + 1;
+  const to   = Math.min(page * limit, total);
 
   const activeFilters = [statusFilter, typeFilter].filter(Boolean).length;
 
@@ -274,6 +274,13 @@ export default function InventoryPage() {
           </svg>
         </div>
         <div className="w-px h-5 bg-gray-200 shrink-0" />
+        <select
+          value={limit}
+          onChange={e => setLimit(Number(e.target.value))}
+          className="text-sm border border-gray-200 rounded h-8 px-2 text-gray-600 focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30 transition bg-white"
+        >
+          {[15, 25, 50, 75, 100].map(n => <option key={n} value={n}>{n} / page</option>)}
+        </select>
         <Pagination page={page} totalPages={totalPages} total={total} from={from} to={to} loading={loading} onPage={load} />
       </div>
 

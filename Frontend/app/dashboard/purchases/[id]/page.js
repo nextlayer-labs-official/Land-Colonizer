@@ -14,9 +14,10 @@ function Label({ children }) {
   return <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{children}</p>;
 }
 function Val({ children, mono }) {
+  const v = (children === 'null' || children === null || children === undefined || children === '') ? null : children;
   return (
     <p className={`text-sm font-medium text-gray-800 ${mono ? 'font-mono' : ''}`}>
-      {children || <span className="text-gray-300 font-normal">—</span>}
+      {v || <span className="text-gray-300 font-normal">—</span>}
     </p>
   );
 }
@@ -49,7 +50,7 @@ function FTextarea({ label, value, onChange, placeholder, rows = 2, readOnly }) 
     <div>
       <Label>{label}</Label>
       {readOnly
-        ? <p className="text-sm text-gray-800 font-medium whitespace-pre-wrap min-h-[1.5rem]">{value || <span className="text-gray-300">—</span>}</p>
+        ? <p className="text-sm text-gray-800 font-medium whitespace-pre-wrap min-h-[1.5rem]">{(value && value !== 'null') ? value : <span className="text-gray-300">—</span>}</p>
         : <textarea value={value ?? ''} onChange={onChange} placeholder={placeholder} rows={rows}
             className="w-full border border-gray-200 rounded px-3 py-1.5 text-sm text-gray-800 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30 transition resize-none placeholder:text-gray-300" />}
     </div>
@@ -334,7 +335,7 @@ function DeleteUnitModal({ open, onClose, onConfirm, deleting, unitData }) {
 const AREA_UNITS = ['gaj', 'acres', 'bigha'];
 const UNIT_TYPES = ['PLOT', 'SHOP', 'LAND', 'FLAT', 'PLOT_WIRE', 'SHOP_WIRE'];
 
-function AddUnitModal({ open, onClose, purchase, inventory = [], onCreated }) {
+function AddUnitModal({ open, onClose, purchase, inventory = [], onCreated, onCreatedAndNext }) {
   const UNIT_EMPTY = { type: 'PLOT', sl_no: '', location: '', plot_no: '', front_area: '', front_area_details: '', back_area: '', back_area_details: '', rate: '' };
   const [unit,   setUnit]   = useState(UNIT_EMPTY);
   const [saving, setSaving] = useState(false);
@@ -369,19 +370,15 @@ function AddUnitModal({ open, onClose, purchase, inventory = [], onCreated }) {
 
   const set = (key) => (e) => { setUnit(p => ({ ...p, [key]: e.target.value })); setError(''); };
 
+  const validate = () => {
+    if (!unit.rate || Number(unit.rate) <= 0) { setError('Plot Rate is required.'); return false; }
+    if (isSingle && areaMismatch) { setError(`For a Single purchase the unit area must equal the total purchased area (${totalArea} ${areaUnit}). Entered: ${enteredArea} ${areaUnit}.`); return false; }
+    if (areaExceeds) { setError(`Computed area (${enteredArea} ${areaUnit}) exceeds remaining ${remainingArea} ${areaUnit}.`); return false; }
+    return true;
+  };
+
   const handleSave = async () => {
-    if (!unit.rate || Number(unit.rate) <= 0) {
-      setError('Plot Rate is required.');
-      return;
-    }
-    if (isSingle && areaMismatch) {
-      setError(`For a Single purchase the unit area must equal the total purchased area (${totalArea} ${areaUnit}). Entered: ${enteredArea} ${areaUnit}.`);
-      return;
-    }
-    if (areaExceeds) {
-      setError(`Computed area (${enteredArea} ${areaUnit}) exceeds remaining ${remainingArea} ${areaUnit}.`);
-      return;
-    }
+    if (!validate()) return;
     setSaving(true); setError('');
     try {
       await apiPost('/inventory', { ...unit, purchase_id: purchase.id });
@@ -390,10 +387,29 @@ function AddUnitModal({ open, onClose, purchase, inventory = [], onCreated }) {
     finally     { setSaving(false); }
   };
 
+  const handleSaveAndNext = async () => {
+    if (!validate()) return;
+    setSaving(true); setError('');
+    try {
+      await apiPost('/inventory', { ...unit, purchase_id: purchase.id });
+      onCreatedAndNext?.();
+      setUnit({
+        ...UNIT_EMPTY,
+        type:               purchase?.type     || 'PLOT',
+        sl_no:              purchase?.sl_no    || '',
+        location:           purchase?.location || '',
+        plot_no:            '',
+        front_area_details: purchase?.purchased_area_details || '',
+        back_area_details:  purchase?.purchased_area_details || '',
+      });
+    } catch (e) { setError(e.message || 'Failed to create unit'); }
+    finally     { setSaving(false); }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-auto overflow-hidden">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-6xl mx-auto overflow-hidden">
 
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
@@ -443,39 +459,39 @@ function AddUnitModal({ open, onClose, purchase, inventory = [], onCreated }) {
             </div>
           )}
 
-          {/* 4-column field grid */}
-          <div className="grid grid-cols-4 gap-4">
+          {/* 6-column field grid */}
+          <div className="grid grid-cols-6 gap-5">
             {/* Row 1: identifiers */}
-            <div>
+            <div className="col-span-1">
               <label className="block text-xs font-semibold text-gray-500 mb-1.5">Type</label>
               <select value={unit.type} onChange={set('type')}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30 transition">
                 {UNIT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
-            <div>
+            <div className="col-span-2">
               <label className="block text-xs font-semibold text-gray-500 mb-1.5">Plot No</label>
               <input type="text" value={unit.plot_no} onChange={set('plot_no')} placeholder="e.g. P-01"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30 transition placeholder:text-gray-300" />
             </div>
-            <div>
+            <div className="col-span-1">
               <label className="block text-xs font-semibold text-gray-500 mb-1.5">SL No</label>
               <input type="text" value={unit.sl_no} onChange={set('sl_no')} placeholder="Survey / Serial no"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30 transition placeholder:text-gray-300" />
             </div>
-            <div>
+            <div className="col-span-2">
               <label className="block text-xs font-semibold text-gray-500 mb-1.5">Location</label>
               <input type="text" value={unit.location} onChange={set('location')} placeholder="Location / area"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30 transition placeholder:text-gray-300" />
             </div>
 
             {/* Row 2: area measurement */}
-            <div className="col-span-2">
+            <div className="col-span-3">
               <label className="block text-xs font-semibold text-gray-500 mb-1.5">Front Area</label>
               <input type="number" value={unit.front_area} onChange={set('front_area')} placeholder="0"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30 transition placeholder:text-gray-300" />
             </div>
-            <div className="col-span-2">
+            <div className="col-span-3">
               <label className="block text-xs font-semibold text-gray-500 mb-1.5">Back Area</label>
               <input type="number" value={unit.back_area} onChange={set('back_area')} placeholder="0"
                 className={`w-full border rounded-lg px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none transition placeholder:text-gray-300 ${areaExceeds ? 'border-red-400 focus:border-red-400 ring-1 ring-red-200' : 'border-gray-200 focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30'}`} />
@@ -515,6 +531,13 @@ function AddUnitModal({ open, onClose, purchase, inventory = [], onCreated }) {
         <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-end gap-3 bg-gray-50/60">
           <button onClick={onClose} disabled={saving}
             className="text-sm px-4 h-8 border border-gray-200 rounded-lg text-gray-600 hover:bg-white transition disabled:opacity-50">Cancel</button>
+          {!isSingle && (
+            <button onClick={handleSaveAndNext} disabled={saving || areaExceeds || remainingArea <= 0}
+              className="text-sm px-5 h-8 rounded-lg font-semibold border-2 transition disabled:opacity-50 hover:bg-[#875A7B]/5"
+              style={{ color: '#875A7B', borderColor: '#875A7B' }}>
+              {saving ? 'Saving…' : 'Add & Next'}
+            </button>
+          )}
           <button onClick={handleSave} disabled={saving || areaExceeds || remainingArea <= 0}
             className="text-sm px-6 h-8 rounded-lg text-white font-semibold transition disabled:opacity-50" style={{ backgroundColor: '#875A7B' }}>
             {saving ? 'Saving…' : 'Add Unit'}
@@ -580,7 +603,7 @@ function EditUnitModal({ open, onClose, purchase, inventory = [], unitData, onSa
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-auto overflow-hidden">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-6xl mx-auto overflow-hidden">
 
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
@@ -624,33 +647,33 @@ function EditUnitModal({ open, onClose, purchase, inventory = [], unitData, onSa
             </div>
           )}
 
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-6 gap-5">
             {/* Row 1 */}
-            <div>
+            <div className="col-span-1">
               <label className="block text-xs font-semibold text-gray-500 mb-1.5">Type</label>
               <select value={unit.type} onChange={set('type')} className={inputCls}>
                 {UNIT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
-            <div>
+            <div className="col-span-2">
               <label className="block text-xs font-semibold text-gray-500 mb-1.5">Plot No</label>
               <input type="text" value={unit.plot_no} onChange={set('plot_no')} placeholder="e.g. P-01" className={inputCls} />
             </div>
-            <div>
+            <div className="col-span-1">
               <label className="block text-xs font-semibold text-gray-500 mb-1.5">SL No</label>
               <input type="text" value={unit.sl_no} onChange={set('sl_no')} placeholder="Survey / Serial no" className={inputCls} />
             </div>
-            <div>
+            <div className="col-span-2">
               <label className="block text-xs font-semibold text-gray-500 mb-1.5">Location</label>
               <input type="text" value={unit.location} onChange={set('location')} placeholder="Location / area" className={inputCls} />
             </div>
 
             {/* Row 2 */}
-            <div className="col-span-2">
+            <div className="col-span-3">
               <label className="block text-xs font-semibold text-gray-500 mb-1.5">Front Area</label>
               <input type="number" value={unit.front_area} onChange={set('front_area')} placeholder="0" className={inputCls} />
             </div>
-            <div className="col-span-2">
+            <div className="col-span-3">
               <label className="block text-xs font-semibold text-gray-500 mb-1.5">Back Area</label>
               <input type="number" value={unit.back_area} onChange={set('back_area')} placeholder="0"
                 className={`w-full border rounded-lg px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none transition placeholder:text-gray-300 ${areaExceeds ? 'border-red-400 focus:border-red-400 ring-1 ring-red-200' : 'border-gray-200 focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30'}`} />
@@ -1177,7 +1200,7 @@ export default function PurchaseRecordPage() {
                 <div className="col-span-full rounded-lg border px-4 py-3" style={{ backgroundColor: '#875A7B12', borderColor: '#875A7B30' }}>
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total Amount</p>
                   <p className="text-xl font-bold mt-0.5" style={{ color: '#875A7B' }}>{fmtINR(c.total_amount)}</p>
-                  {!editing && form.total_amount_details && <p className="text-xs text-gray-400 mt-0.5">{form.total_amount_details}</p>}
+                  {!editing && form.total_amount_details && form.total_amount_details !== 'null' && <p className="text-xs text-gray-400 mt-0.5">{form.total_amount_details}</p>}
                 </div>
                 {editing && (
                   <div className="col-span-full">
@@ -1458,6 +1481,7 @@ export default function PurchaseRecordPage() {
         purchase={{ ...form, id: Number(params.id) }}
         inventory={inventory}
         onCreated={() => { setShowAddUnit(false); load(); }}
+        onCreatedAndNext={() => load()}
       />
 
       <EditUnitModal

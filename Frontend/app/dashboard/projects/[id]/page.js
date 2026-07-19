@@ -106,8 +106,8 @@ function InventoryPicker({ onPick }) {
     apiGet(url).then(d => setResults(d || [])).catch(() => setResults([])).finally(() => setLoading(false));
   }, [open, search]);
 
-  const close = () => { setOpen(false); setSearch(''); };
-  const pick  = (unit) => { onPick(unit); close(); };
+  const close = () => { setOpen(false); setSearch(''); setResults([]); };
+  const pick  = (unit) => { onPick(unit); setResults(prev => prev.filter(u => u.id !== unit.id)); };
 
   return (
     <>
@@ -153,7 +153,7 @@ function InventoryPicker({ onPick }) {
             </div>
 
             {/* Table */}
-            <div className="overflow-y-auto flex-1">
+            <div className="overflow-y-auto flex-1 min-h-0">
               {loading ? (
                 <div className="py-10 text-center text-sm text-gray-400">Loading…</div>
               ) : results.length === 0 ? (
@@ -203,6 +203,15 @@ function InventoryPicker({ onPick }) {
               )}
             </div>
 
+            {/* Footer */}
+            <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between bg-gray-50/60">
+              <p className="text-xs text-gray-400">Click <span className="font-semibold text-[#875A7B]">Link</span> on any row to add it — modal stays open for multiple selections.</p>
+              <button onClick={close}
+                className="h-8 px-5 text-sm font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-white transition">
+                Done
+              </button>
+            </div>
+
           </div>
         </div>
       )}
@@ -222,6 +231,7 @@ export default function ProjectDetailPage() {
   const [saving,  setSaving]  = useState(false);
   const [delOpen, setDelOpen] = useState(false);
   const [tab,     setTab]     = useState('overview');
+  const [invSearch, setInvSearch] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -254,6 +264,13 @@ export default function ProjectDetailPage() {
   const handleLinkUnit = async (unit) => {
     try {
       await apiPost(`/projects/${id}/link-inventory`, { inventory_id: unit.id });
+      load();
+    } catch { /* ignore */ }
+  };
+
+  const handleUnlinkUnit = async (inventoryId) => {
+    try {
+      await apiDelete(`/projects/${id}/link-inventory/${inventoryId}`);
       load();
     } catch { /* ignore */ }
   };
@@ -518,11 +535,26 @@ export default function ProjectDetailPage() {
         {/* ── Inventory ── */}
         {tab === 'inventory' && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="px-5 py-3 border-b border-gray-50 flex items-center justify-between">
-              <p className="text-xs font-bold text-gray-400">
+            <div className="px-5 py-3 border-b border-gray-50 flex items-center gap-3">
+              <p className="text-xs font-bold text-gray-400 shrink-0">
                 {inventory.length} unit{inventory.length !== 1 ? 's' : ''} in this project
               </p>
-              <InventoryPicker onPick={handleLinkUnit} />
+              {inventory.length > 0 && (
+                <div className="relative flex-1 max-w-xs">
+                  <input
+                    value={invSearch}
+                    onChange={e => setInvSearch(e.target.value)}
+                    placeholder="Search code, plot no, location…"
+                    className="w-full text-xs border border-gray-200 rounded-lg h-7 pl-7 pr-3 focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30 transition"
+                  />
+                  <svg className="w-3.5 h-3.5 text-gray-400 absolute left-2 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+              )}
+              <div className="ml-auto">
+                <InventoryPicker onPick={handleLinkUnit} />
+              </div>
             </div>
             {inventory.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -538,13 +570,25 @@ export default function ProjectDetailPage() {
                   <table className="w-full">
                     <thead>
                       <tr className="bg-gray-50/60">
-                        {['Unit', 'Plot / SL', 'Area', 'Type', 'Status', 'Customer', 'Value', 'Collection', 'Sale'].map(h => (
+                        {['Unit', 'Plot / SL', 'Area', 'Type', 'Status', 'Customer', 'Value', 'Collection', 'Sale', ''].map(h => (
                           <th key={h} className="text-left px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                      {inventory.map(u => {
+                      {inventory
+                        .filter(u => {
+                          if (!invSearch.trim()) return true;
+                          const q = invSearch.toLowerCase();
+                          return (
+                            (u.inventory_code || '').toLowerCase().includes(q) ||
+                            (u.plot_no || '').toLowerCase().includes(q) ||
+                            (u.sl_no   || '').toLowerCase().includes(q) ||
+                            (u.location|| '').toLowerCase().includes(q) ||
+                            (u.type    || '').toLowerCase().includes(q)
+                          );
+                        })
+                        .map(u => {
                         const sale     = u.sales?.[0];
                         const received = Number(sale?.booking_amount || 0) + Number(sale?.advance_payment || 0);
                         const value    = Number(sale?.actual_price || 0);
@@ -588,6 +632,14 @@ export default function ProjectDetailPage() {
                                 <Link href={`/dashboard/sales/${sale.id}`}
                                   className="text-[10px] font-bold text-[#875A7B] hover:underline">{sale.sale_code}</Link>
                               ) : <span className="text-gray-300 text-xs">—</span>}
+                            </td>
+                            <td className="px-4 py-3">
+                              <button
+                                onClick={() => handleUnlinkUnit(u.id)}
+                                className="text-[10px] font-semibold text-red-400 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 px-2 py-1 rounded transition whitespace-nowrap"
+                              >
+                                Unlink
+                              </button>
                             </td>
                           </tr>
                         );

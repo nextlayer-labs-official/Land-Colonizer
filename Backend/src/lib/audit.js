@@ -19,7 +19,7 @@ function auditLog({ req, userId, userName, userEmail, action, entity, entityId, 
   const uid    = userId    ?? req?.user?.id    ?? null;
   const uname  = userName  ?? req?.user?.name  ?? null;
   const uemail = userEmail ?? req?.user?.email ?? null;
-  const ip     = req?.ip   ?? null;
+  const ip     = req?.headers?.['x-forwarded-for']?.split(',')[0]?.trim() || req?.ip || null;
 
   prisma.auditLog.create({
     data: {

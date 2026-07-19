@@ -263,6 +263,7 @@ function InventoryReport() {
     const rows = result.units.map((u, i) => ({
       '#':           i + 1,
       'Unit Code':   u.unit_code,
+      'Plot No':     u.plot_no || '',
       'Project':     u.project?.name || '',
       'Type':        u.area_type || '',
       'Front Area':  fmtNum(u.front_area),
@@ -325,18 +326,19 @@ function InventoryReport() {
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  {['#','Unit Code','Project','Type','Front Area','Back Area','Total Area','Rate / Unit','Total Value','Status'].map(h => (
+                  {['#','Unit Code','Plot No','Project','Type','Front Area','Back Area','Total Area','Rate / Unit','Total Value','Status'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {result.units.length === 0 ? (
-                  <tr><td colSpan={10} className="py-10 text-center text-sm text-gray-400">No inventory found</td></tr>
+                  <tr><td colSpan={11} className="py-10 text-center text-sm text-gray-400">No inventory found</td></tr>
                 ) : result.units.map((u, i) => (
                   <tr key={u.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
                     <td className="px-3 py-2.5"><span className="font-mono text-xs font-semibold text-[#875A7B] bg-[#875A7B]/8 px-1.5 py-0.5 rounded">{u.unit_code}</span></td>
+                    <td className="px-3 py-2.5 text-gray-700 font-medium">{u.plot_no || '—'}</td>
                     <td className="px-3 py-2.5 text-gray-700">{u.project?.name || '—'}</td>
                     <td className="px-3 py-2.5 text-gray-500">{u.area_type || '—'}</td>
                     <td className="px-3 py-2.5 text-gray-600">{fmtN(u.front_area)}</td>

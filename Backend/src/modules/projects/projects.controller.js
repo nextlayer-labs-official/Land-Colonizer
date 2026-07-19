@@ -113,4 +113,15 @@ async function linkInventory(req, res) {
   res.json(withComputed(p));
 }
 
-module.exports = { getProjects, getProjectById, createProject, updateProject, deleteProject, linkInventory };
+async function unlinkInventory(req, res) {
+  const project_id   = Number(req.params.id);
+  const inventory_id = Number(req.params.inventoryId);
+  await prisma.inventory.updateMany({
+    where: { id: inventory_id, project_id },
+    data:  { project_id: null },
+  });
+  const p = await prisma.project.findUnique({ where: { id: project_id }, include: INCLUDE });
+  res.json(withComputed(p));
+}
+
+module.exports = { getProjects, getProjectById, createProject, updateProject, deleteProject, linkInventory, unlinkInventory };

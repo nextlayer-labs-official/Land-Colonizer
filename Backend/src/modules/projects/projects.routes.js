@@ -1,6 +1,6 @@
 const { Router }   = require('express');
 const authenticate = require('../../middleware/authenticate');
-const { getProjects, getProjectById, createProject, updateProject, deleteProject, linkInventory } = require('./projects.controller');
+const { getProjects, getProjectById, createProject, updateProject, deleteProject, linkInventory, unlinkInventory } = require('./projects.controller');
 
 const router = Router();
 router.use(authenticate);
@@ -11,5 +11,6 @@ router.post('/',   createProject);
 router.put('/:id', updateProject);
 router.delete('/:id', deleteProject);
 router.post('/:id/link-inventory', linkInventory);
+router.delete('/:id/link-inventory/:inventoryId', unlinkInventory);
 
 module.exports = router;
