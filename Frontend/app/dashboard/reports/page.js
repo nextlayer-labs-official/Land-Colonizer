@@ -136,7 +136,7 @@ function SalesReport() {
       'Intkaal Number':      s.intkaal_number || '',
       'Vasika':              s.vasika || '',
       'Possession':          s.possession || '',
-      'Sold By':             s.sold_by_name || '',
+      'Entry By':            s.sold_by_name || '',
     }));
     await exportXlsx([{ name: 'Sales', rows }], `sales_report_${new Date().toISOString().slice(0,10)}.xlsx`);
   };
@@ -166,7 +166,7 @@ function SalesReport() {
               <option value="pending">Pending</option>
             </select>
           </Field>
-          <Field label="Sold By">
+          <Field label="Entry By">
             <select value={filters.sold_by_id} onChange={e => set('sold_by_id', e.target.value)} className={selectCls} style={{ minWidth: 150 }}>
               <option value="">All Employees</option>
               {employees.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
@@ -189,7 +189,7 @@ function SalesReport() {
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  {['#','Sale Code','Customer','Broker','Project','Unit','Total Area','Plot Rate','Total Value','Selling Rate','Actual Price','Balance','Status','Reg. Date','Intkaal No.','Vasika','Possession','Sold By'].map(h => (
+                  {['#','Sale Code','Customer','Broker','Project','Unit','Total Area','Plot Rate','Total Value','Selling Rate','Actual Price','Balance','Status','Reg. Date','Intkaal No.','Vasika','Possession','Entry By'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>

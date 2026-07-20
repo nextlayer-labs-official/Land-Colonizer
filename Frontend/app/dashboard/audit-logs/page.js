@@ -81,7 +81,7 @@ const FIELD_LABELS = {
   date_of_registration: 'Date of Registration', vasika: 'Vasika',
   possession: 'Possession', possession_detail: 'Possession Detail',
   sale_confirmed: 'Sale Confirmed', booking_in_received: 'Booking In Received',
-  sold_by_id: 'Sold By (ID)', sold_by_name: 'Sold By',
+  sold_by_id: 'Entry By (ID)', sold_by_name: 'Entry By',
 
   // Inventory
   inventory_code: 'Inventory Code', purchase_id: 'Purchase (ID)',

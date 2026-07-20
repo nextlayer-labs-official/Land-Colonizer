@@ -66,7 +66,7 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false, sho
       </div>
 
       <div>
-        <FieldLabel>Sold By</FieldLabel>
+        <FieldLabel>Entry By</FieldLabel>
         {readOnly ? (
           <div className="min-h-[36px] px-3 py-[7px] bg-gray-50 rounded border border-gray-100 text-sm text-gray-700">
             {form.sold_by_name || <span className="text-gray-300">—</span>}
