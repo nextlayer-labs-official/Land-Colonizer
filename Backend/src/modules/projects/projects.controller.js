@@ -35,8 +35,19 @@ const INCLUDE = {
       area: true, area_unit: true, status: true, type: true,
       sales: {
         where: { status: 'ACTIVE' },
-        select: { id: true, sale_code: true, actual_price: true, booking_amount: true, advance_payment: true,
-          customer: { select: { name: true } } },
+        select: {
+          id: true, sale_code: true, actual_price: true,
+          booking_amount: true, booking_in_received: true, advance_payment: true,
+          customer: { select: { name: true } },
+          installment: {
+            select: Object.fromEntries(
+              [...Array(24)].flatMap((_, i) => [
+                [`inst_${i+1}_amount`, true],
+                [`inst_${i+1}_paid`,   true],
+              ])
+            ),
+          },
+        },
         take: 1, orderBy: { created_at: 'desc' },
       },
     },

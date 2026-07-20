@@ -297,11 +297,24 @@ export default function ProjectDetailPage() {
 
   // ── Derived values ──
   const inventory  = project.inventory || [];
-  const totalVal   = inventory.reduce((s, u) => s + Number(u.sales?.[0]?.actual_price   || 0), 0);
-  const totalRcvd  = inventory.reduce((s, u) => {
-    const sale = u.sales?.[0];
-    return s + Number(sale?.booking_amount || 0) + Number(sale?.advance_payment || 0);
-  }, 0);
+
+  function saleReceived(sale) {
+    if (!sale) return 0;
+    const booking = sale.booking_in_received ? Number(sale.booking_amount || 0) : 0;
+    const advance = Number(sale.advance_payment || 0);
+    let instTotal = 0;
+    if (sale.installment) {
+      for (let n = 1; n <= 24; n++) {
+        if (sale.installment[`inst_${n}_paid`]) {
+          instTotal += Number(sale.installment[`inst_${n}_amount`] || 0);
+        }
+      }
+    }
+    return booking + advance + instTotal;
+  }
+
+  const totalVal   = inventory.reduce((s, u) => s + Number(u.sales?.[0]?.actual_price || 0), 0);
+  const totalRcvd  = inventory.reduce((s, u) => s + saleReceived(u.sales?.[0]), 0);
   const totalBal   = totalVal - totalRcvd;
   const pct        = totalVal > 0 ? Math.min(100, Math.round((totalRcvd / totalVal) * 100)) : 0;
   const statusCfg  = STATUS_CFG[project.status] || STATUS_CFG.OPEN;
@@ -607,7 +620,7 @@ export default function ProjectDetailPage() {
                         })
                         .map(u => {
                         const sale     = u.sales?.[0];
-                        const received = Number(sale?.booking_amount || 0) + Number(sale?.advance_payment || 0);
+                        const received = saleReceived(sale);
                         const value    = Number(sale?.actual_price || 0);
                         const colPct   = value > 0 ? Math.min(100, Math.round((received / value) * 100)) : 0;
                         const stCfg    = INV_STATUS.find(s => s.key === (u.status || '').toLowerCase());
@@ -705,9 +718,9 @@ export default function ProjectDetailPage() {
                     <tbody className="divide-y divide-gray-50">
                       {inventory.map(u => {
                         const sale     = u.sales?.[0];
-                        const booking  = Number(sale?.booking_amount  || 0);
+                        const booking  = sale?.booking_in_received ? Number(sale?.booking_amount  || 0) : 0;
                         const advance  = Number(sale?.advance_payment || 0);
-                        const received = booking + advance;
+                        const received = saleReceived(sale);
                         const value    = Number(sale?.actual_price || 0);
                         const balance  = value - received;
                         const colPct   = value > 0 ? Math.min(100, Math.round((received / value) * 100)) : 0;
@@ -744,7 +757,7 @@ export default function ProjectDetailPage() {
                         <td className="px-4 py-3 text-xs text-gray-500" colSpan={3}>Total</td>
                         <td className="px-4 py-3 text-xs text-gray-900">{totalVal ? fmtINR(totalVal) : '—'}</td>
                         <td className="px-4 py-3 text-xs text-gray-600">
-                          {fmtINR(inventory.reduce((s, u) => s + Number(u.sales?.[0]?.booking_amount || 0), 0))}
+                          {fmtINR(inventory.reduce((s, u) => { const sale = u.sales?.[0]; return s + (sale?.booking_in_received ? Number(sale?.booking_amount || 0) : 0); }, 0))}
                         </td>
                         <td className="px-4 py-3 text-xs text-gray-600">
                           {fmtINR(inventory.reduce((s, u) => s + Number(u.sales?.[0]?.advance_payment || 0), 0))}
