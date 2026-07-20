@@ -12,6 +12,7 @@ import Pagination from '@/components/Pagination';
 const fmtINR  = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
 const fmtNum  = (n) => Number(n || 0).toLocaleString('en-IN');
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+const nn      = (v) => (v === 'null' || v == null ? null : v);
 
 function toCSV(headers, rows) {
   const esc = v => { const s = v == null ? '' : String(v); return (s.includes(',') || s.includes('"') || s.includes('\n')) ? `"${s.replace(/"/g,'""')}"` : s; };
@@ -716,12 +717,12 @@ export default function PurchasesPage() {
                         </span>
                       )}
                     </td>
-                    <td className="px-3 py-2.5 font-medium text-gray-900">{row.plot_no || row.sl_no || '—'}</td>
-                    <td className="px-3 py-2.5 text-gray-600 max-w-[140px] truncate">{row.location || '—'}</td>
+                    <td className="px-3 py-2.5 font-medium text-gray-900">{nn(row.plot_no) || nn(row.sl_no) || '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-600 max-w-[140px] truncate">{nn(row.location) || '—'}</td>
                     <td className="px-3 py-2.5 text-right text-gray-700">
-                      {row.purchased_area ? `${fmtNum(row.purchased_area)}${row.purchased_area_details ? ` ${row.purchased_area_details}` : ''}` : '—'}
+                      {nn(row.purchased_area) ? `${fmtNum(row.purchased_area)}${nn(row.purchased_area_details) ? ` ${row.purchased_area_details}` : ''}` : '—'}
                     </td>
-                    <td className="px-3 py-2.5 text-right text-gray-700">{row.rate ? fmtINR(row.rate) : '—'}</td>
+                    <td className="px-3 py-2.5 text-right text-gray-700">{nn(row.rate) ? fmtINR(row.rate) : '—'}</td>
                     <td className="px-3 py-2.5 text-right font-semibold text-gray-900">{fmtINR(row.total_amount)}</td>
                     <td className="px-3 py-2.5 text-right text-gray-700">{fmtINR(row.effective_balance ?? row.balance_to_pay)}</td>
                     <td className="px-3 py-2.5 min-w-[120px]">
