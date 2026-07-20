@@ -123,7 +123,7 @@ function InventoryPicker({ onPick }) {
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={close}>
           <div className="absolute inset-0 bg-black/40" />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden"
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col overflow-hidden"
             style={{ maxHeight: '80vh' }}
             onClick={e => e.stopPropagation()}>
 
@@ -264,14 +264,31 @@ export default function ProjectDetailPage() {
   const handleLinkUnit = async (unit) => {
     try {
       await apiPost(`/projects/${id}/link-inventory`, { inventory_id: unit.id });
-      load();
+      setProject(prev => {
+        const statusKey = (unit.status || '').toLowerCase();
+        return {
+          ...prev,
+          inventory: [...(prev.inventory || []), { ...unit, sales: [] }],
+          unit_count: (prev.unit_count || 0) + 1,
+          ...(statusKey ? { [statusKey]: (prev[statusKey] || 0) + 1 } : {}),
+        };
+      });
     } catch { /* ignore */ }
   };
 
   const handleUnlinkUnit = async (inventoryId) => {
+    const unitToRemove = project.inventory?.find(u => u.id === inventoryId);
     try {
       await apiDelete(`/projects/${id}/link-inventory/${inventoryId}`);
-      load();
+      setProject(prev => {
+        const statusKey = (unitToRemove?.status || '').toLowerCase();
+        return {
+          ...prev,
+          inventory: (prev.inventory || []).filter(u => u.id !== inventoryId),
+          unit_count: Math.max(0, (prev.unit_count || 0) - 1),
+          ...(statusKey ? { [statusKey]: Math.max(0, (prev[statusKey] || 0) - 1) } : {}),
+        };
+      });
     } catch { /* ignore */ }
   };
 
