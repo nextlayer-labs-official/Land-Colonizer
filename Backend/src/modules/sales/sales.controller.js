@@ -146,6 +146,10 @@ async function getSaleById(req, res) {
 
 async function createSale(req, res) {
   const data = sanitize(req.body);
+  if (!data.sold_by_id) {
+    data.sold_by_id   = req.user?.id   ?? null;
+    data.sold_by_name = req.user?.name ?? null;
+  }
   const s = await prisma.sale.create({
     data: { ...data, created_by_id: req.user?.id ?? null, created_by_name: req.user?.name ?? null },
   });
