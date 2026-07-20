@@ -41,7 +41,7 @@ async function getPurchasePrefix() {
 
 function sanitize(body) {
   const num = (v) => (v !== undefined && v !== '' && v !== null ? parseFloat(v) : null);
-  const str = (v) => (v !== undefined && v !== '' ? String(v).trim() : null);
+  const str = (v) => (v !== undefined && v !== '' && v !== null ? String(v).trim() : null);
 
   return {
     purchase_category:           body.purchase_category === 'DIVIDED' ? 'DIVIDED' : 'SINGLE',

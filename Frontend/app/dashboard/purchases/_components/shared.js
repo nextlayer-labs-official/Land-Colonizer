@@ -87,11 +87,14 @@ export function FieldLabel({ children, required }) {
   );
 }
 
+const clean = (v) => (v === 'null' || v == null ? '' : v);
+
 export function FInput({ value, onChange, type = 'text', placeholder, readOnly, autoFocus }) {
+  const v = clean(value);
   if (readOnly) {
     return (
       <div className="min-h-[36px] px-3 py-[7px] bg-gray-50 rounded border border-gray-100 text-sm text-gray-700">
-        {value || <span className="text-gray-300">—</span>}
+        {v || <span className="text-gray-300">—</span>}
       </div>
     );
   }
@@ -99,7 +102,7 @@ export function FInput({ value, onChange, type = 'text', placeholder, readOnly, 
     <input
       autoFocus={autoFocus}
       type={type}
-      value={value ?? ''}
+      value={v}
       onChange={onChange}
       placeholder={placeholder}
       className="w-full border border-gray-200 rounded px-3 py-[7px] text-sm text-gray-800 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30 transition placeholder:text-gray-300"
@@ -108,16 +111,17 @@ export function FInput({ value, onChange, type = 'text', placeholder, readOnly, 
 }
 
 export function FTextarea({ value, onChange, placeholder, rows = 2, readOnly }) {
+  const v = clean(value);
   if (readOnly) {
     return (
       <div className="min-h-[60px] px-3 py-2 bg-gray-50 rounded border border-gray-100 text-sm text-gray-700 whitespace-pre-wrap">
-        {value || <span className="text-gray-300">—</span>}
+        {v || <span className="text-gray-300">—</span>}
       </div>
     );
   }
   return (
     <textarea
-      value={value ?? ''}
+      value={v}
       onChange={onChange}
       placeholder={placeholder}
       rows={rows}
