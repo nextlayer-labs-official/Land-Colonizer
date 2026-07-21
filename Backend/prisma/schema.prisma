@@ -235,6 +235,8 @@ model Sale {
   sale_confirmed            Boolean          @default(false)
   booking_in_received       Boolean          @default(true)
   registration_completed    Boolean          @default(false)
+  attorney_completed        Boolean          @default(false)
+  full_final_completed      Boolean          @default(false)
   created_by_id             Int?
   created_by_name           String?
   sold_by_id                Int?
@@ -534,6 +536,8 @@ model Purchase {
   remaining_paid               Boolean          @default(false)
   registration_date            DateTime?
   registration_completed       Boolean          @default(false)
+  attorney_completed           Boolean          @default(false)
+  full_final_completed         Boolean          @default(false)
   registration_details         String?          @db.Text
   brokerage                    Decimal?         @db.Decimal(10, 2)
   brokerage_details            String?

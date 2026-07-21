@@ -780,7 +780,7 @@ body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#1f2937;backgro
   ).join('')}
 </div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
-  <div>${secTitle('Property Information')}${infoBox([['Location',sv(form.location)],['SL No',sv(form.sl_no)],['Plot No',sv(form.plot_no)],['Type',TYPE_MAP[form.type]||form.type],['Category',form.purchase_category==='DIVIDED'?'Divided':'Single'],['Registration',form.registration_completed?'Completed':'Pending'],['Reg. Date',df(form.registration_date)]])}</div>
+  <div>${secTitle('Property Information')}${infoBox([['Location',sv(form.location)],['SL No',sv(form.sl_no)],['Plot No',sv(form.plot_no)],['Type',TYPE_MAP[form.type]||form.type],['Category',form.purchase_category==='DIVIDED'?'Divided':'Single'],['Registration',form.full_final_completed?'Full and Final':form.attorney_completed?'Attorney':form.registration_completed?'Registered':'Pending'],['Reg. Date',df(form.registration_date)]])}</div>
   <div>${secTitle('Brokers')}${infoBox([['Purchase Broker',sv(form.purchase_broker_name||(form._purchase_broker&&form._purchase_broker.name))],['Purchase Broker Details',sv(form.purchase_broker_details)],['Sell Broker',sv(form.sell_broker_name||(form._sell_broker&&form._sell_broker.name))],['Sell Broker Details',sv(form.sell_broker_details)],['Seller Details',sv(form.seller_details)]])}</div>
 </div>
 <div style="margin-bottom:14px;">${secTitle('Financial Summary')}
@@ -1302,18 +1302,44 @@ export default function PurchaseRecordPage() {
                 <div className="space-y-4">
                   <FInput label="Registration Date (Target)" value={form.registration_date} onChange={set('registration_date')} type="date" readOnly={!editing} />
                   <FTextarea label="Registration Details" value={form.registration_details} onChange={set('registration_details')} placeholder="Survey no, document no..." rows={2} readOnly={!editing} />
-                  <label className={`flex items-center gap-2.5 select-none ${!editing ? 'pointer-events-none' : 'cursor-pointer'}`}>
-                    <input
-                      type="checkbox"
-                      checked={!!form.registration_completed}
-                      onChange={(e) => setForm(p => ({ ...p, registration_completed: e.target.checked }))}
-                      disabled={!editing}
-                      className="w-4 h-4 rounded border-gray-300 accent-emerald-600"
-                    />
-                    <span className={`text-sm font-semibold ${form.registration_completed ? 'text-emerald-700' : 'text-gray-500'}`}>
-                      Registration Completed
-                    </span>
-                  </label>
+                  <div className="flex flex-wrap gap-5">
+                    <label className={`flex items-center gap-2.5 select-none ${!editing ? 'pointer-events-none' : 'cursor-pointer'}`}>
+                      <input
+                        type="checkbox"
+                        checked={!!form.registration_completed}
+                        onChange={(e) => setForm(p => ({ ...p, registration_completed: e.target.checked }))}
+                        disabled={!editing}
+                        className="w-4 h-4 rounded border-gray-300 accent-emerald-600"
+                      />
+                      <span className={`text-sm font-semibold ${form.registration_completed ? 'text-emerald-700' : 'text-gray-500'}`}>
+                        Registration Completed
+                      </span>
+                    </label>
+                    <label className={`flex items-center gap-2.5 select-none ${!editing ? 'pointer-events-none' : 'cursor-pointer'}`}>
+                      <input
+                        type="checkbox"
+                        checked={!!form.attorney_completed}
+                        onChange={(e) => setForm(p => ({ ...p, attorney_completed: e.target.checked }))}
+                        disabled={!editing}
+                        className="w-4 h-4 rounded border-gray-300 accent-blue-600"
+                      />
+                      <span className={`text-sm font-semibold ${form.attorney_completed ? 'text-blue-700' : 'text-gray-500'}`}>
+                        Attorney Completed
+                      </span>
+                    </label>
+                    <label className={`flex items-center gap-2.5 select-none ${!editing ? 'pointer-events-none' : 'cursor-pointer'}`}>
+                      <input
+                        type="checkbox"
+                        checked={!!form.full_final_completed}
+                        onChange={(e) => setForm(p => ({ ...p, full_final_completed: e.target.checked }))}
+                        disabled={!editing}
+                        className="w-4 h-4 rounded border-gray-300 accent-violet-600"
+                      />
+                      <span className={`text-sm font-semibold ${form.full_final_completed ? 'text-violet-700' : 'text-gray-500'}`}>
+                        Full and Final Completed
+                      </span>
+                    </label>
+                  </div>
                 </div>
               </Card>
               <Card title="Notes">

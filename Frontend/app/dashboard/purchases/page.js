@@ -48,17 +48,19 @@ function effPct(row) {
 
 function getStage(row) {
   const pct = effPct(row);
-  if (row.registration_completed && pct >= 100) return 'Completed';
+  if (row.full_final_completed)   return 'Full and Final';
+  if (row.attorney_completed)     return 'Attorney';
   if (row.registration_completed) return 'Registered';
   if (pct > 0) return 'In Progress';
   return 'Draft';
 }
 
 const STAGE_COLOR = {
-  Draft:       'text-gray-500',
-  'In Progress': 'text-amber-600',
-  Registered:  'text-blue-600',
-  Completed:   'text-emerald-600',
+  Draft:           'text-gray-500',
+  'In Progress':   'text-amber-600',
+  Registered:      'text-blue-600',
+  Attorney:        'text-indigo-600',
+  'Full and Final': 'text-violet-600',
 };
 
 // ─── Archive / Unarchive confirm ──────────────────────────────────────────────

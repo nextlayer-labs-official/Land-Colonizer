@@ -191,7 +191,7 @@ function SaleVisual({ form }) {
           </svg>
         </div>
         {/* status dot */}
-        <span className={`absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full border-2 border-white ${form.registration_completed ? 'bg-blue-500' : form.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-gray-400'}`} />
+        <span className={`absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full border-2 border-white ${form.full_final_completed ? 'bg-violet-500' : form.attorney_completed ? 'bg-indigo-500' : form.registration_completed ? 'bg-blue-500' : form.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-gray-400'}`} />
       </div>
 
       {/* Sale code */}
@@ -212,8 +212,8 @@ function SaleVisual({ form }) {
             {POSS_LABEL[form.possession] || form.possession}
           </span>
         )}
-        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${form.registration_completed ? 'bg-blue-50 text-blue-700' : form.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
-          {form.registration_completed ? '● Registered' : form.status === 'ACTIVE' ? '● Active' : '● Inactive'}
+        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${form.full_final_completed ? 'bg-violet-50 text-violet-700' : form.attorney_completed ? 'bg-indigo-50 text-indigo-700' : form.registration_completed ? 'bg-blue-50 text-blue-700' : form.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+          {form.full_final_completed ? '● Full and Final' : form.attorney_completed ? '● Attorney' : form.registration_completed ? '● Registered' : form.status === 'ACTIVE' ? '● Active' : '● Inactive'}
         </span>
       </div>
     </div>

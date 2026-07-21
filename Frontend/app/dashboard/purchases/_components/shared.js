@@ -21,7 +21,7 @@ export const EMPTY = {
   advance_paid: '',         advance_payment_details: '',
   instalment_details: '',
   remaining_paid: false,
-  registration_date: '',    registration_completed: false,  registration_details: '',
+  registration_date: '',    registration_completed: false,  attorney_completed: false,  full_final_completed: false,  registration_details: '',
   brokerage: '',            brokerage_details: '',
   extra_expenses: '',       extra_expenses_details: '',
   registration_charges: '', registration_charges_details: '',
@@ -56,13 +56,14 @@ export function getStageIndex(form, c, instPaid = 0) {
   const total  = c.total_amount || 0;
   const effBal = Math.max(0, c.balance_to_pay - instPaid);
   const effPct = total > 0 ? Math.min(100, ((total - effBal) / total) * 100) : c.percentage_paid;
-  if (form.registration_completed && effPct >= 100) return 3;
+  if (form.full_final_completed) return 4;
+  if (form.attorney_completed)   return 3;
   if (form.registration_completed) return 2;
   if (effPct > 0) return 1;
   return 0;
 }
 
-export const STAGES = ['Draft', 'In Progress', 'Registered', 'Completed'];
+export const STAGES = ['Draft', 'In Progress', 'Registered', 'Attorney', 'Full and Final'];
 
 export const fmtINR  = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 export const fmtPct  = (n) => `${Number(n || 0).toFixed(1)}%`;

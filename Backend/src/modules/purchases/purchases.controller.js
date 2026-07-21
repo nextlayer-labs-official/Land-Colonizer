@@ -73,6 +73,8 @@ function sanitize(body) {
     remaining_paid:              body.remaining_paid === true || body.remaining_paid === 'true',
     registration_date:           body.registration_date ? new Date(body.registration_date) : null,
     registration_completed:      body.registration_completed === true || body.registration_completed === 'true',
+    attorney_completed:          body.attorney_completed     === true || body.attorney_completed     === 'true',
+    full_final_completed:        body.full_final_completed   === true || body.full_final_completed   === 'true',
     registration_details:        str(body.registration_details),
     brokerage:                   num(body.brokerage),
     brokerage_details:           str(body.brokerage_details),

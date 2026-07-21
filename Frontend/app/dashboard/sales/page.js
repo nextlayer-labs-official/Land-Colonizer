@@ -323,7 +323,17 @@ export default function SalesPage() {
                   </span>
                 </td>
                 <td className="px-3 py-2.5">
-                  {row.registration_completed ? (
+                  {row.full_final_completed ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-violet-50 text-violet-700">
+                      <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
+                      Full and Final
+                    </span>
+                  ) : row.attorney_completed ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700">
+                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                      Attorney
+                    </span>
+                  ) : row.registration_completed ? (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
                       <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
                       Registered

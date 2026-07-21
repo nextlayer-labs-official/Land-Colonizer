@@ -131,7 +131,7 @@ function SalesReport() {
       'Selling Rate':        fmtNum(s.selling_rate),
       'Actual Price':        fmtNum(s.actual_price),
       'Balance':             fmtNum(s.balance_amount),
-      'Status':              s.registration_completed ? 'Registered' : s.status === 'ACTIVE' ? 'Active' : 'Inactive',
+      'Status':              s.full_final_completed ? 'Full and Final' : s.attorney_completed ? 'Attorney' : s.registration_completed ? 'Registered' : s.status === 'ACTIVE' ? 'Active' : 'Inactive',
       'Date of Registration': fmtDate(s.date_of_registration),
       'Intkaal Number':      s.intkaal_number || '',
       'Vasika':              s.vasika || '',
@@ -212,9 +212,9 @@ function SalesReport() {
                     <td className="px-3 py-2.5 font-medium text-gray-800 whitespace-nowrap">{s.actual_price ? '₹ ' + fmt(s.actual_price) : '—'}</td>
                     <td className="px-3 py-2.5 text-orange-600 whitespace-nowrap">{s.balance_amount ? '₹ ' + fmt(s.balance_amount) : '—'}</td>
                     <td className="px-3 py-2.5 whitespace-nowrap">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${s.registration_completed ? 'bg-blue-50 text-blue-700' : s.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${s.registration_completed ? 'bg-blue-500' : s.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-gray-400'}`} />
-                        {s.registration_completed ? 'Registered' : s.status === 'ACTIVE' ? 'Active' : 'Inactive'}
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${s.full_final_completed ? 'bg-violet-50 text-violet-700' : s.attorney_completed ? 'bg-indigo-50 text-indigo-700' : s.registration_completed ? 'bg-blue-50 text-blue-700' : s.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${s.full_final_completed ? 'bg-violet-500' : s.attorney_completed ? 'bg-indigo-500' : s.registration_completed ? 'bg-blue-500' : s.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-gray-400'}`} />
+                        {s.full_final_completed ? 'Full and Final' : s.attorney_completed ? 'Attorney' : s.registration_completed ? 'Registered' : s.status === 'ACTIVE' ? 'Active' : 'Inactive'}
                       </span>
                     </td>
                     <td className="px-3 py-2.5 text-xs text-gray-400 whitespace-nowrap">{fmtDate(s.date_of_registration)}</td>

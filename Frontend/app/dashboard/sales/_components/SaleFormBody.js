@@ -367,7 +367,7 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false, sho
 
         <SectionDivider title="Registration & Possession" />
 
-        <div className="col-span-full">
+        <div className="col-span-full flex flex-wrap gap-6">
           <label className={`flex items-center gap-2.5 select-none ${readOnly ? 'pointer-events-none' : 'cursor-pointer'}`}>
             <input
               type="checkbox"
@@ -378,6 +378,30 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false, sho
             />
             <span className={`text-sm font-semibold ${form.registration_completed ? 'text-emerald-700' : 'text-gray-500'}`}>
               Registration Completed
+            </span>
+          </label>
+          <label className={`flex items-center gap-2.5 select-none ${readOnly ? 'pointer-events-none' : 'cursor-pointer'}`}>
+            <input
+              type="checkbox"
+              checked={!!form.attorney_completed}
+              onChange={(e) => set('attorney_completed')({ target: { value: e.target.checked } })}
+              disabled={readOnly}
+              className="w-4 h-4 rounded border-gray-300 accent-blue-600"
+            />
+            <span className={`text-sm font-semibold ${form.attorney_completed ? 'text-blue-700' : 'text-gray-500'}`}>
+              Attorney Completed
+            </span>
+          </label>
+          <label className={`flex items-center gap-2.5 select-none ${readOnly ? 'pointer-events-none' : 'cursor-pointer'}`}>
+            <input
+              type="checkbox"
+              checked={!!form.full_final_completed}
+              onChange={(e) => set('full_final_completed')({ target: { value: e.target.checked } })}
+              disabled={readOnly}
+              className="w-4 h-4 rounded border-gray-300 accent-violet-600"
+            />
+            <span className={`text-sm font-semibold ${form.full_final_completed ? 'text-violet-700' : 'text-gray-500'}`}>
+              Full and Final Completed
             </span>
           </label>
         </div>

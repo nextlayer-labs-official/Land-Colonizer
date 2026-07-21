@@ -29,7 +29,7 @@ export const EMPTY = {
   intkaal_number: '', date_of_registration: '',
   vasika: '', possession: 'PENDING', possession_detail: '',
   other_details: '', status: 'ACTIVE', booking_in_received: true,
-  registration_completed: false,
+  registration_completed: false, attorney_completed: false, full_final_completed: false,
   sold_by_id: '', sold_by_name: '',
 };
 

@@ -46,7 +46,7 @@ const FIELD_LABELS = {
   rate_details: 'Rate Details', total_amount_details: 'Total Amount Details',
   advance_paid: 'Advance Paid', advance_payment_details: 'Advance Payment Details',
   instalment_details: 'Instalment Details', remaining_paid: 'Remaining Paid',
-  registration_date: 'Registration Date', registration_completed: 'Registration Completed',
+  registration_date: 'Registration Date', registration_completed: 'Registration Completed', attorney_completed: 'Attorney Completed', full_final_completed: 'Full and Final Completed',
   registration_details: 'Registration Details', registration_charges: 'Registration Charges',
   registration_charges_details: 'Reg. Charges Details',
   brokerage: 'Brokerage', brokerage_details: 'Brokerage Details',
