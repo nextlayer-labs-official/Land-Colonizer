@@ -8,12 +8,7 @@ import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const fmt    = (n) => Number(n || 0).toLocaleString('en-IN');
 const fmtINR = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
-const fmtCr  = (n) => {
-  const v = Number(n || 0);
-  if (v >= 10_000_000) return `₹${(v / 10_000_000).toFixed(2)} Cr`;
-  if (v >= 100_000)    return `₹${(v / 100_000).toFixed(2)} L`;
-  return v > 0 ? `₹${v.toLocaleString('en-IN')}` : '₹0';
-};
+const fmtCr  = (n) => { const v = Number(n || 0); return `₹${v.toLocaleString('en-IN')}`; };
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -695,7 +690,6 @@ export default function ProjectDetailPage() {
                 <div key={label} className={`${bg} rounded-2xl border ${borderColor} shadow-sm p-5`}>
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">{label}</p>
                   <p className={`text-2xl font-black ${color}`}>{fmtCr(value)}</p>
-                  <p className="text-xs text-gray-400 mt-1">{fmtINR(value)}</p>
                 </div>
               ))}
             </div>

@@ -7,12 +7,7 @@ import { apiGet, apiDelete } from '@/lib/api';
 import Pagination from '@/components/Pagination';
 
 const fmt    = (n) => Number(n || 0).toLocaleString('en-IN');
-const fmtCr  = (n) => {
-  const v = Number(n || 0);
-  if (v >= 10_000_000) return `₹${(v / 10_000_000).toFixed(2)} Cr`;
-  if (v >= 100_000)    return `₹${(v / 100_000).toFixed(2)} L`;
-  return v > 0 ? `₹${v.toLocaleString('en-IN')}` : '—';
-};
+const fmtCr  = (n) => { const v = Number(n || 0); return v > 0 ? `₹${v.toLocaleString('en-IN')}` : '—'; };
 
 const STATUS_COLOR = {
   OPEN:    'bg-emerald-50 text-emerald-700',
