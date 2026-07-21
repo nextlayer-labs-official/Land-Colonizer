@@ -189,10 +189,10 @@ function generateInventoryReportHTML(form, inv, activeSale, companyName = 'Compa
     }
   }
   const totalVal    = Number(activeSale?.actual_price    || 0);
-  const bookingAmt  = Number(activeSale?.booking_amount  || 0);
+  const bookingAmt  = activeSale?.booking_in_received ? Number(activeSale?.booking_amount || 0) : 0;
   const advanceAmt  = Number(activeSale?.advance_payment || 0);
-  const received    = bookingAmt + advanceAmt;
-  const balAmt      = totalVal > 0 ? Math.max(0, totalVal - advanceAmt - instPaidAmt) : 0;
+  const received    = bookingAmt + advanceAmt + instPaidAmt;
+  const balAmt      = totalVal > 0 ? Math.max(0, totalVal - received) : 0;
   const customer    = activeSale?.customer;
 
   return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/>
@@ -381,8 +381,6 @@ export default function InventoryRecordPage() {
 
   // Financial from active sale
   const totalValue   = Number(activeSale?.actual_price    || 0);
-  const received     = Number(activeSale?.booking_amount  || 0) + Number(activeSale?.advance_payment || 0);
-  const balanceAmt   = totalValue > 0 ? Math.max(0, totalValue - Number(activeSale?.advance_payment || 0)) : 0;
   const netAmt       = Number(activeSale?.net_amount      || 0);
 
   // Installment summary from activeSale.installment
@@ -396,6 +394,9 @@ export default function InventoryRecordPage() {
       if (inst[`inst_${n}_paid`]) { instPaidCount++; instTotalPaid += Number(inst[`inst_${n}_amount`] || 0); }
     }
   }
+  const bookingRcvd = activeSale?.booking_in_received ? Number(activeSale?.booking_amount || 0) : 0;
+  const received    = bookingRcvd + Number(activeSale?.advance_payment || 0) + instTotalPaid;
+  const balanceAmt  = totalValue > 0 ? Math.max(0, totalValue - received) : 0;
 
   const TABS = [
     { id: 'overview',      label: 'Overview' },

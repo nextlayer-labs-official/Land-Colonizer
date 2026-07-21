@@ -57,7 +57,7 @@ const INCLUDE = {
   sales: {
     select: {
       id: true, sale_code: true, sale_date: true, status: true, type: true, possession: true,
-      booking_amount: true, advance_payment: true, date_of_registration: true, registration_completed: true,
+      booking_amount: true, booking_in_received: true, advance_payment: true, date_of_registration: true, registration_completed: true,
       actual_price: true, balance_amount: true, net_amount: true, selling_rate: true,
       customer: { select: { id: true, customer_code: true, name: true, phone: true, email: true } },
       broker:   { select: { id: true, broker_code: true, name: true } },
