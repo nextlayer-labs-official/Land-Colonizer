@@ -1750,8 +1750,10 @@ export default function SaleDetailPage() {
   const [linkedProject, setLinkedProject] = useState(null);
   const [projectSaving, setProjectSaving] = useState(false);
 
-  const canEdit   = can('SALE_EDIT')   || me?.is_system;
-  const canDelete = can('SALE_DELETE') || me?.is_system;
+  const canEdit             = can('SALE_EDIT')               || me?.is_system;
+  const canDelete           = can('SALE_DELETE')             || me?.is_system;
+  const canEditBooking      = can('SALE_BOOKING_MANAGE')     || me?.is_system || canEdit;
+  const canEditInstallment  = can('SALE_INSTALLMENT_MANAGE') || me?.is_system || canEdit;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -2208,7 +2210,7 @@ export default function SaleDetailPage() {
             {tab === 'bookings' && (
               <BookingPanel
                 saleId={params.id}
-                canEdit={canEdit}
+                canEdit={canEditBooking}
                 saleAdvance={form.advance_payment}
                 saleAdvanceDate={form.advance_payment_date}
                 saleAdvanceDetails={form.advance_payment_details}
@@ -2219,7 +2221,7 @@ export default function SaleDetailPage() {
             {/* Tab: Installments */}
             {tab === 'installments' && (
               <div className="p-5">
-                <InstallmentPanel saleId={params.id} canEdit={canEdit} onTotalPaidChange={setTotalInstPaid} />
+                <InstallmentPanel saleId={params.id} canEdit={canEditInstallment} onTotalPaidChange={setTotalInstPaid} />
               </div>
             )}
 
