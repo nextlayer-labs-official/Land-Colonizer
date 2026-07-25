@@ -595,7 +595,7 @@ export default function ProjectDetailPage() {
                   <table className="w-full">
                     <thead>
                       <tr className="bg-gray-50/60">
-                        {['Unit', 'Plot / SL', 'Area', 'Type', 'Status', 'Customer', 'Value', 'Collection', 'Sale', ''].map(h => (
+                        {['Unit', 'Plot / SL', 'Area', 'Type', 'Status', 'Customer', 'Value', 'Received', 'Balance', 'Net Income', 'Collection', 'Sale', ''].map(h => (
                           <th key={h} className="text-left px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                         ))}
                       </tr>
@@ -642,6 +642,9 @@ export default function ProjectDetailPage() {
                             </td>
                             <td className="px-4 py-3 text-xs text-gray-700 font-medium">{sale?.customer?.name || '—'}</td>
                             <td className="px-4 py-3 text-xs font-bold text-gray-800 whitespace-nowrap">{value ? fmtINR(value) : '—'}</td>
+                            <td className="px-4 py-3 text-xs font-bold text-emerald-700 whitespace-nowrap">{received ? fmtINR(received) : '—'}</td>
+                            <td className="px-4 py-3 text-xs font-semibold text-amber-700 whitespace-nowrap">{value > 0 ? fmtINR(Math.max(0, value - received)) : '—'}</td>
+                            <td className="px-4 py-3 text-xs font-semibold text-[#875A7B] whitespace-nowrap">{sale?.net_amount ? fmtINR(sale.net_amount) : '—'}</td>
                             <td className="px-4 py-3">
                               {value > 0 ? (
                                 <div className="flex items-center gap-2 min-w-[80px]">
