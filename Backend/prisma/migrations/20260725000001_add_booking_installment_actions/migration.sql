@@ -2,10 +2,6 @@
 ALTER TABLE `Permission`
   MODIFY `action` ENUM('CREATE','VIEW','EDIT','DELETE','APPROVE','FINANCE','ARCHIVE','BOOKING','INSTALLMENT') NOT NULL;
 
--- Drop the unique constraint on (module_id, action) so multiple MANAGE-style
--- permissions can coexist in the same module with different action types.
-ALTER TABLE `Permission` DROP INDEX `Permission_module_id_action_key`;
-
 -- Remove any incorrectly-inserted MANAGE permissions (invalid enum value from earlier attempt)
 DELETE FROM `Permission` WHERE `code` IN ('SALE_BOOKING_MANAGE','SALE_INSTALLMENT_MANAGE');
 

@@ -58,6 +58,8 @@ model Permission {
   code            String           @unique
   created_at      DateTime         @default(now())
   rolePermissions RolePermission[]
+
+  @@unique([module_id, action])
 }
 
 enum PermissionAction {
