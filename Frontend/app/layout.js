@@ -18,6 +18,7 @@ const jbMono = JetBrains_Mono({
 
 export const metadata = {
   description: "Real Estate Management System",
+  robots: { index: false, follow: false, nocache: true },
 };
 
 export default function RootLayout({ children }) {
