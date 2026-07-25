@@ -55,8 +55,8 @@ SELECT m.id, 'CREATE', 'SALE_CREATE', NOW() FROM `Module` m WHERE m.slug = 'sale
 SELECT m.id, 'EDIT',   'SALE_EDIT',   NOW() FROM `Module` m WHERE m.slug = 'sale' UNION ALL
 SELECT m.id, 'DELETE',  'SALE_DELETE',  NOW() FROM `Module` m WHERE m.slug = 'sale' UNION ALL
 SELECT m.id, 'ARCHIVE', 'SALE_ARCHIVE', NOW() FROM `Module` m WHERE m.slug = 'sale' UNION ALL
-SELECT m.id, 'MANAGE',  'SALE_BOOKING_MANAGE',     NOW() FROM `Module` m WHERE m.slug = 'sale' UNION ALL
-SELECT m.id, 'MANAGE',  'SALE_INSTALLMENT_MANAGE', NOW() FROM `Module` m WHERE m.slug = 'sale';
+SELECT m.id, 'BOOKING',     'SALE_BOOKING_MANAGE',     NOW() FROM `Module` m WHERE m.slug = 'sale' UNION ALL
+SELECT m.id, 'INSTALLMENT', 'SALE_INSTALLMENT_MANAGE', NOW() FROM `Module` m WHERE m.slug = 'sale';
 
 -- Permissions: PROJECT
 INSERT IGNORE INTO `Permission` (`module_id`, `action`, `code`, `created_at`)

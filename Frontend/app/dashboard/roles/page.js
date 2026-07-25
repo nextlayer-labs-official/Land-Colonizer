@@ -96,15 +96,18 @@ function DeleteRoleModal({ role, onClose, onDeleted }) {
 
 // ── Permission Matrix Panel ───────────────────────────────────────────────────
 const MODULE_ORDER = ['USER','ROLE','PURCHASE','CUSTOMER','SALE','INVENTORY','BROKER','PROJECT','SETTINGS','REPORTS','AUDIT'];
-const ACTION_ORDER = ['VIEW','CREATE','EDIT','DELETE','ARCHIVE','APPROVE','FINANCE'];
+const ACTION_ORDER = ['VIEW','CREATE','EDIT','DELETE','ARCHIVE','APPROVE','FINANCE','BOOKING','INSTALLMENT'];
+const ACTION_LABELS = { BOOKING: 'Booking', INSTALLMENT: 'Installment' };
 const ACTION_COLORS = {
-  VIEW:    { on: '#dbeafe', text: '#1d4ed8', border: '#93c5fd' },
-  CREATE:  { on: '#dcfce7', text: '#15803d', border: '#86efac' },
-  EDIT:    { on: '#fef9c3', text: '#a16207', border: '#fde047' },
-  DELETE:  { on: '#fee2e2', text: '#b91c1c', border: '#fca5a5' },
-  ARCHIVE: { on: '#ffedd5', text: '#c2410c', border: '#fdba74' },
-  APPROVE: { on: '#f3e8ff', text: '#7e22ce', border: '#d8b4fe' },
-  FINANCE: { on: '#d1fae5', text: '#065f46', border: '#6ee7b7' },
+  VIEW:        { on: '#dbeafe', text: '#1d4ed8', border: '#93c5fd' },
+  CREATE:      { on: '#dcfce7', text: '#15803d', border: '#86efac' },
+  EDIT:        { on: '#fef9c3', text: '#a16207', border: '#fde047' },
+  DELETE:      { on: '#fee2e2', text: '#b91c1c', border: '#fca5a5' },
+  ARCHIVE:     { on: '#ffedd5', text: '#c2410c', border: '#fdba74' },
+  APPROVE:     { on: '#f3e8ff', text: '#7e22ce', border: '#d8b4fe' },
+  FINANCE:     { on: '#d1fae5', text: '#065f46', border: '#6ee7b7' },
+  BOOKING:     { on: '#e0f2fe', text: '#0369a1', border: '#7dd3fc' },
+  INSTALLMENT: { on: '#fce7f3', text: '#9d174d', border: '#f9a8d4' },
 };
 
 function PermissionPanel({ role, onClose, canEdit }) {
@@ -133,8 +136,7 @@ function PermissionPanel({ role, onClose, canEdit }) {
   const matrix = {};
   const actionsPresent = new Set();
   for (const rp of permissions) {
-    const parts  = rp.permission.code.split('_');
-    const action = parts[parts.length - 1];
+    const action = rp.permission.action;
     const mod    = rp.permission.module.name;
     actionsPresent.add(action);
     if (!matrix[mod]) matrix[mod] = {};
@@ -213,7 +215,7 @@ function PermissionPanel({ role, onClose, canEdit }) {
                           <div className="flex flex-col items-center gap-1">
                             <span className="text-[10px] font-bold uppercase tracking-wider"
                               style={{ color: c.text || '#6b7280' }}>
-                              {action.charAt(0) + action.slice(1).toLowerCase()}
+                              {ACTION_LABELS[action] || (action.charAt(0) + action.slice(1).toLowerCase())}
                             </span>
                             {canEdit && colPerms.length > 0 && (
                               <button onClick={() => toggleCol(action)}
