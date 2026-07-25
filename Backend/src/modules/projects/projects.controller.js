@@ -38,6 +38,7 @@ const INCLUDE = {
         select: {
           id: true, sale_code: true, actual_price: true, net_amount: true,
           booking_amount: true, booking_in_received: true, advance_payment: true,
+          registration_completed: true, attorney_completed: true, full_final_completed: true,
           customer: { select: { name: true } },
           installment: {
             select: Object.fromEntries(

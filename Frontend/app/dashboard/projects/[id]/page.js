@@ -19,11 +19,19 @@ const STATUS_CFG = {
   CLOSED:  { label: 'Closed',  bg: 'bg-gray-400',    pill: 'bg-gray-400/20 text-gray-200'       },
 };
 const INV_STATUS = [
-  { key: 'available',  label: 'Available',  bar: 'bg-emerald-400', dot: 'bg-emerald-400', chip: 'bg-emerald-50 text-emerald-700',   ring: 'ring-emerald-200' },
-  { key: 'reserved',   label: 'Reserved',   bar: 'bg-amber-400',   dot: 'bg-amber-400',   chip: 'bg-amber-50 text-amber-700',       ring: 'ring-amber-200'   },
-  { key: 'sold',       label: 'Sold',       bar: 'bg-blue-400',    dot: 'bg-blue-400',    chip: 'bg-blue-50 text-blue-700',         ring: 'ring-blue-200'    },
-  { key: 'registered', label: 'Registered', bar: 'bg-[#875A7B]',   dot: 'bg-[#875A7B]',  chip: 'bg-[#875A7B]/10 text-[#875A7B]', ring: 'ring-[#875A7B]/30' },
+  { key: 'available',     label: 'Available',     bar: 'bg-emerald-400', dot: 'bg-emerald-400', chip: 'bg-emerald-50 text-emerald-700',   ring: 'ring-emerald-200' },
+  { key: 'reserved',      label: 'Reserved',      bar: 'bg-amber-400',   dot: 'bg-amber-400',   chip: 'bg-amber-50 text-amber-700',       ring: 'ring-amber-200'   },
+  { key: 'sold',          label: 'Sold',          bar: 'bg-blue-400',    dot: 'bg-blue-400',    chip: 'bg-blue-50 text-blue-700',         ring: 'ring-blue-200'    },
+  { key: 'registered',    label: 'Registered',    bar: 'bg-[#875A7B]',   dot: 'bg-[#875A7B]',  chip: 'bg-[#875A7B]/10 text-[#875A7B]', ring: 'ring-[#875A7B]/30' },
 ];
+
+function saleStatusChip(sale) {
+  if (!sale) return null;
+  if (sale.full_final_completed) return { label: 'Full & Final', chip: 'bg-violet-50 text-violet-700', dot: 'bg-violet-500', ring: 'ring-violet-200' };
+  if (sale.attorney_completed)   return { label: 'Attorney',     chip: 'bg-indigo-50 text-indigo-700', dot: 'bg-indigo-500', ring: 'ring-indigo-200' };
+  if (sale.registration_completed) return { label: 'Registered', chip: 'bg-blue-50 text-blue-700',    dot: 'bg-blue-500',   ring: 'ring-blue-200'   };
+  return null;
+}
 
 function toForm(p) {
   return { name: p.name || '', location: p.location || '', status: p.status || 'OPEN' };
@@ -618,7 +626,8 @@ export default function ProjectDetailPage() {
                         const received = saleReceived(sale);
                         const value    = Number(sale?.actual_price || 0);
                         const colPct   = value > 0 ? Math.min(100, Math.round((received / value) * 100)) : 0;
-                        const stCfg    = INV_STATUS.find(s => s.key === (u.status || '').toLowerCase());
+                        const saleSt   = saleStatusChip(sale);
+                        const stCfg    = saleSt || INV_STATUS.find(s => s.key === (u.status || '').toLowerCase());
                         return (
                           <tr key={u.id} className="hover:bg-gray-50/60 transition-colors group">
                             <td className="px-4 py-3">
@@ -636,7 +645,7 @@ export default function ProjectDetailPage() {
                               {stCfg ? (
                                 <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ring-1 ${stCfg.chip} ${stCfg.ring}`}>
                                   <span className={`w-1.5 h-1.5 rounded-full ${stCfg.dot}`} />
-                                  {u.status}
+                                  {stCfg.label || u.status}
                                 </span>
                               ) : <span className="text-gray-300 text-xs">—</span>}
                             </td>
