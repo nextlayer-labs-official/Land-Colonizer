@@ -36,8 +36,9 @@ const INCLUDE = {
       sales: {
         where: { status: 'ACTIVE' },
         select: {
-          id: true, sale_code: true, actual_price: true, net_amount: true,
+          id: true, sale_code: true, actual_price: true,
           booking_amount: true, booking_in_received: true, advance_payment: true,
+          brokerage: true, incentive: true, discount: true, extra_income: true,
           registration_completed: true, attorney_completed: true, full_final_completed: true,
           customer: { select: { name: true } },
           installment: {

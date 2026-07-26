@@ -603,7 +603,7 @@ export default function ProjectDetailPage() {
                   <table className="w-full">
                     <thead>
                       <tr className="bg-gray-50/60">
-                        {['Unit', 'Plot / SL', 'Area', 'Type', 'Status', 'Customer', 'Value', 'Received', 'Balance', 'Net Income', 'Collection', 'Sale', ''].map(h => (
+                        {['Unit', 'Plot / SL', 'Area', 'Type', 'Status', 'Customer', 'Value', 'Received', 'Balance', 'Net Income (Self)', 'Collection', 'Sale', ''].map(h => (
                           <th key={h} className="text-left px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                         ))}
                       </tr>
@@ -625,6 +625,7 @@ export default function ProjectDetailPage() {
                         const sale     = u.sales?.[0];
                         const received = saleReceived(sale);
                         const value    = Number(sale?.actual_price || 0);
+                        const netSelf  = value - Number(sale?.brokerage || 0) - Number(sale?.incentive || 0) - Number(sale?.discount || 0) + Number(sale?.extra_income || 0);
                         const colPct   = value > 0 ? Math.min(100, Math.round((received / value) * 100)) : 0;
                         const saleSt   = saleStatusChip(sale);
                         const stCfg    = saleSt || INV_STATUS.find(s => s.key === (u.status || '').toLowerCase());
@@ -643,8 +644,8 @@ export default function ProjectDetailPage() {
                             </td>
                             <td className="px-4 py-3">
                               {stCfg ? (
-                                <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ring-1 ${stCfg.chip} ${stCfg.ring}`}>
-                                  <span className={`w-1.5 h-1.5 rounded-full ${stCfg.dot}`} />
+                                <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ring-1 whitespace-nowrap ${stCfg.chip} ${stCfg.ring}`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${stCfg.dot}`} />
                                   {stCfg.label || u.status}
                                 </span>
                               ) : <span className="text-gray-300 text-xs">—</span>}
@@ -653,7 +654,7 @@ export default function ProjectDetailPage() {
                             <td className="px-4 py-3 text-xs font-bold text-gray-800 whitespace-nowrap">{value ? fmtINR(value) : '—'}</td>
                             <td className="px-4 py-3 text-xs font-bold text-emerald-700 whitespace-nowrap">{received ? fmtINR(received) : '—'}</td>
                             <td className="px-4 py-3 text-xs font-semibold text-amber-700 whitespace-nowrap">{value > 0 ? fmtINR(Math.max(0, value - received)) : '—'}</td>
-                            <td className="px-4 py-3 text-xs font-semibold text-[#875A7B] whitespace-nowrap">{sale?.net_amount ? fmtINR(sale.net_amount) : '—'}</td>
+                            <td className="px-4 py-3 text-xs font-semibold text-[#875A7B] whitespace-nowrap">{value > 0 ? fmtINR(netSelf) : '—'}</td>
                             <td className="px-4 py-3">
                               {value > 0 ? (
                                 <div className="flex items-center gap-2 min-w-[80px]">
