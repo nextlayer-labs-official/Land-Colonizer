@@ -336,7 +336,7 @@ export function InventoryPickerModal({ value, onPick, onClear, readOnly }) {
     return (
       <div className="min-h-[36px] px-3 py-[7px] bg-gray-50 rounded border border-gray-100 text-sm text-gray-700">
         {value ? (
-          <span className="font-semibold text-gray-800">{unitTitle(value)}</span>
+          <span>{value.inventory_code}{unitTitle(value) ? <span className="ml-1.5 text-xs font-semibold text-[#875A7B]">· {unitTitle(value)}</span> : ''}</span>
         ) : <span className="text-gray-300">—</span>}
       </div>
     );
@@ -347,12 +347,11 @@ export function InventoryPickerModal({ value, onPick, onClear, readOnly }) {
       {value ? (
         <div className="flex items-center gap-2 border border-gray-200 rounded px-3 py-2 bg-white">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-bold text-gray-800">{unitTitle(value)}</span>
+            <div className="flex items-center gap-1.5 flex-wrap">
               <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${INV_TYPE_BADGE[value.type] || 'bg-gray-50 text-gray-600'}`}>{INV_TYPE_LABEL[value.type] || value.type}</span>
-              <span className="text-xs text-gray-400 font-mono">{value.inventory_code}</span>
+              <span className="text-sm font-semibold text-[#875A7B]">{value.inventory_code}</span>
             </div>
-            {value.location && <p className="text-xs text-gray-400 mt-0.5 truncate">{value.location}</p>}
+            {unitTitle(value) && <p className="text-xs font-bold text-gray-700 mt-0.5">{unitTitle(value)}{value.location ? <span className="font-normal text-gray-400"> · {value.location}</span> : ''}</p>}
           </div>
           <button type="button" onClick={() => setOpen(true)} className="text-xs text-[#875A7B] hover:underline shrink-0">Change</button>
           <button type="button" onClick={onClear} className="text-gray-300 hover:text-gray-500 shrink-0">
@@ -416,13 +415,12 @@ export function InventoryPickerModal({ value, onPick, onClear, readOnly }) {
                         className="w-full text-left px-5 py-3.5 hover:bg-[#875A7B]/5 transition flex items-center gap-4">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-bold text-gray-800">{unitTitle(u)}</span>
+                            <span className="font-mono text-sm font-bold text-[#875A7B]">{u.inventory_code}</span>
                             <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${INV_TYPE_BADGE[u.type] || 'bg-gray-50 text-gray-600'}`}>{INV_TYPE_LABEL[u.type] || u.type}</span>
                             <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${INV_STATUS_BADGE[u.status] || 'bg-gray-50 text-gray-600'}`}>{u.status}</span>
-                            <span className="text-[10px] font-mono text-gray-400">{u.inventory_code}</span>
                           </div>
                           <div className="mt-1 flex items-center gap-3 text-xs text-gray-500 flex-wrap">
-                            {(u.plot_no || u.sl_no) && <span>Plot No: <span className="font-medium text-gray-700">{u.plot_no || u.sl_no}</span></span>}
+                            {unitTitle(u) && <span className="font-bold text-gray-800 text-sm">{unitTitle(u)}</span>}
                             {u.location && <span>{u.location}</span>}
                             {area > 0 && <span>Area: <span className="font-medium text-gray-700">{area} {areaUnit}</span></span>}
                             {u.purchase?.purchase_code && <span>Purchase: <span className="font-medium text-gray-700">{u.purchase.purchase_code}</span></span>}
