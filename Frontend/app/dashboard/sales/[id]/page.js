@@ -2021,7 +2021,7 @@ export default function SaleDetailPage() {
                           ? `${Number(form.front_area).toLocaleString('en-IN')} × ${Number(form.back_area).toLocaleString('en-IN')}`
                           : form.front_area || form.back_area || '—'}
                       </p>
-                      {(() => { const f = parseFloat(form.front_area)||0, b = parseFloat(form.back_area)||0; const t = f && b ? parseFloat((f*(b/9)).toFixed(2)) : 0; return t ? <p className="text-[10px] text-gray-400">Total: {t.toLocaleString('en-IN')} {form.front_area_details||''}</p> : null; })()}
+                      {(() => { const f = parseFloat(form.front_area)||0, b = parseFloat(form.back_area)||0; const t = f && b ? parseFloat((f*(b/9)).toFixed(2)) : 0; return t ? <p className="text-sm font-bold text-gray-800 mt-0.5"><span className="font-normal text-gray-500">Total: </span>{t.toLocaleString('en-IN')}{form.front_area_details ? ` ${form.front_area_details}` : ''}</p> : null; })()}
                     </div>
                   )}
 
@@ -2042,7 +2042,19 @@ export default function SaleDetailPage() {
                         {form._customer.name}
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                       </Link>
-                      <p className="text-[10px] text-gray-400">{form._customer.phone||form._customer.customer_code||''}</p>
+                      {form._customer.phone && (
+                        <p className="text-sm font-bold text-gray-800 mt-0.5">
+                          <span className="font-normal text-gray-500">Phone: </span>{form._customer.phone}
+                        </p>
+                      )}
+                      {form._customer.email && (
+                        <p className="text-sm font-bold text-gray-800 mt-0.5">
+                          <span className="font-normal text-gray-500">Email: </span>{form._customer.email}
+                        </p>
+                      )}
+                      {!form._customer.phone && !form._customer.email && form._customer.customer_code && (
+                        <p className="text-[10px] text-gray-400">{form._customer.customer_code}</p>
+                      )}
                     </div>
                   )}
 
@@ -2053,7 +2065,12 @@ export default function SaleDetailPage() {
                       {form._broker
                         ? <Link href={`/dashboard/brokers/${form._broker.id}`} className="text-sm font-semibold text-[#875A7B] hover:underline">{form._broker.name}</Link>
                         : <p className="text-sm font-semibold text-gray-700">{form.broker_name}</p>}
-                      <p className="text-[10px] text-gray-400">{form._broker?.broker_code||'Broker'}</p>
+                      {form._broker?.phone && (
+                        <p className="text-sm font-bold text-gray-800 mt-0.5">
+                          <span className="font-normal text-gray-500">Phone: </span>{form._broker.phone}
+                        </p>
+                      )}
+                      {!form._broker?.phone && <p className="text-[10px] text-gray-400">{form._broker?.broker_code||'Broker'}</p>}
                     </div>
                   )}
 
