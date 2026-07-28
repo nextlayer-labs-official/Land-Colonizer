@@ -1743,7 +1743,7 @@ export default function SaleDetailPage() {
   const [deleting,  setDeleting]  = useState(false);
   const [showArch,  setShowArch]  = useState(false);
   const [archiving, setArchiving] = useState(false);
-  const [tab,           setTab]           = useState('details');
+  const [tab,           setTab]           = useState('bookings');
   const [totalInstPaid, setTotalInstPaid] = useState(0);
   const [driveActive,   setDriveActive]   = useState(false);
   const [projectOpen,   setProjectOpen]   = useState(false);
