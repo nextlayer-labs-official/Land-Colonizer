@@ -294,6 +294,7 @@ const INV_TYPE_BADGE = {
   SHOP_WIRE: 'bg-indigo-50 text-indigo-700',
 };
 const INV_TYPE_LABEL = { PLOT: 'Plot', SHOP: 'Shop', LAND: 'Land', FLAT: 'Flat', PLOT_WIRE: 'Plot Wire', SHOP_WIRE: 'Shop Wire' };
+const unitTitle = (u) => [INV_TYPE_LABEL[u.type] || u.type, u.plot_no || u.sl_no].filter(Boolean).join(' ');
 const INV_STATUS_BADGE = {
   AVAILABLE:  'bg-emerald-50 text-emerald-700',
   RESERVED:   'bg-amber-50   text-amber-700',
@@ -334,7 +335,9 @@ export function InventoryPickerModal({ value, onPick, onClear, readOnly }) {
   if (readOnly) {
     return (
       <div className="min-h-[36px] px-3 py-[7px] bg-gray-50 rounded border border-gray-100 text-sm text-gray-700">
-        {value ? `${value.inventory_code || ''} · ${value.plot_no || value.sl_no || ''}`.replace(/^·\s*/, '') : <span className="text-gray-300">—</span>}
+        {value ? (
+          <span className="font-semibold text-gray-800">{unitTitle(value)}</span>
+        ) : <span className="text-gray-300">—</span>}
       </div>
     );
   }
@@ -344,10 +347,10 @@ export function InventoryPickerModal({ value, onPick, onClear, readOnly }) {
       {value ? (
         <div className="flex items-center gap-2 border border-gray-200 rounded px-3 py-2 bg-white">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-bold text-gray-800">{unitTitle(value)}</span>
               <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${INV_TYPE_BADGE[value.type] || 'bg-gray-50 text-gray-600'}`}>{INV_TYPE_LABEL[value.type] || value.type}</span>
-              <span className="text-sm font-semibold text-[#875A7B]">{value.inventory_code}</span>
-              {(value.plot_no || value.sl_no) && <span className="text-sm text-gray-600">· {value.plot_no || value.sl_no}</span>}
+              <span className="text-xs text-gray-400 font-mono">{value.inventory_code}</span>
             </div>
             {value.location && <p className="text-xs text-gray-400 mt-0.5 truncate">{value.location}</p>}
           </div>
@@ -413,12 +416,13 @@ export function InventoryPickerModal({ value, onPick, onClear, readOnly }) {
                         className="w-full text-left px-5 py-3.5 hover:bg-[#875A7B]/5 transition flex items-center gap-4">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-mono text-sm font-bold text-[#875A7B]">{u.inventory_code}</span>
+                            <span className="text-sm font-bold text-gray-800">{unitTitle(u)}</span>
                             <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${INV_TYPE_BADGE[u.type] || 'bg-gray-50 text-gray-600'}`}>{INV_TYPE_LABEL[u.type] || u.type}</span>
                             <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${INV_STATUS_BADGE[u.status] || 'bg-gray-50 text-gray-600'}`}>{u.status}</span>
+                            <span className="text-[10px] font-mono text-gray-400">{u.inventory_code}</span>
                           </div>
                           <div className="mt-1 flex items-center gap-3 text-xs text-gray-500 flex-wrap">
-                            {(u.plot_no || u.sl_no) && <span>Plot: <span className="font-medium text-gray-700">{u.plot_no || u.sl_no}</span></span>}
+                            {(u.plot_no || u.sl_no) && <span>Plot No: <span className="font-medium text-gray-700">{u.plot_no || u.sl_no}</span></span>}
                             {u.location && <span>{u.location}</span>}
                             {area > 0 && <span>Area: <span className="font-medium text-gray-700">{area} {areaUnit}</span></span>}
                             {u.purchase?.purchase_code && <span>Purchase: <span className="font-medium text-gray-700">{u.purchase.purchase_code}</span></span>}
