@@ -375,14 +375,14 @@ export default function PurchasesPage() {
   const filterRef = useRef(null);
   const exportRef  = useRef(null);
 
-  const LIMIT = 15;
+  const [limit, setLimit] = useState(15);
 
   const [showArchived, setShowArchived] = useState(false);
 
   const load = useCallback(async (p = 1) => {
     setLoading(true);
     try {
-      const q = new URLSearchParams({ page: p, limit: LIMIT, archived: showArchived ? 'true' : 'false' });
+      const q = new URLSearchParams({ page: p, limit, archived: showArchived ? 'true' : 'false' });
       if (search)     q.set('search', search);
       if (typeFilter) q.set('type',   typeFilter);
       const data = await apiGet(`/purchases?${q}`);
@@ -391,9 +391,9 @@ export default function PurchasesPage() {
       setPage(p);
       setSelected([]);
     } finally { setLoading(false); }
-  }, [search, typeFilter, showArchived]);
+  }, [search, typeFilter, showArchived, limit]);
 
-  useEffect(() => { load(1); }, [search, typeFilter, showArchived]);
+  useEffect(() => { load(1); }, [search, typeFilter, showArchived, limit]);
 
   useEffect(() => {
     const h = (e) => {
@@ -474,14 +474,14 @@ export default function PurchasesPage() {
 
   const toggleSelect  = (id) => setSelected(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
   const toggleAll     = () => setSelected(selected.length === rows.length ? [] : rows.map(r => r.id));
-  const totalPages    = Math.ceil(total / LIMIT);
+  const totalPages    = Math.ceil(total / limit);
   const canCreate     = can('PURCHASE_CREATE')  || me?.is_system;
   const canEdit       = can('PURCHASE_EDIT')    || me?.is_system;
   const canArchive    = can('PURCHASE_ARCHIVE') || me?.is_system;
   const canDelete     = can('PURCHASE_DELETE')  || me?.is_system;
 
-  const from = total === 0 ? 0 : (page - 1) * LIMIT + 1;
-  const to   = Math.min(page * LIMIT, total);
+  const from = total === 0 ? 0 : (page - 1) * limit + 1;
+  const to   = Math.min(page * limit, total);
 
   return (
     <div className="flex flex-col h-full bg-[#F4F5F7]">
@@ -621,6 +621,14 @@ export default function PurchasesPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
         </div>
+        <div className="w-px h-5 bg-gray-200 shrink-0" />
+        <select
+          value={limit}
+          onChange={e => setLimit(Number(e.target.value))}
+          className="text-sm border border-gray-200 rounded h-8 px-2 text-gray-600 focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30 transition bg-white"
+        >
+          {[15, 25, 50, 75, 100].map(n => <option key={n} value={n}>{n} / page</option>)}
+        </select>
         <div className="w-px h-5 bg-gray-200 shrink-0" />
         <Pagination page={page} totalPages={totalPages} total={total} from={from} to={to} loading={loading} onPage={load} />
       </div>

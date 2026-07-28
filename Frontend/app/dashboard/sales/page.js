@@ -87,12 +87,12 @@ export default function SalesPage() {
   const filterRef = useRef(null);
   const exportRef  = useRef(null);
 
-  const LIMIT = 15;
+  const [limit, setLimit] = useState(15);
 
   const load = useCallback(async (p = 1) => {
     setLoading(true);
     try {
-      const q = new URLSearchParams({ page: p, limit: LIMIT, archived: showArchived ? 'true' : 'false' });
+      const q = new URLSearchParams({ page: p, limit, archived: showArchived ? 'true' : 'false' });
       if (search)       q.set('search', search);
       if (statusFilter) q.set('status', statusFilter);
       const data = await apiGet(`/sales?${q}`);
@@ -100,9 +100,9 @@ export default function SalesPage() {
       setTotal(data.total || 0);
       setPage(p);
     } finally { setLoading(false); }
-  }, [search, statusFilter, showArchived]);
+  }, [search, statusFilter, showArchived, limit]);
 
-  useEffect(() => { load(1); }, [search, statusFilter, showArchived]);
+  useEffect(() => { load(1); }, [search, statusFilter, showArchived, limit]);
 
   useEffect(() => {
     const h = (e) => {
@@ -171,11 +171,11 @@ export default function SalesPage() {
     } finally { setDeleting(false); }
   };
 
-  const totalPages = Math.ceil(total / LIMIT);
+  const totalPages = Math.ceil(total / limit);
   const canCreate  = can('SALE_CREATE')  || me?.is_system;
   const canArchive = can('SALE_ARCHIVE') || me?.is_system;
-  const from = total === 0 ? 0 : (page - 1) * LIMIT + 1;
-  const to   = Math.min(page * LIMIT, total);
+  const from = total === 0 ? 0 : (page - 1) * limit + 1;
+  const to   = Math.min(page * limit, total);
 
   return (
     <div className="flex flex-col h-full bg-[#F4F5F7]">
@@ -257,6 +257,14 @@ export default function SalesPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
         </div>
+        <div className="w-px h-5 bg-gray-200 shrink-0" />
+        <select
+          value={limit}
+          onChange={e => setLimit(Number(e.target.value))}
+          className="text-sm border border-gray-200 rounded h-8 px-2 text-gray-600 focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30 transition bg-white"
+        >
+          {[15, 25, 50, 75, 100].map(n => <option key={n} value={n}>{n} / page</option>)}
+        </select>
         <div className="w-px h-5 bg-gray-200 shrink-0" />
         <Pagination page={page} totalPages={totalPages} total={total} from={from} to={to} loading={loading} onPage={load} />
       </div>
