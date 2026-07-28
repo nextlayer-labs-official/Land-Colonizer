@@ -1860,9 +1860,9 @@ export default function SaleDetailPage() {
 
   const confirmed = !!form.sale_confirmed;
   const TABS = [
-    { id: 'details',      label: 'Sale Details' },
     { id: 'bookings',     label: 'Bookings' + (form.bookings?.length ? ` (${form.bookings.length})` : '') },
     { id: 'installments', label: 'Installments', locked: !confirmed },
+    { id: 'details',      label: 'Sale Details' },
     { id: 'financials',   label: 'Financials',   locked: !confirmed },
     ...(driveActive ? [{ id: 'documents', label: 'Documents' }] : []),
   ];
