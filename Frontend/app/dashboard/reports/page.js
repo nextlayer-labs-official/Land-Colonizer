@@ -696,6 +696,7 @@ function InstalmentsReport() {
       for (const inst of r.pending_instalments) {
         purchaseRows.push({
           'Purchase Code': r.purchase_code,
+          'Plot No':       r.plot_no || '',
           'Seller':        r.seller || '',
           'Project':       r.project?.name || '',
           'Inst #':        inst.no,
@@ -710,6 +711,7 @@ function InstalmentsReport() {
       for (const inst of r.pending_instalments) {
         saleRows.push({
           'Sale Code':    r.sale_code,
+          'Plot No':      r.plot_no || '',
           'Customer':     r.customer?.name || '',
           'Phone':        r.customer?.phone || '',
           'Project':      r.project?.name || '',
@@ -755,14 +757,14 @@ function InstalmentsReport() {
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr className="border-b border-gray-200 bg-orange-50/60">
-                    {['','#','Purchase','Seller','Project','Paid (Inst.)','Pending','Instalments'].map(h => (
+                    {['','#','Purchase','Plot No','Seller','Project','Paid (Inst.)','Pending','Instalments'].map(h => (
                       <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {result.purchase_pending.length === 0 ? (
-                    <tr><td colSpan={8} className="py-10 text-center text-sm text-gray-400">No pending purchase instalments</td></tr>
+                    <tr><td colSpan={9} className="py-10 text-center text-sm text-gray-400">No pending purchase instalments</td></tr>
                   ) : result.purchase_pending.map((r, i) => (
                     <>
                       <tr key={r.id} className="border-b border-gray-100 cursor-pointer hover:bg-orange-50/30"
@@ -774,6 +776,7 @@ function InstalmentsReport() {
                         </td>
                         <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
                         <td className="px-3 py-2.5"><span className="font-mono text-xs font-semibold text-[#875A7B] bg-[#875A7B]/8 px-1.5 py-0.5 rounded">{r.purchase_code}</span></td>
+                        <td className="px-3 py-2.5 text-sm font-semibold text-gray-700">{r.plot_no || '—'}</td>
                         <td className="px-3 py-2.5 text-gray-600 text-xs max-w-[160px] truncate">{r.seller || '—'}</td>
                         <td className="px-3 py-2.5 text-gray-600">{r.project?.name || '—'}</td>
                         <td className="px-3 py-2.5 text-emerald-700">₹ {fmt(r.paid_amount)}</td>
@@ -816,14 +819,14 @@ function InstalmentsReport() {
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr className="border-b border-gray-200 bg-blue-50/60">
-                    {['','#','Sale','Customer','Project','Received (Inst.)','Pending','Instalments'].map(h => (
+                    {['','#','Sale','Plot No','Customer','Project','Received (Inst.)','Pending','Instalments'].map(h => (
                       <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {result.sale_pending.length === 0 ? (
-                    <tr><td colSpan={8} className="py-10 text-center text-sm text-gray-400">No pending sale instalments</td></tr>
+                    <tr><td colSpan={9} className="py-10 text-center text-sm text-gray-400">No pending sale instalments</td></tr>
                   ) : result.sale_pending.map((r, i) => (
                     <>
                       <tr key={r.id} className="border-b border-gray-100 cursor-pointer hover:bg-blue-50/30"
@@ -835,6 +838,7 @@ function InstalmentsReport() {
                         </td>
                         <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
                         <td className="px-3 py-2.5"><span className="font-mono text-xs font-semibold text-[#875A7B] bg-[#875A7B]/8 px-1.5 py-0.5 rounded">{r.sale_code}</span></td>
+                        <td className="px-3 py-2.5 text-sm font-semibold text-gray-700">{r.plot_no || '—'}</td>
                         <td className="px-3 py-2.5 font-medium text-gray-800">
                           {r.customer?.name || '—'}
                           {r.customer?.phone && <p className="text-sm font-medium text-gray-800">{r.customer.phone}</p>}
