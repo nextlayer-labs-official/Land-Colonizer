@@ -371,6 +371,7 @@ const availabilityReport = async (req, res) => {
       id: true,
       sl_no: true,
       plot_no: true,
+      type: true,
       area: true,
       front_area: true,
       back_area: true,

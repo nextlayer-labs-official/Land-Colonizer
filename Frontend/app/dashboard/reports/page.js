@@ -923,10 +923,12 @@ function AvailabilityReport() {
 
   const doExcel = async () => {
     if (!result) return;
+    const TYPE_LABEL = { PLOT: 'Plot', SHOP: 'Shop', LAND: 'Land', FLAT: 'Flat', PLOT_WIRE: 'Plot Wire', SHOP_WIRE: 'Shop Wire' };
     const rows = result.units.map((u, i) => ({
       '#':           i + 1,
       'SL No.':      u.sl_no   || '',
       'Plot No.':    u.plot_no || '',
+      'Type':        TYPE_LABEL[u.type] || u.type || '',
       'Total Area':  fmtNum(u.total_area),
       'Status':      u.status,
     }));
@@ -1003,23 +1005,27 @@ function AvailabilityReport() {
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  {['#', 'SL No.', 'Plot No.', 'Total Area', 'Status'].map(h => (
+                  {['#', 'SL No.', 'Plot No.', 'Type', 'Total Area', 'Status'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {result.units.length === 0 ? (
-                  <tr><td colSpan={5} className="py-10 text-center text-sm text-gray-400">No inventory found</td></tr>
-                ) : result.units.map((u, i) => (
+                  <tr><td colSpan={6} className="py-10 text-center text-sm text-gray-400">No inventory found</td></tr>
+                ) : result.units.map((u, i) => {
+                  const TYPE_LABEL = { PLOT: 'Plot', SHOP: 'Shop', LAND: 'Land', FLAT: 'Flat', PLOT_WIRE: 'Plot Wire', SHOP_WIRE: 'Shop Wire' };
+                  return (
                   <tr key={u.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
                     <td className="px-3 py-2.5 text-gray-700">{u.sl_no   || '—'}</td>
                     <td className="px-3 py-2.5 text-gray-700">{u.plot_no || '—'}</td>
+                    <td className="px-3 py-2.5 text-sm font-semibold text-gray-700">{TYPE_LABEL[u.type] || u.type || '—'}</td>
                     <td className="px-3 py-2.5 text-gray-600">{u.total_area ? fmtN(u.total_area) + (u.area_unit ? ' ' + u.area_unit : '') : '—'}</td>
                     <td className="px-3 py-2.5">{statusBadge(u.status)}</td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
