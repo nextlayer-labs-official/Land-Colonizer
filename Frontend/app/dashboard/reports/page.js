@@ -930,17 +930,19 @@ function AvailabilityReport() {
       'Plot No.':    u.plot_no || '',
       'Type':        TYPE_LABEL[u.type] || u.type || '',
       'Total Area':  fmtNum(u.total_area),
-      'Status':      u.status,
+      'Status':      { FULL_FINAL: 'Full & Final', ATTORNEY: 'Attorney' }[u.display_status] || u.status,
     }));
     await exportXlsx([{ name: 'Availability', rows }], `availability_report_${new Date().toISOString().slice(0,10)}.xlsx`);
   };
 
   const statusBadge = (status) => {
     const map = {
-      AVAILABLE:  { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500',  label: 'Available'   },
-      SOLD:       { bg: 'bg-red-50',     text: 'text-red-700',     dot: 'bg-red-500',       label: 'Sold'        },
-      RESERVED:   { bg: 'bg-amber-50',   text: 'text-amber-700',   dot: 'bg-amber-400',     label: 'Reserved'    },
-      REGISTERED: { bg: 'bg-blue-50',    text: 'text-blue-700',    dot: 'bg-blue-500',      label: 'Registered'  },
+      AVAILABLE:  { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500',  label: 'Available'    },
+      SOLD:       { bg: 'bg-red-50',     text: 'text-red-700',     dot: 'bg-red-500',       label: 'Sold'         },
+      RESERVED:   { bg: 'bg-amber-50',   text: 'text-amber-700',   dot: 'bg-amber-400',     label: 'Reserved'     },
+      REGISTERED: { bg: 'bg-blue-50',    text: 'text-blue-700',    dot: 'bg-blue-500',      label: 'Registered'   },
+      ATTORNEY:   { bg: 'bg-purple-50',  text: 'text-purple-700',  dot: 'bg-purple-500',    label: 'Attorney'     },
+      FULL_FINAL: { bg: 'bg-green-50',   text: 'text-green-800',   dot: 'bg-green-600',     label: 'Full & Final' },
     };
     const s = map[status] || { bg: 'bg-gray-50', text: 'text-gray-600', dot: 'bg-gray-400', label: status };
     return (
@@ -979,6 +981,8 @@ function AvailabilityReport() {
               <option value="SOLD">Sold</option>
               <option value="RESERVED">Reserved</option>
               <option value="REGISTERED">Registered</option>
+              <option value="ATTORNEY">Attorney</option>
+              <option value="FULL_FINAL">Full &amp; Final</option>
             </select>
           </Field>
           <Field label="Employee">
@@ -1022,7 +1026,7 @@ function AvailabilityReport() {
                     <td className="px-3 py-2.5 text-gray-700">{u.plot_no || '—'}</td>
                     <td className="px-3 py-2.5 text-sm font-semibold text-gray-700">{TYPE_LABEL[u.type] || u.type || '—'}</td>
                     <td className="px-3 py-2.5 text-gray-600">{u.total_area ? fmtN(u.total_area) + (u.area_unit ? ' ' + u.area_unit : '') : '—'}</td>
-                    <td className="px-3 py-2.5">{statusBadge(u.status)}</td>
+                    <td className="px-3 py-2.5">{statusBadge(u.display_status || u.status)}</td>
                   </tr>
                   );
                 })}
