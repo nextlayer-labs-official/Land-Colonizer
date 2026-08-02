@@ -265,6 +265,8 @@ const brokerReport = async (req, res) => {
 
 // ── Instalments Report ───────────────────────────────────────────────────────
 const instalmentsReport = async (req, res) => {
+  const { project_id } = req.query;
+
   function pendingOf(inst) {
     const paid = [], pending = [];
     for (let n = 1; n <= 24; n++) {
@@ -276,8 +278,12 @@ const instalmentsReport = async (req, res) => {
     return { paid, pending };
   }
 
+  const purchaseWhere = project_id ? { inventory: { some: { project: { id: Number(project_id) } } } } : {};
+  const saleWhere     = { installment: { isNot: null }, ...(project_id ? { inventory: { project: { id: Number(project_id) } } } : {}) };
+
   const [purchases, sales] = await Promise.all([
     prisma.purchase.findMany({
+      where: purchaseWhere,
       include: {
         purchaseInstallment: true,
         inventory: { take: 1, include: { project: { select: { id: true, name: true } } } },
@@ -285,7 +291,7 @@ const instalmentsReport = async (req, res) => {
       orderBy: { created_at: 'desc' },
     }),
     prisma.sale.findMany({
-      where: { installment: { isNot: null } },
+      where: saleWhere,
       include: {
         installment: true,
         customer:  { select: { id: true, name: true, phone: true, customer_code: true } },

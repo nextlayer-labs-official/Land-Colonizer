@@ -689,11 +689,20 @@ function InstalmentsReport() {
   const [loading, setLoading] = useState(false);
   const [expandP, setExpandP] = useState({});
   const [expandS, setExpandS] = useState({});
+  const [projects, setProjects] = useState([]);
+  const [projectId, setProjectId] = useState('');
+
+  useEffect(() => {
+    apiGet('/lookup/projects').then(d => setProjects(d || [])).catch(() => {});
+  }, []);
 
   const run = async () => {
     setLoading(true); setExpandP({}); setExpandS({});
-    try { setResult(await apiGet('/reports/instalments')); }
-    finally { setLoading(false); }
+    try {
+      const p = new URLSearchParams();
+      if (projectId) p.set('project_id', projectId);
+      setResult(await apiGet('/reports/instalments?' + p));
+    } finally { setLoading(false); }
   };
 
   const doExcel = async () => {
@@ -742,6 +751,12 @@ function InstalmentsReport() {
     <div className="space-y-6">
       <div className="bg-white border border-gray-200 rounded-lg p-4 print:hidden">
         <FilterRow>
+          <Field label="Project">
+            <select value={projectId} onChange={e => setProjectId(e.target.value)} className={selectCls} style={{ minWidth: 160 }}>
+              <option value="">All Projects</option>
+              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </Field>
           <RunBtn onClick={run} loading={loading} />
           {result && <><PrintBtn /><ExcelBtn onClick={doExcel} /></>}
         </FilterRow>
