@@ -295,7 +295,7 @@ const instalmentsReport = async (req, res) => {
       include: {
         installment: true,
         customer:  { select: { id: true, name: true, phone: true, customer_code: true } },
-        inventory: { select: { plot_no: true, sl_no: true, project: { select: { id: true, name: true } } } },
+        inventory: { select: { plot_no: true, sl_no: true, front_area: true, back_area: true, area: true, area_unit: true, project: { select: { id: true, name: true } } } },
       },
       orderBy: { created_at: 'desc' },
     }),
@@ -328,6 +328,10 @@ const instalmentsReport = async (req, res) => {
         sale_code:     s.sale_code || `SAL-${String(s.id).padStart(4, '0')}`,
         customer:      s.customer || null,
         plot_no:       s.inventory?.plot_no || s.inventory?.sl_no || null,
+        front_area:    s.inventory?.front_area ? Number(s.inventory.front_area) : null,
+        back_area:     s.inventory?.back_area  ? Number(s.inventory.back_area)  : null,
+        total_area:    s.inventory ? (Number(s.inventory.area || 0) || parseFloat(((Number(s.inventory.front_area || 0)) * (Number(s.inventory.back_area || 0)) / 9).toFixed(2))) : null,
+        area_unit:     s.inventory?.area_unit || null,
         project:       s.inventory?.project || null,
         actual_price:  Number(s.actual_price || 0),
         advance:       Number(s.advance_payment || 0),
@@ -418,81 +422,6 @@ const availabilityReport = async (req, res) => {
   res.json({ units: rows, summary });
 };
 
-// ── Installment Summary Report ───────────────────────────────────────────────
-const installmentSummaryReport = async (req, res) => {
-  const { project_id, date_from, date_to } = req.query;
-  const where = { status: 'ACTIVE', installment: { isNot: null } };
-  if (project_id) where.inventory = { project: { id: Number(project_id) } };
-  if (date_from || date_to) {
-    where.sale_date = {};
-    if (date_from) where.sale_date.gte = new Date(date_from);
-    if (date_to)   where.sale_date.lte = new Date(date_to + 'T23:59:59');
-  }
-
-  const sales = await prisma.sale.findMany({
-    where,
-    include: {
-      installment: true,
-      customer:  { select: { id: true, name: true, phone: true } },
-      inventory: {
-        select: {
-          plot_no: true, sl_no: true,
-          area: true, front_area: true, back_area: true, area_unit: true,
-          project: { select: { id: true, name: true } },
-        },
-      },
-    },
-    orderBy: { created_at: 'desc' },
-  });
-
-  const rows = sales.map(s => {
-    let received = 0;
-    if (s.booking_in_received && s.booking_amount) received += Number(s.booking_amount);
-    if (s.advance_payment) received += Number(s.advance_payment);
-
-    let pending = 0, paid_count = 0, total_count = 0;
-    if (s.installment) {
-      for (let n = 1; n <= 24; n++) {
-        const amount = Number(s.installment[`inst_${n}_amount`] || 0);
-        if (!amount) continue;
-        total_count++;
-        if (s.installment[`inst_${n}_paid`]) { received += amount; paid_count++; }
-        else pending += amount;
-      }
-    }
-
-    const inv = s.inventory;
-    const total_area = inv
-      ? (Number(inv.area || 0) || parseFloat(((Number(inv.front_area || 0)) * (Number(inv.back_area || 0)) / 9).toFixed(2)))
-      : 0;
-
-    return {
-      id:          s.id,
-      sale_code:   s.sale_code || `SAL-${String(s.id).padStart(4, '0')}`,
-      customer:    s.customer || null,
-      plot_no:     inv?.plot_no || inv?.sl_no || null,
-      project:     inv?.project || null,
-      front_area:  inv?.front_area ? Number(inv.front_area) : null,
-      back_area:   inv?.back_area  ? Number(inv.back_area)  : null,
-      total_area:  total_area || null,
-      area_unit:   inv?.area_unit || null,
-      received,
-      pending,
-      paid_count,
-      total_count,
-    };
-  });
-
-  res.json({
-    rows,
-    summary: {
-      count:          rows.length,
-      total_received: rows.reduce((s, r) => s + r.received, 0),
-      total_pending:  rows.reduce((s, r) => s + r.pending, 0),
-    },
-  });
-};
-
 // ── Balance Due Report ───────────────────────────────────────────────────────
 const balanceDueReport = async (req, res) => {
   const { project_id, date_from, date_to } = req.query;
@@ -564,4 +493,4 @@ const balanceDueReport = async (req, res) => {
   });
 };
 
-module.exports = { salesReport, inventoryReport, purchaseReport, brokerReport, instalmentsReport, availabilityReport, balanceDueReport, installmentSummaryReport };
+module.exports = { salesReport, inventoryReport, purchaseReport, brokerReport, instalmentsReport, availabilityReport, balanceDueReport };
