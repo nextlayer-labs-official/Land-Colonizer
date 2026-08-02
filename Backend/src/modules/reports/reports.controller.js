@@ -401,4 +401,75 @@ const availabilityReport = async (req, res) => {
   res.json({ units: rows, summary });
 };
 
-module.exports = { salesReport, inventoryReport, purchaseReport, brokerReport, instalmentsReport, availabilityReport };
+// ── Balance Due Report ───────────────────────────────────────────────────────
+const balanceDueReport = async (req, res) => {
+  const { project_id, date_from, date_to } = req.query;
+  const where = { status: 'ACTIVE' };
+  if (project_id) where.inventory = { project: { id: Number(project_id) } };
+  if (date_from || date_to) {
+    where.sale_date = {};
+    if (date_from) where.sale_date.gte = new Date(date_from);
+    if (date_to)   where.sale_date.lte = new Date(date_to + 'T23:59:59');
+  }
+
+  const sales = await prisma.sale.findMany({
+    where,
+    include: {
+      installment: true,
+      customer:  { select: { id: true, name: true, phone: true } },
+      inventory: { select: { plot_no: true, sl_no: true, project: { select: { id: true, name: true } } } },
+    },
+    orderBy: { created_at: 'desc' },
+  });
+
+  const rows = sales.map(s => {
+    let received = 0;
+    if (s.booking_in_received && s.booking_amount) received += Number(s.booking_amount);
+    if (s.advance_payment) received += Number(s.advance_payment);
+
+    let pending = 0;
+    let nextDueDate = null;
+
+    if (s.installment) {
+      for (let n = 1; n <= 24; n++) {
+        const amount = Number(s.installment[`inst_${n}_amount`] || 0);
+        if (!amount) continue;
+        if (s.installment[`inst_${n}_paid`]) {
+          received += amount;
+        } else {
+          pending += amount;
+          const d = s.installment[`inst_${n}_date`];
+          if (d && !nextDueDate) nextDueDate = d;
+        }
+      }
+    }
+
+    const actualPrice = Number(s.actual_price || 0);
+    const balance = actualPrice - received;
+
+    return {
+      id:            s.id,
+      sale_code:     s.sale_code || `SAL-${String(s.id).padStart(4, '0')}`,
+      customer:      s.customer || null,
+      plot_no:       s.inventory?.plot_no || s.inventory?.sl_no || null,
+      project:       s.inventory?.project || null,
+      actual_price:  actualPrice,
+      received,
+      pending,
+      balance,
+      next_due_date: nextDueDate,
+    };
+  }).filter(r => r.balance > 0);
+
+  res.json({
+    rows,
+    summary: {
+      count:          rows.length,
+      total_received: rows.reduce((s, r) => s + r.received, 0),
+      total_pending:  rows.reduce((s, r) => s + r.pending, 0),
+      total_balance:  rows.reduce((s, r) => s + r.balance, 0),
+    },
+  });
+};
+
+module.exports = { salesReport, inventoryReport, purchaseReport, brokerReport, instalmentsReport, availabilityReport, balanceDueReport };
