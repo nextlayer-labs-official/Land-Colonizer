@@ -424,21 +424,18 @@ const availabilityReport = async (req, res) => {
 
 // ── Balance Due Report ───────────────────────────────────────────────────────
 const balanceDueReport = async (req, res) => {
-  const { project_id, date_from, date_to } = req.query;
+  const { project_id, due_date_from, due_date_to } = req.query;
   const where = { status: 'ACTIVE' };
   if (project_id) where.inventory = { project: { id: Number(project_id) } };
-  if (date_from || date_to) {
-    where.sale_date = {};
-    if (date_from) where.sale_date.gte = new Date(date_from);
-    if (date_to)   where.sale_date.lte = new Date(date_to + 'T23:59:59');
-  }
+  const dueDateFrom = due_date_from ? new Date(due_date_from) : null;
+  const dueDateTo   = due_date_to   ? new Date(due_date_to + 'T23:59:59') : null;
 
   const sales = await prisma.sale.findMany({
     where,
     include: {
       installment: true,
       customer:  { select: { id: true, name: true, phone: true } },
-      inventory: { select: { plot_no: true, sl_no: true, project: { select: { id: true, name: true } } } },
+      inventory: { select: { plot_no: true, sl_no: true, area: true, front_area: true, back_area: true, area_unit: true, project: { select: { id: true, name: true } } } },
     },
     orderBy: { created_at: 'desc' },
   });
@@ -473,6 +470,8 @@ const balanceDueReport = async (req, res) => {
       sale_code:     s.sale_code || `SAL-${String(s.id).padStart(4, '0')}`,
       customer:      s.customer || null,
       plot_no:       s.inventory?.plot_no || s.inventory?.sl_no || null,
+      total_area:    s.inventory ? (Number(s.inventory.area || 0) || parseFloat(((Number(s.inventory.front_area || 0)) * (Number(s.inventory.back_area || 0)) / 9).toFixed(2)) || null) : null,
+      area_unit:     s.inventory?.area_unit || null,
       project:       s.inventory?.project || null,
       actual_price:  actualPrice,
       received,
@@ -480,7 +479,16 @@ const balanceDueReport = async (req, res) => {
       balance,
       next_due_date: nextDueDate,
     };
-  }).filter(r => r.balance > 0);
+  }).filter(r => {
+    if (r.balance <= 0) return false;
+    if (dueDateFrom || dueDateTo) {
+      if (!r.next_due_date) return false;
+      const d = new Date(r.next_due_date);
+      if (dueDateFrom && d < dueDateFrom) return false;
+      if (dueDateTo   && d > dueDateTo)   return false;
+    }
+    return true;
+  });
 
   res.json({
     rows,

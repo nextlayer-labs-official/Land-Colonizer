@@ -54,7 +54,7 @@ const getBrokers = async (req, res) => {
     where,
     select: { id: true, broker_code: true, name: true, phone: true, email: true },
     orderBy: { name: 'asc' },
-    take: Math.min(Number(limit) || 3, 50),
+    take: Math.min(Number(limit) || 3, 500),
   });
   res.json(brokers);
 };
@@ -197,7 +197,7 @@ const getProjects = async (req, res) => {
     where,
     select: { id: true, project_code: true, name: true, location: true, status: true },
     orderBy: { name: 'asc' },
-    take: Math.min(Number(limit) || 3, 50),
+    take: Math.min(Number(limit) || 3, 500),
   });
   res.json(projects);
 };

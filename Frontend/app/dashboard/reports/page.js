@@ -101,8 +101,8 @@ function SalesReport() {
   const [employees, setEmployees] = useState([]);
 
   useEffect(() => {
-    apiGet('/lookup/projects').then(d => setProjects(d || [])).catch(() => {});
-    apiGet('/lookup/brokers').then(d => setBrokers(d || [])).catch(() => {});
+    apiGet('/lookup/projects?limit=500').then(d => setProjects(d || [])).catch(() => {});
+    apiGet('/lookup/brokers?limit=500').then(d => setBrokers(d || [])).catch(() => {});
     apiGet('/lookup/users').then(d => setEmployees(d || [])).catch(() => {});
   }, []);
 
@@ -245,7 +245,7 @@ function InventoryReport() {
   const [projects, setProjects] = useState([]);
 
   useEffect(() => {
-    apiGet('/lookup/projects').then(d => setProjects(d || [])).catch(() => {});
+    apiGet('/lookup/projects?limit=500').then(d => setProjects(d || [])).catch(() => {});
   }, []);
 
   const run = async () => {
@@ -507,7 +507,7 @@ function BrokerReport() {
   const [expanded, setExpanded] = useState({});
 
   useEffect(() => {
-    apiGet('/lookup/brokers').then(d => setBrokers(d || [])).catch(() => {});
+    apiGet('/lookup/brokers?limit=500').then(d => setBrokers(d || [])).catch(() => {});
   }, []);
 
   const run = async () => {
@@ -693,7 +693,7 @@ function InstalmentsReport() {
   const [projectId, setProjectId] = useState('');
 
   useEffect(() => {
-    apiGet('/lookup/projects').then(d => setProjects(d || [])).catch(() => {});
+    apiGet('/lookup/projects?limit=500').then(d => setProjects(d || [])).catch(() => {});
   }, []);
 
   const run = async () => {
@@ -918,7 +918,7 @@ function AvailabilityReport() {
 
   useEffect(() => {
     apiGet('/lookup/plots').then(d => setPurchases(d || [])).catch(() => {});
-    apiGet('/lookup/projects').then(d => setProjects(d || [])).catch(() => {});
+    apiGet('/lookup/projects?limit=500').then(d => setProjects(d || [])).catch(() => {});
     apiGet('/lookup/users').then(d => setEmployees(d || [])).catch(() => {});
   }, []);
 
@@ -1056,13 +1056,13 @@ function AvailabilityReport() {
 
 // ── Balance Due Report ─────────────────────────────────────────────────────────
 function BalanceDueReport() {
-  const [filters, setFilters] = useState({ date_from: '', date_to: '', project_id: '' });
+  const [filters, setFilters] = useState({ due_date_from: '', due_date_to: '', project_id: '' });
   const [projects, setProjects] = useState([]);
   const [result, setResult]   = useState(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    apiGet('/lookup/projects').then(d => setProjects(d || [])).catch(() => {});
+    apiGet('/lookup/projects?limit=500').then(d => setProjects(d || [])).catch(() => {});
   }, []);
 
   const set = (k, v) => setFilters(f => ({ ...f, [k]: v }));
@@ -1071,8 +1071,8 @@ function BalanceDueReport() {
     setLoading(true);
     try {
       const p = new URLSearchParams();
-      if (filters.date_from)  p.set('date_from',  filters.date_from);
-      if (filters.date_to)    p.set('date_to',    filters.date_to);
+      if (filters.due_date_from) p.set('due_date_from', filters.due_date_from);
+      if (filters.due_date_to)   p.set('due_date_to',   filters.due_date_to);
       if (filters.project_id) p.set('project_id', filters.project_id);
       setResult(await apiGet('/reports/balance-due?' + p));
     } finally { setLoading(false); }
@@ -1085,13 +1085,14 @@ function BalanceDueReport() {
       'Sale Code':       r.sale_code,
       'Project':         r.project?.name || '',
       'Plot No':         r.plot_no || '',
+      'Total Area':      r.total_area ? `${r.total_area}${r.area_unit ? ' ' + r.area_unit : ''}` : '',
       'Customer':        r.customer?.name || '',
       'Phone':           r.customer?.phone || '',
       'Actual Price':    fmtNum(r.actual_price),
       'Received':        fmtNum(r.received),
       'Pending (Inst.)': fmtNum(r.pending),
       'Balance':         fmtNum(r.balance),
-      'Next Due Date':   r.next_due_date ? fmtDate(r.next_due_date) : '',
+      'Payment Due Date': r.next_due_date ? fmtDate(r.next_due_date) : '',
     }));
     await exportXlsx(
       [{ name: 'Balance Due', rows: rows.length ? rows : [{ Note: 'No records' }] }],
@@ -1104,11 +1105,11 @@ function BalanceDueReport() {
       {/* Filters */}
       <div className="bg-white border border-gray-200 rounded-lg p-4">
         <FilterRow>
-          <Field label="Sale Date From">
-            <input type="date" value={filters.date_from} onChange={e => set('date_from', e.target.value)} className={inputCls} />
+          <Field label="Payment Due From">
+            <input type="date" value={filters.due_date_from} onChange={e => set('due_date_from', e.target.value)} className={inputCls} />
           </Field>
-          <Field label="Sale Date To">
-            <input type="date" value={filters.date_to} onChange={e => set('date_to', e.target.value)} className={inputCls} />
+          <Field label="Payment Due To">
+            <input type="date" value={filters.due_date_to} onChange={e => set('due_date_to', e.target.value)} className={inputCls} />
           </Field>
           <Field label="Project">
             <select value={filters.project_id} onChange={e => set('project_id', e.target.value)} className={selectCls} style={{ minWidth: 160 }}>
@@ -1142,20 +1143,21 @@ function BalanceDueReport() {
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  {['#','Sale','Project','Plot No','Customer','Actual Price','Received','Pending (Inst.)','Balance Due','Next Due Date'].map(h => (
+                  {['#','Sale','Project','Plot No','Total Area','Customer','Actual Price','Received','Pending (Inst.)','Balance Due','Payment Due Date'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {result.rows.length === 0 ? (
-                  <tr><td colSpan={10} className="py-10 text-center text-sm text-gray-400">No sales with outstanding balance</td></tr>
+                  <tr><td colSpan={11} className="py-10 text-center text-sm text-gray-400">No sales with outstanding balance</td></tr>
                 ) : result.rows.map((r, i) => (
                   <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50/50">
                     <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
                     <td className="px-3 py-2.5"><span className="font-mono text-xs font-semibold text-[#875A7B] bg-[#875A7B]/8 px-1.5 py-0.5 rounded">{r.sale_code}</span></td>
                     <td className="px-3 py-2.5 text-gray-600">{r.project?.name || '—'}</td>
                     <td className="px-3 py-2.5 text-sm font-semibold text-gray-700">{r.plot_no || '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-600">{r.total_area ? fmtN(r.total_area) + (r.area_unit ? ' ' + r.area_unit : '') : '—'}</td>
                     <td className="px-3 py-2.5">
                       <p className="font-medium text-gray-800">{r.customer?.name || '—'}</p>
                       {r.customer?.phone && <p className="text-xs text-gray-400">{r.customer.phone}</p>}
