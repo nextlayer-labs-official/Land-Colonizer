@@ -291,7 +291,8 @@ function InventoryReport() {
               <option value="">All</option>
               <option value="AVAILABLE">Available</option>
               <option value="SOLD">Sold</option>
-              <option value="BOOKED">Booked</option>
+              <option value="RESERVED">Reserved</option>
+              <option value="REGISTERED">Registered</option>
             </select>
           </Field>
           <Field label="Area Type">
@@ -347,11 +348,17 @@ function InventoryReport() {
                     <td className="px-3 py-2.5 text-gray-700">₹ {fmt(u.rate_per_sqyd)}</td>
                     <td className="px-3 py-2.5 font-medium text-gray-800">₹ {fmt(u.total_value)}</td>
                     <td className="px-3 py-2.5">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium
-                        ${u.status === 'AVAILABLE' ? 'bg-emerald-50 text-emerald-700' : u.status === 'SOLD' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${u.status === 'AVAILABLE' ? 'bg-emerald-500' : u.status === 'SOLD' ? 'bg-red-500' : 'bg-amber-400'}`} />
-                        {u.status}
-                      </span>
+                      {(() => {
+                        const sc = { AVAILABLE: 'bg-emerald-50 text-emerald-700', SOLD: 'bg-red-50 text-red-700', RESERVED: 'bg-amber-50 text-amber-700', REGISTERED: 'bg-blue-50 text-blue-700' };
+                        const sd = { AVAILABLE: 'bg-emerald-500', SOLD: 'bg-red-500', RESERVED: 'bg-amber-400', REGISTERED: 'bg-blue-500' };
+                        const sl = { AVAILABLE: 'Available', SOLD: 'Sold', RESERVED: 'Reserved', REGISTERED: 'Registered' };
+                        return (
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${sc[u.status] || 'bg-gray-50 text-gray-600'}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${sd[u.status] || 'bg-gray-400'}`} />
+                            {sl[u.status] || u.status}
+                          </span>
+                        );
+                      })()}
                     </td>
                   </tr>
                 ))}
