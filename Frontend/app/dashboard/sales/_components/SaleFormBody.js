@@ -19,8 +19,9 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false, sho
   const c = computed(form);
   const bookingInReceived = form.booking_in_received !== false;
   const bookingAmt        = Number(form.booking_amount || 0);
-  const effectiveBalance  = c.actual_price
-    ? Math.max(0, c.balance_amount - (bookingInReceived ? bookingAmt : 0))
+  const effectiveActual   = c.actual_price || Number(form.actual_price || 0);
+  const effectiveBalance  = effectiveActual
+    ? Math.max(0, effectiveActual - Number(form.advance_payment || 0) - (bookingInReceived ? bookingAmt : 0))
     : 0;
   const adjustedNet = (bookingInReceived ? bookingAmt : 0) +
     Number(form.advance_payment           || 0) +
@@ -235,7 +236,7 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false, sho
           <FTextarea value={form.advance_payment_details} onChange={set('advance_payment_details')} placeholder="Payment details…" readOnly={readOnly} />
         </div>
 
-        <ComputedBox label={bookingInReceived ? 'Balance Amount  =  Actual Price − Advance − Booking' : 'Balance Amount  =  Actual Price − Advance Payment'} value={c.actual_price ? fmtINR(effectiveBalance) : '—'} />
+        <ComputedBox label={bookingInReceived ? 'Balance Amount  =  Actual Price − Advance − Booking' : 'Balance Amount  =  Actual Price − Advance Payment'} value={effectiveActual ? fmtINR(effectiveBalance) : '—'} />
 
         <div>
           <FieldLabel>Balance Amount Details</FieldLabel>

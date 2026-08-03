@@ -30,7 +30,8 @@ async function createBooking(req, res) {
 }
 
 async function updateBooking(req, res) {
-  const id = Number(req.params.id);
+  const id      = Number(req.params.id);
+  const sale_id = Number(req.params.sale_id);
   const { customer_id, booking_amount, booking_date, notes, refund_amount, income_amount, status } = req.body;
   const num = (v) => (v != null && v !== '' ? parseFloat(v) : null);
   const ALLOWED_STATUS = ['PENDING', 'REFUNDED'];
@@ -43,11 +44,22 @@ async function updateBooking(req, res) {
     ...(income_amount  !== undefined ? { income_amount: num(income_amount) } : {}),
     ...(status && ALLOWED_STATUS.includes(status) ? { status } : {}),
   };
-  const booking = await prisma.saleBooking.update({
+
+  const existing = await prisma.saleBooking.findUnique({ where: { id }, select: { status: true } });
+  const booking  = await prisma.saleBooking.update({
     where: { id },
     data,
     include: { customer: { select: CUSTOMER_SELECT } },
   });
+
+  // Keep sale's booking_amount in sync when a confirmed booking's amount changes
+  if (existing?.status === 'CONFIRMED' && booking_amount !== undefined && sale_id) {
+    const newAmt = num(booking_amount);
+    if (newAmt !== null) {
+      await prisma.sale.update({ where: { id: sale_id }, data: { booking_amount: newAmt } });
+    }
+  }
+
   res.json(booking);
 }
 

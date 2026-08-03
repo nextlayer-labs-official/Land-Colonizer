@@ -1107,6 +1107,7 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
       await apiFetch({ booking_amount: amtVal || null });
       setAmtEditing(false);
       await onSaved();
+      await onSaleReload?.();
     } catch (e) { console.error(e); }
     finally { setAmtSaving(false); }
   };
