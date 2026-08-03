@@ -165,7 +165,7 @@ function InventoryPicker({ onPick }) {
                 <table className="w-full">
                   <thead className="sticky top-0 bg-gray-50 z-10">
                     <tr>
-                      {['Code', 'Plot / SL', 'Location', 'Type', 'Area', 'Rate', 'Status', ''].map(h => (
+                      {['Code', 'Plot / SL', 'Purchase', 'Location', 'Type', 'Area', 'Rate', 'Status', ''].map(h => (
                         <th key={h} className="text-left px-4 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -177,6 +177,9 @@ function InventoryPicker({ onPick }) {
                           <span className="font-mono text-xs font-bold text-[#875A7B]">{u.inventory_code}</span>
                         </td>
                         <td className="px-4 py-3 text-xs text-gray-700 font-medium">{u.plot_no || u.sl_no || '—'}</td>
+                        <td className="px-4 py-3">
+                          <span className="font-mono text-xs text-gray-600">{u.purchase?.purchase_code || '—'}</span>
+                        </td>
                         <td className="px-4 py-3 text-xs text-gray-500 max-w-[120px] truncate">{u.location || '—'}</td>
                         <td className="px-4 py-3">
                           <span className="text-[10px] font-bold bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{u.type}</span>
@@ -603,7 +606,7 @@ export default function ProjectDetailPage() {
                   <table className="w-full">
                     <thead>
                       <tr className="bg-gray-50/60">
-                        {['Unit', 'Plot / SL', 'Area', 'Type', 'Status', 'Customer', 'Value', 'Received', 'Balance', 'Net Income (Self)', 'Collection', 'Sale', ''].map(h => (
+                        {['Unit', 'Plot / SL', 'Purchase', 'Area', 'Type', 'Status', 'Customer', 'Value', 'Received', 'Balance', 'Net Income (Self)', 'Collection', 'Sale', ''].map(h => (
                           <th key={h} className="text-left px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                         ))}
                       </tr>
@@ -618,7 +621,8 @@ export default function ProjectDetailPage() {
                             (u.plot_no || '').toLowerCase().includes(q) ||
                             (u.sl_no   || '').toLowerCase().includes(q) ||
                             (u.location|| '').toLowerCase().includes(q) ||
-                            (u.type    || '').toLowerCase().includes(q)
+                            (u.type    || '').toLowerCase().includes(q) ||
+                            (u.purchase?.purchase_code || '').toLowerCase().includes(q)
                           );
                         })
                         .map(u => {
@@ -636,6 +640,9 @@ export default function ProjectDetailPage() {
                                 className="text-xs font-bold text-[#875A7B] hover:underline">{u.inventory_code}</Link>
                             </td>
                             <td className="px-4 py-3 text-xs text-gray-600 font-medium">{u.plot_no || u.sl_no || '—'}</td>
+                            <td className="px-4 py-3">
+                              <span className="font-mono text-xs text-gray-500">{u.purchase?.purchase_code || '—'}</span>
+                            </td>
                             <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
                               {u.area ? `${fmt(u.area)} ${u.area_unit || ''}`.trim() : '—'}
                             </td>

@@ -33,6 +33,7 @@ const INCLUDE = {
     select: {
       id: true, inventory_code: true, plot_no: true, sl_no: true,
       area: true, area_unit: true, status: true, type: true,
+      purchase: { select: { id: true, purchase_code: true, plot_no: true, sl_no: true } },
       sales: {
         where: { status: 'ACTIVE' },
         select: {

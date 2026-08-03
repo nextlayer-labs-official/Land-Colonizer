@@ -133,7 +133,7 @@ const getPurchases = async (req, res) => {
 };
 
 const getInventoryUnits = async (req, res) => {
-  const { purchase_id, search = '', limit = '3', id, no_project } = req.query;
+  const { purchase_id, search = '', limit = '3', id, no_project, project_id } = req.query;
 
   const SELECT = {
     id: true, inventory_code: true, type: true, plot_no: true, sl_no: true, location: true,
@@ -151,6 +151,7 @@ const getInventoryUnits = async (req, res) => {
   const where = {
     ...(no_project ? { project_id: null } : { status: 'AVAILABLE' }),
     ...(purchase_id ? { purchase_id: Number(purchase_id) } : {}),
+    ...(project_id  ? { project_id:  Number(project_id)  } : {}),
     ...(search.trim() ? {
       OR: [
         { inventory_code: { contains: search } },

@@ -303,32 +303,42 @@ const INV_STATUS_BADGE = {
 };
 
 export function InventoryPickerModal({ value, onPick, onClear, readOnly }) {
-  const [open,       setOpen]       = useState(false);
-  const [search,     setSearch]     = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
-  const [items,      setItems]      = useState([]);
-  const [loading,    setLoading]    = useState(false);
+  const [open,          setOpen]          = useState(false);
+  const [search,        setSearch]        = useState('');
+  const [typeFilter,    setTypeFilter]    = useState('');
+  const [projectFilter, setProjectFilter] = useState('');
+  const [projects,      setProjects]      = useState([]);
+  const [items,         setItems]         = useState([]);
+  const [loading,       setLoading]       = useState(false);
   const tmr = useRef(null);
 
-  const load = useCallback(async (q = '') => {
+  const load = useCallback(async (q = '', pid = '') => {
     setLoading(true);
     try {
-      const data = await apiGet(`/lookup/inventory?search=${encodeURIComponent(q)}&limit=40`);
+      const params = new URLSearchParams({ search: q, limit: '40' });
+      if (pid) params.set('project_id', pid);
+      const data = await apiGet(`/lookup/inventory?${params}`);
       setItems(Array.isArray(data) ? data : []);
     } catch { setItems([]); }
     finally  { setLoading(false); }
   }, []);
 
-  useEffect(() => { if (open) load(''); }, [open, load]);
+  useEffect(() => {
+    if (open) {
+      apiGet('/lookup/projects?limit=500').then(d => setProjects(Array.isArray(d) ? d : [])).catch(() => {});
+    }
+  }, [open]);
+
+  useEffect(() => { if (open) load('', projectFilter); }, [open, projectFilter, load]);
 
   useEffect(() => {
     clearTimeout(tmr.current);
     if (!open) return;
-    tmr.current = setTimeout(() => load(search), 300);
+    tmr.current = setTimeout(() => load(search, projectFilter), 300);
     return () => clearTimeout(tmr.current);
-  }, [search, open, load]);
+  }, [search, open, load, projectFilter]);
 
-  const close = () => { setOpen(false); setSearch(''); setTypeFilter(''); };
+  const close = () => { setOpen(false); setSearch(''); setTypeFilter(''); setProjectFilter(''); };
 
   const filtered = typeFilter ? items.filter(u => u.type === typeFilter) : items;
 
@@ -378,13 +388,18 @@ export function InventoryPickerModal({ value, onPick, onClear, readOnly }) {
               </button>
             </div>
 
-            <div className="px-5 py-3 border-b border-gray-100 flex gap-3 shrink-0">
-              <div className="flex-1 relative">
+            <div className="px-5 py-3 border-b border-gray-100 flex gap-3 shrink-0 flex-wrap">
+              <div className="flex-1 relative min-w-[180px]">
                 <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                 <input autoFocus value={search} onChange={e => setSearch(e.target.value)}
                   placeholder="Search by code, plot no, location, purchase…"
                   className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/20" />
               </div>
+              <select value={projectFilter} onChange={e => setProjectFilter(e.target.value)}
+                className="text-sm border border-gray-200 rounded-lg px-3 py-2 text-gray-700 focus:outline-none focus:border-[#875A7B] bg-white">
+                <option value="">All Projects</option>
+                {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
               <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
                 className="text-sm border border-gray-200 rounded-lg px-3 py-2 text-gray-700 focus:outline-none focus:border-[#875A7B] bg-white">
                 <option value="">All Types</option>
