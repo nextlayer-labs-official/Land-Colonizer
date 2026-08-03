@@ -1086,8 +1086,9 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
     if (refundExceed) return;
     setSavingRI(true);
     try {
-      await apiFetch({ refund_amount: refund || null, income_amount: String(autoIncome), notes: refundNote || null });
+      await apiFetch({ refund_amount: String(refundNum), income_amount: String(autoIncome), notes: refundNote || null });
       await onSaved();
+      await onSaleReload?.();
     } catch (e) { console.error(e); }
     finally { setSavingRI(false); }
   };
@@ -1097,6 +1098,7 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
     try {
       await apiFetch({ status: 'REFUNDED' });
       await onSaved();
+      await onSaleReload?.();
     } catch (e) { console.error(e); }
     finally { setMarkingRefund(false); }
   };
@@ -1320,7 +1322,7 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
                 )}
                 <button
                   onClick={async () => { await handleSaveRefund(); setRefundEditing(false); }}
-                  disabled={savingRI || refundExceed || !refund}
+                  disabled={savingRI || refundExceed}
                   className="mt-4 h-7 px-3 text-[10px] font-bold rounded-lg text-white disabled:opacity-50"
                   style={{ backgroundColor: '#875A7B' }}>
                   {savingRI ? 'Saving…' : 'Save'}
