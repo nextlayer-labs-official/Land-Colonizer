@@ -308,7 +308,7 @@ export default function SalesPage() {
                 </td>
                 <td className="px-3 py-2.5">
                   <p className="font-medium text-gray-800 text-xs">{row.inventory?.inventory_code || '—'}</p>
-                  {row.inventory?.plot_no && <p className="text-[10px] text-gray-400">Plot {row.inventory.plot_no}</p>}
+                  {row.inventory?.plot_no && <p className="text-xs font-bold text-gray-900">Plot {row.inventory.plot_no}</p>}
                 </td>
                 <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
                   {row.inventory?.project ? (
