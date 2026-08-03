@@ -93,7 +93,8 @@ const inventoryReport = async (req, res) => {
     total_value: rows.reduce((s, r) => s + Number(r.total_value || 0), 0),
     available:   rows.filter(u => u.status === 'AVAILABLE').length,
     sold:        rows.filter(u => u.status === 'SOLD').length,
-    booked:      rows.filter(u => u.status === 'BOOKED').length,
+    reserved:    rows.filter(u => u.status === 'RESERVED').length,
+    registered:  rows.filter(u => u.status === 'REGISTERED').length,
   };
 
   res.json({ units: rows, summary });

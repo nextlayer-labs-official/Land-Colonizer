@@ -313,11 +313,12 @@ function InventoryReport() {
 
       {result && (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
             <SummaryCard label="Total Units" value={result.summary.count} />
             <SummaryCard label="Available"   value={result.summary.available} />
             <SummaryCard label="Sold"        value={result.summary.sold} />
-            <SummaryCard label="Booked"      value={result.summary.booked} />
+            <SummaryCard label="Reserved"    value={result.summary.reserved} />
+            <SummaryCard label="Registered"  value={result.summary.registered} />
           </div>
           <div className="grid grid-cols-2 gap-3 mb-4">
             <SummaryCard label="Total Area"  value={fmtN(result.summary.total_area)} />
