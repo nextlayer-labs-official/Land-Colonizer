@@ -98,10 +98,22 @@ async function confirmBooking(req, res) {
     ...(advance_payment_details   ? { advance_payment_details }                 : {}),
   };
 
-  // Mark this booking CONFIRMED; leave others as-is for manual refund/income entry
+  // Find other pending bookings so we can default them to refund=0 (full income)
+  const otherPending = await prisma.saleBooking.findMany({
+    where: { sale_id, id: { not: id }, status: 'PENDING' },
+    select: { id: true, booking_amount: true },
+  });
+
   await prisma.$transaction([
     prisma.saleBooking.update({ where: { id }, data: { status: 'CONFIRMED' } }),
     prisma.sale.update({ where: { id: sale_id }, data: saleUpdate }),
+    ...otherPending.map(b => prisma.saleBooking.update({
+      where: { id: b.id },
+      data: {
+        refund_amount: 0,
+        income_amount: b.booking_amount != null ? parseFloat(String(b.booking_amount)) : 0,
+      },
+    })),
   ]);
 
   // Return full updated sale
