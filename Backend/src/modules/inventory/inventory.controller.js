@@ -76,9 +76,65 @@ const INCLUDE = {
   },
 };
 
+// Build a Prisma WHERE clause that mirrors computeStatus/withComputed for each display status
+function buildStatusWhere(status) {
+  if (!status) return null;
+  // notInactive: sale where status !== 'INACTIVE'
+  const ni = { NOT: { status: 'INACTIVE' } };
+
+  if (status === 'AVAILABLE') {
+    // no active sales at all
+    return { sales: { none: ni } };
+  }
+  if (status === 'FULL_FINAL') {
+    return { sales: { some: { ...ni, full_final_completed: true } } };
+  }
+  if (status === 'ATTORNEY') {
+    return {
+      AND: [
+        { sales: { some: { ...ni, attorney_completed: true } } },
+        { sales: { none: { ...ni, full_final_completed: true } } },
+      ],
+    };
+  }
+  if (status === 'REGISTERED') {
+    return {
+      AND: [
+        { sales: { none: { ...ni, full_final_completed: true } } },
+        { sales: { none: { ...ni, attorney_completed: true } } },
+        { sales: { some: { ...ni, OR: [{ date_of_registration: { not: null } }, { registration_completed: true }] } } },
+      ],
+    };
+  }
+  if (status === 'SOLD') {
+    return {
+      AND: [
+        { sales: { none: { ...ni, full_final_completed: true } } },
+        { sales: { none: { ...ni, attorney_completed: true } } },
+        { sales: { none: { ...ni, OR: [{ date_of_registration: { not: null } }, { registration_completed: true }] } } },
+        { sales: { some: { ...ni, OR: [{ booking_amount: { gt: 0 } }, { advance_payment: { gt: 0 } }] } } },
+      ],
+    };
+  }
+  if (status === 'RESERVED') {
+    return {
+      AND: [
+        { sales: { some: ni } },
+        { sales: { none: { ...ni, full_final_completed: true } } },
+        { sales: { none: { ...ni, attorney_completed: true } } },
+        { sales: { none: { ...ni, OR: [{ date_of_registration: { not: null } }, { registration_completed: true }] } } },
+        { sales: { none: { ...ni, OR: [{ booking_amount: { gt: 0 } }, { advance_payment: { gt: 0 } }] } } },
+      ],
+    };
+  }
+  return null;
+}
+
 async function getInventory(req, res) {
   const { page = 1, limit = 15, search = '', status = '', purchase_id = '', type = '' } = req.query;
   const skip = (Number(page) - 1) * Number(limit);
+
+  const statusWhere = buildStatusWhere(status);
 
   const where = {
     AND: [
@@ -94,6 +150,7 @@ async function getInventory(req, res) {
       } : {},
       type        ? { type }                             : {},
       purchase_id ? { purchase_id: Number(purchase_id) } : {},
+      statusWhere ? statusWhere                          : {},
     ],
   };
 
@@ -102,12 +159,9 @@ async function getInventory(req, res) {
     prisma.inventory.count({ where }),
   ]);
 
-  let computed = items.map(withComputed);
+  const computed = items.map(withComputed);
 
-  // Status is computed, filter in memory
-  if (status) computed = computed.filter(i => i.status === status);
-
-  res.json({ inventory: computed, total: status ? computed.length : total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / Number(limit)) });
+  res.json({ inventory: computed, total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / Number(limit)) });
 }
 
 async function getInventoryById(req, res) {
