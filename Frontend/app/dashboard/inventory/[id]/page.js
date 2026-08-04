@@ -14,6 +14,8 @@ const STATUS_STYLE = {
   RESERVED:   { bg: 'bg-amber-50',   text: 'text-amber-700',   dot: 'bg-amber-500',   ring: 'ring-amber-200',  boxBg: 'bg-amber-500'   },
   SOLD:       { bg: 'bg-blue-50',    text: 'text-blue-700',    dot: 'bg-blue-500',    ring: 'ring-blue-200',   boxBg: 'bg-blue-500'    },
   REGISTERED: { bg: 'bg-violet-50',  text: 'text-violet-700',  dot: 'bg-violet-500',  ring: 'ring-violet-200', boxBg: 'bg-violet-500'  },
+  ATTORNEY:   { bg: 'bg-indigo-50',  text: 'text-indigo-700',  dot: 'bg-indigo-500',  ring: 'ring-indigo-200', boxBg: 'bg-indigo-500'  },
+  FULL_FINAL: { bg: 'bg-purple-50',  text: 'text-purple-700',  dot: 'bg-purple-500',  ring: 'ring-purple-200', boxBg: 'bg-purple-500'  },
 };
 const TYPE_STYLE = {
   PLOT:      { label: 'Plot',      color: '#875A7B', bg: '#875A7B15' },
@@ -120,7 +122,7 @@ function PlotVisual({ form }) {
             {ts.label}
           </span>
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ring-1 ${ss.bg} ${ss.text} ${ss.ring}`}>
-            {form.status}
+            {form.status === 'FULL_FINAL' ? 'Full & Final' : form.status === 'ATTORNEY' ? 'Attorney' : form.status}
           </span>
         </div>
         <p className="text-[10px] text-gray-300 italic">Status auto-computed</p>
@@ -542,7 +544,8 @@ export default function InventoryRecordPage() {
                   <div>
                     <FL>Status</FL>
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold ring-1 ${sc.bg} ${sc.text} ${sc.ring}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />{form.status}
+                      <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />
+                      {form.status === 'FULL_FINAL' ? 'Full & Final' : form.status === 'ATTORNEY' ? 'Attorney' : form.status}
                     </span>
                   </div>
 
@@ -742,7 +745,8 @@ export default function InventoryRecordPage() {
                       <div>
                         <FL>Status</FL>
                         <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold ring-1 ${sc.bg} ${sc.text} ${sc.ring}`}>
-                          <span className={`w-2 h-2 rounded-full ${sc.dot}`} />{form.status}
+                          <span className={`w-2 h-2 rounded-full ${sc.dot}`} />
+                          {form.status === 'FULL_FINAL' ? 'Full & Final' : form.status === 'ATTORNEY' ? 'Attorney' : form.status}
                         </span>
                         <p className="text-[10px] text-gray-400 mt-1">Auto-computed from linked sale data</p>
                       </div>
@@ -778,7 +782,7 @@ export default function InventoryRecordPage() {
                     <table className="w-full text-sm border-collapse">
                       <thead>
                         <tr className="border-b border-gray-100">
-                          {['Sale Code','Customer','Broker','Sale Date','Actual Price','Received','Balance','Possession','Status'].map(h => (
+                          {['Sale Code','Customer','Broker','Sale Date','Actual Price','Received','Balance','Possession','Status','Attorney','Full & Final'].map(h => (
                             <th key={h} className="px-3 py-2.5 text-left text-[10px] font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                           ))}
                         </tr>
@@ -819,6 +823,16 @@ export default function InventoryRecordPage() {
                                 <span className={`w-1 h-1 rounded-full ${s.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-gray-400'}`} />
                                 {s.status}
                               </span>
+                            </td>
+                            <td className="px-3 py-2.5">
+                              {s.attorney_completed
+                                ? <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200">Done</span>
+                                : <span className="text-gray-300 text-xs">—</span>}
+                            </td>
+                            <td className="px-3 py-2.5">
+                              {s.full_final_completed
+                                ? <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-purple-50 text-purple-700 ring-1 ring-purple-200">Done</span>
+                                : <span className="text-gray-300 text-xs">—</span>}
                             </td>
                           </tr>
                         ))}

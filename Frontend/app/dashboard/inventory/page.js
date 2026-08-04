@@ -189,7 +189,7 @@ export default function InventoryPage() {
           {showFilter && (
             <div className="absolute left-0 top-full mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-30 py-1">
               <p className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</p>
-              {[['', 'All'], ['AVAILABLE', 'Available'], ['RESERVED', 'Reserved'], ['SOLD', 'Sold'], ['REGISTERED', 'Registered']].map(([v, label]) => (
+              {[['', 'All'], ['AVAILABLE', 'Available'], ['RESERVED', 'Reserved'], ['SOLD', 'Sold'], ['REGISTERED', 'Registered'], ['ATTORNEY', 'Attorney'], ['FULL_FINAL', 'Full & Final']].map(([v, label]) => (
                 <button key={v} onClick={() => setStatusFilter(v)}
                   className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${statusFilter === v ? 'text-[#875A7B] font-medium' : 'text-gray-700'}`}>
                   {label}
@@ -359,7 +359,7 @@ export default function InventoryPage() {
                   <td className="px-3 py-2.5 text-right" onClick={e => e.stopPropagation()}>
                     {navigatingId === row.id ? (
                       <svg className="w-4 h-4 animate-spin text-[#875A7B] inline-block" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z"/></svg>
-                    ) : canDelete && row.status !== 'SOLD' && row.status !== 'RESERVED' && row.status !== 'REGISTERED' && (
+                    ) : canDelete && row.status !== 'SOLD' && row.status !== 'RESERVED' && row.status !== 'REGISTERED' && row.status !== 'ATTORNEY' && row.status !== 'FULL_FINAL' && (
                       <button onClick={() => setDelModal(row)}
                         className="text-red-400 hover:text-red-600 text-xs hover:bg-red-50 px-2 py-1 rounded transition">
                         Delete

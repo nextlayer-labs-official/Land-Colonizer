@@ -6,7 +6,7 @@ async function getPrefix() {
   return s?.inventory_prefix || 'INV';
 }
 
-// Compute status from linked active sales
+// Compute storable status (DB enum values only)
 function computeStatus(sales = []) {
   const active = sales.filter(s => s.status !== 'INACTIVE');
   if (active.length === 0) return 'AVAILABLE';
@@ -18,8 +18,16 @@ function computeStatus(sales = []) {
 }
 
 function withComputed(inv) {
-  const status = computeStatus(inv.sales || []);
-  return { ...inv, status };
+  const storedStatus = computeStatus(inv.sales || []);
+  const active = (inv.sales || []).filter(s => s.status !== 'INACTIVE');
+  const sale   = active[0] || null;
+  const attorney_completed   = !!(sale?.attorney_completed);
+  const full_final_completed = !!(sale?.full_final_completed);
+  // Display status extends stored with attorney/full_final tiers
+  const status = full_final_completed ? 'FULL_FINAL'
+    : attorney_completed              ? 'ATTORNEY'
+    : storedStatus;
+  return { ...inv, status, attorney_completed, full_final_completed };
 }
 
 function sanitize(body) {
@@ -58,6 +66,7 @@ const INCLUDE = {
     select: {
       id: true, sale_code: true, sale_date: true, status: true, type: true, possession: true,
       booking_amount: true, booking_in_received: true, advance_payment: true, date_of_registration: true, registration_completed: true,
+      attorney_completed: true, full_final_completed: true,
       actual_price: true, balance_amount: true, net_amount: true, selling_rate: true,
       customer: { select: { id: true, customer_code: true, name: true, phone: true, email: true } },
       broker:   { select: { id: true, broker_code: true, name: true } },
@@ -107,9 +116,10 @@ async function getInventoryById(req, res) {
 
   const result = withComputed(inv);
 
-  // Persist computed status back to DB if it changed
-  if (result.status !== inv.status) {
-    await prisma.inventory.update({ where: { id: inv.id }, data: { status: result.status } }).catch(() => {});
+  // Persist stored status (DB enum values only) back to DB if it changed
+  const storedStatus = computeStatus(inv.sales || []);
+  if (storedStatus !== inv.status) {
+    await prisma.inventory.update({ where: { id: inv.id }, data: { status: storedStatus } }).catch(() => {});
   }
 
   res.json(result);

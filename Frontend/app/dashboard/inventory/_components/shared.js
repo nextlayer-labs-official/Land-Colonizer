@@ -23,17 +23,21 @@ export const UNIT_TYPES = ['PLOT', 'SHOP', 'LAND', 'FLAT', 'PLOT_WIRE', 'SHOP_WI
 export const AREA_UNITS = ['gaj', 'acres', 'bigha'];
 
 export const STATUS_RING = {
-  AVAILABLE:  'bg-emerald-50 text-emerald-700 ring-emerald-200',
-  RESERVED:   'bg-amber-50   text-amber-700   ring-amber-200',
-  SOLD:       'bg-blue-50    text-blue-700    ring-blue-200',
-  REGISTERED: 'bg-violet-50  text-violet-700  ring-violet-200',
+  AVAILABLE:   'bg-emerald-50 text-emerald-700 ring-emerald-200',
+  RESERVED:    'bg-amber-50   text-amber-700   ring-amber-200',
+  SOLD:        'bg-blue-50    text-blue-700    ring-blue-200',
+  REGISTERED:  'bg-violet-50  text-violet-700  ring-violet-200',
+  ATTORNEY:    'bg-indigo-50  text-indigo-700  ring-indigo-200',
+  FULL_FINAL:  'bg-purple-50  text-purple-700  ring-purple-200',
 };
 
 export const STATUS_DOT = {
-  AVAILABLE:  'bg-emerald-500',
-  RESERVED:   'bg-amber-400',
-  SOLD:       'bg-blue-500',
-  REGISTERED: 'bg-violet-500',
+  AVAILABLE:   'bg-emerald-500',
+  RESERVED:    'bg-amber-400',
+  SOLD:        'bg-blue-500',
+  REGISTERED:  'bg-violet-500',
+  ATTORNEY:    'bg-indigo-500',
+  FULL_FINAL:  'bg-purple-500',
 };
 
 export const UNIT_TYPE_RING = {
