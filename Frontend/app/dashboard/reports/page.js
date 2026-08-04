@@ -1161,7 +1161,7 @@ function BalanceDueReport() {
                     <td className="px-3 py-2.5 text-gray-600">{r.total_area ? fmtN(r.total_area) + (r.area_unit ? ' ' + r.area_unit : '') : '—'}</td>
                     <td className="px-3 py-2.5">
                       <p className="text-sm font-bold text-gray-900">{r.customer?.name || '—'}</p>
-                      {r.customer?.phone && <p className="text-xs text-gray-400">{r.customer.phone}</p>}
+                      {r.customer?.phone && <p className="text-xs font-bold text-gray-900">{r.customer.phone}</p>}
                     </td>
                     <td className="px-3 py-2.5 text-gray-600">₹ {fmt(r.actual_price)}</td>
                     <td className="px-3 py-2.5 text-emerald-700 font-medium">₹ {fmt(r.received)}</td>
