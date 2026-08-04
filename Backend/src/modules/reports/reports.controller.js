@@ -163,10 +163,11 @@ const purchaseReport = async (req, res) => {
   });
 
   const summary = {
-    count:        rows.length,
-    total_area:   rows.reduce((s, r) => s + Number(r.purchased_area || 0), 0),
-    total_amount: rows.reduce((s, r) => s + Number(r.total_amount || 0), 0),
-    total_cost:   rows.reduce((s, r) => s + Number(r.total_cost || 0), 0),
+    count:         rows.length,
+    total_area:    rows.reduce((s, r) => s + Number(r.purchased_area || 0), 0),
+    total_amount:  rows.reduce((s, r) => s + Number(r.total_amount   || 0), 0),
+    total_cost:    rows.reduce((s, r) => s + Number(r.total_cost     || 0), 0),
+    total_balance: rows.reduce((s, r) => s + Number(r.balance_to_pay || 0), 0),
   };
 
   res.json({ purchases: rows, summary });

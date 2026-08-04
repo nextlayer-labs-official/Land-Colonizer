@@ -451,11 +451,12 @@ function PurchaseReport() {
 
       {result && (
         <>
-          <div className="grid grid-cols-4 gap-3 mb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
             <SummaryCard label="Total Purchases" value={result.summary.count} />
             <SummaryCard label="Total Area"      value={fmtN(result.summary.total_area)} />
             <SummaryCard label="Total Amount"    value={'₹ ' + fmt(result.summary.total_amount)} />
             <SummaryCard label="Total Cost"      value={'₹ ' + fmt(result.summary.total_cost)} />
+            <SummaryCard label="Balance to Pay"  value={'₹ ' + fmt(result.summary.total_balance)} />
           </div>
           <div className="bg-white border border-gray-200 rounded-lg overflow-auto max-h-[70vh]">
             <table className="w-full text-sm border-collapse">
