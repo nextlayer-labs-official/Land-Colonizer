@@ -185,9 +185,9 @@ function SalesReport() {
             <SummaryCard label="Actual Price"  value={'₹ ' + fmt(result.summary.actual_price)} />
             <SummaryCard label="Balance Due"   value={'₹ ' + fmt(result.summary.total_balance)} />
           </div>
-          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden overflow-x-auto">
+          <div className="bg-white border border-gray-200 rounded-lg overflow-auto max-h-[70vh]">
             <table className="w-full text-sm border-collapse">
-              <thead>
+              <thead className="sticky top-0 z-10 bg-gray-50">
                 <tr className="border-b border-gray-200 bg-gray-50">
                   {['#','Sale Code','Customer','Broker','Project','Unit','Total Area','Plot Rate','Total Value','Selling Rate','Actual Price','Balance','Status','Reg. Date','Intkaal No.','Vasika','Possession','Entry By'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
@@ -324,9 +324,9 @@ function InventoryReport() {
             <SummaryCard label="Total Area"  value={fmtN(result.summary.total_area)} />
             <SummaryCard label="Total Value" value={'₹ ' + fmt(result.summary.total_value)} />
           </div>
-          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <div className="bg-white border border-gray-200 rounded-lg overflow-auto max-h-[70vh]">
             <table className="w-full text-sm border-collapse">
-              <thead>
+              <thead className="sticky top-0 z-10 bg-gray-50">
                 <tr className="border-b border-gray-200 bg-gray-50">
                   {['#','Unit Code','Plot No','Project','Type','Front Area','Back Area','Total Area','Rate / Unit','Total Value','Status'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
@@ -457,9 +457,9 @@ function PurchaseReport() {
             <SummaryCard label="Total Amount"    value={'₹ ' + fmt(result.summary.total_amount)} />
             <SummaryCard label="Total Cost"      value={'₹ ' + fmt(result.summary.total_cost)} />
           </div>
-          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden overflow-x-auto">
+          <div className="bg-white border border-gray-200 rounded-lg overflow-auto max-h-[70vh]">
             <table className="w-full text-sm border-collapse">
-              <thead>
+              <thead className="sticky top-0 z-10 bg-gray-50">
                 <tr className="border-b border-gray-200 bg-gray-50">
                   {['#','Purchase Code','Category','Type','Status','SL No.','Location','Purchased Area','Total Amount','Total Cost','Balance to Pay','Stage','Reg. Date'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
@@ -581,9 +581,9 @@ function BrokerReport() {
             <SummaryCard label="Total Purchases"  value={result.summary.total_purchases} />
             <SummaryCard label="Total Value"      value={'₹ ' + fmt(result.summary.total_value)} />
           </div>
-          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <div className="bg-white border border-gray-200 rounded-lg overflow-auto max-h-[70vh]">
             <table className="w-full text-sm border-collapse">
-              <thead>
+              <thead className="sticky top-0 z-10 bg-gray-50">
                 <tr className="border-b border-gray-200 bg-gray-50">
                   {['','#','Broker','Phone','Sales','Purchases','Total Value'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
@@ -779,9 +779,9 @@ function InstalmentsReport() {
               <SummaryCard label="Already Paid"           value={'₹ ' + fmt(result.purchase_summary.total_paid)} />
               <SummaryCard label="Total Pending"          value={'₹ ' + fmt(result.purchase_summary.total_pending)} />
             </div>
-            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div className="bg-white border border-gray-200 rounded-lg overflow-auto max-h-[70vh]">
               <table className="w-full text-sm border-collapse">
-                <thead>
+                <thead className="sticky top-0 z-10 bg-orange-50">
                   <tr className="border-b border-gray-200 bg-orange-50/60">
                     {['','#','Purchase','Plot No','Seller','Project','Paid (Inst.)','Pending','Instalments'].map(h => (
                       <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
@@ -841,9 +841,9 @@ function InstalmentsReport() {
               <SummaryCard label="Already Received"   value={'₹ ' + fmt(result.sale_summary.total_paid)} />
               <SummaryCard label="Total Pending"      value={'₹ ' + fmt(result.sale_summary.total_pending)} />
             </div>
-            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div className="bg-white border border-gray-200 rounded-lg overflow-auto max-h-[70vh]">
               <table className="w-full text-sm border-collapse">
-                <thead>
+                <thead className="sticky top-0 z-10 bg-blue-50">
                   <tr className="border-b border-gray-200 bg-blue-50/60">
                     {['','#','Sale','Plot No','Area','Customer','Project','Received (Inst.)','Pending','Instalments'].map(h => (
                       <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
@@ -1019,9 +1019,9 @@ function AvailabilityReport() {
             <SummaryCard label="Reserved"    value={result.summary.reserved} />
             <SummaryCard label="Registered"  value={result.summary.registered} />
           </div>
-          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <div className="bg-white border border-gray-200 rounded-lg overflow-auto max-h-[70vh]">
             <table className="w-full text-sm border-collapse">
-              <thead>
+              <thead className="sticky top-0 z-10 bg-gray-50">
                 <tr className="border-b border-gray-200 bg-gray-50">
                   {['#', 'SL No.', 'Plot No.', 'Front Area', 'Back Area', 'Type', 'Total Area', 'Status'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
@@ -1140,9 +1140,9 @@ function BalanceDueReport() {
           </div>
 
           {/* Table */}
-          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden overflow-x-auto">
+          <div className="bg-white border border-gray-200 rounded-lg overflow-auto max-h-[70vh]">
             <table className="w-full text-sm border-collapse">
-              <thead>
+              <thead className="sticky top-0 z-10 bg-gray-50">
                 <tr className="border-b border-gray-200 bg-gray-50">
                   {['#','Sale','Project','Plot No','Total Area','Customer','Actual Price','Received','Pending (Inst.)','Balance Due','Payment Due Date'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
