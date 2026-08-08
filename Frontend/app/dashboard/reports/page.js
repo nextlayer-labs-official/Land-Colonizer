@@ -93,7 +93,7 @@ const POSSESSION_STYLE = {
 };
 
 function SalesReport() {
-  const [filters, setFilters] = useState({ date_from: '', date_to: '', project_id: '', broker_id: '', status: '', sold_by_id: '' });
+  const [filters, setFilters] = useState({ date_from: '', date_to: '', project_id: '', broker_id: '', status: '', possession: '', sold_by_id: '' });
   const [result, setResult]   = useState(null);
   const [loading, setLoading] = useState(false);
   const [projects,  setProjects]  = useState([]);
@@ -162,8 +162,19 @@ function SalesReport() {
           <Field label="Status">
             <select value={filters.status} onChange={e => set('status', e.target.value)} className={selectCls} style={{ minWidth: 130 }}>
               <option value="">All</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="pending">Pending</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="registered">Registered</option>
+              <option value="attorney">Attorney</option>
+              <option value="full_final">Full &amp; Final</option>
+            </select>
+          </Field>
+          <Field label="Possession">
+            <select value={filters.possession} onChange={e => set('possession', e.target.value)} className={selectCls} style={{ minWidth: 120 }}>
+              <option value="">All</option>
+              <option value="PENDING">Pending</option>
+              <option value="PHYSICAL">Physical</option>
+              <option value="SYMBOLIC">Symbolic</option>
             </select>
           </Field>
           <Field label="Entry By">
