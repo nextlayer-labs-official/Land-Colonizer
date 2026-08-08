@@ -211,12 +211,12 @@ body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#1f2937;backgro
   <div style="font-size:10px;color:#9ca3af;margin-top:2px;">Plot No: ${sv(form.plot_no)}</div></div>
 </div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;margin-bottom:14px;">
-  ${[['Type',TYPE_MAP[form.type]||form.type||'—'],['Status',form.status||'—'],['Plot No',sv(form.plot_no)],['Location',sv(form.location)],['Area',areaStr]].map(([l,v])=>
+  ${[['Type',TYPE_MAP[form.type]||form.type||'—'],['Status',form.status||'—'],['Plot No',sv(form.plot_no)],['Location',sv(form.location)],['Facing',sv(form.facing)],['Area',areaStr]].map(([l,v])=>
     `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:4px 10px;display:inline-block;"><span style="font-size:9px;color:#9ca3af;text-transform:uppercase;">${l}: </span><span style="font-size:10px;font-weight:700;color:#374151;">${v}</span></div>`
   ).join('')}
 </div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
-  <div>${secTitle('Unit Information')}${infoBox([['Inventory Code',codeLabel],['Type',TYPE_MAP[form.type]||form.type||'—'],['Status',sv(form.status)],['Plot No',sv(form.plot_no)],['SL No',sv(form.sl_no)],['Location',sv(form.location)],['Possession',sv(form.possession_status)]])}</div>
+  <div>${secTitle('Unit Information')}${infoBox([['Inventory Code',codeLabel],['Type',TYPE_MAP[form.type]||form.type||'—'],['Status',sv(form.status)],['Plot No',sv(form.plot_no)],['SL No',sv(form.sl_no)],['Location',sv(form.location)],['Facing',sv(form.facing)],['Possession',sv(form.possession_status)]])}</div>
   <div>${secTitle('Area & Measurement')}${infoBox([['Front Area',form.front_area?`${nf(form.front_area)} ${sv(form.front_area_details)}`:'&mdash;'],['Back Area',form.back_area?`${nf(form.back_area)} ${sv(form.back_area_details)}`:'&mdash;'],['Computed Area',areaStr],['Sanctioned Area',form.sanctioned_area?`${nf(form.sanctioned_area)} ${sv(form.sanctioned_area_details)}`:'&mdash;'],['Rate',form.rate?mf(form.rate):'&mdash;'],['Project',sv(form.project?.name||form.project_id)],['Purchase Ref',sv(inv?.purchase?.purchase_code||form.purchase_id)]])}</div>
 </div>
 ${activeSale ? `
@@ -552,6 +552,7 @@ export default function InventoryRecordPage() {
                   <FIn label="SL No" value={form.sl_no} onChange={set('sl_no')} placeholder="Serial no." readOnly={!editing} />
                   <FIn label="Plot No" value={form.plot_no} onChange={set('plot_no')} placeholder="e.g. A-125" readOnly={!editing} />
                   <FIn label="Location" value={form.location} onChange={set('location')} placeholder="Sector / area" readOnly={!editing} />
+                  <FIn label="Facing" value={form.facing} onChange={set('facing')} placeholder="e.g. North Facing" readOnly={!editing} />
 
                   <div className="grid grid-cols-2 gap-2 col-span-full sm:col-span-1">
                     <FIn label="Front Area" value={form.front_area} onChange={set('front_area')} type="number" placeholder="0" readOnly={!editing} />
