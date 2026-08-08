@@ -418,6 +418,7 @@ function PurchaseReport() {
       'Location':         p.location || '',
       'Purchased Area':   fmtNum(p.purchased_area),
       'Total Amount':     fmtNum(p.total_amount),
+      'Advance Paid':     fmtNum(p.advance_paid),
       'Total Cost':       fmtNum(p.total_cost),
       'Balance to Pay':   fmtNum(p.balance_to_pay),
       'Stage':            p.stage || '',
@@ -473,14 +474,14 @@ function PurchaseReport() {
             <table className="w-full text-sm border-collapse">
               <thead className="sticky top-0 z-10 bg-gray-50">
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  {['#','Purchase Code','Category','Type','Status','SL No.','Location','Purchased Area','Total Amount','Total Cost','Balance to Pay','Stage','Reg. Date'].map(h => (
+                  {['#','Purchase Code','Category','Type','Status','SL No.','Location','Purchased Area','Total Amount','Advance Paid','Total Cost','Balance to Pay','Stage','Reg. Date'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {result.purchases.length === 0 ? (
-                  <tr><td colSpan={13} className="py-10 text-center text-sm text-gray-400">No purchases found</td></tr>
+                  <tr><td colSpan={14} className="py-10 text-center text-sm text-gray-400">No purchases found</td></tr>
                 ) : result.purchases.map((p, i) => (
                   <tr key={p.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
@@ -494,6 +495,7 @@ function PurchaseReport() {
                     <td className="px-3 py-2.5 text-gray-600 max-w-[140px] truncate">{p.location || '—'}</td>
                     <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{p.purchased_area ? fmtN(p.purchased_area) + (p.purchased_area_details ? ' ' + p.purchased_area_details : '') : '—'}</td>
                     <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap">{p.total_amount ? '₹ ' + fmt(p.total_amount) : '—'}</td>
+                    <td className="px-3 py-2.5 text-emerald-700 whitespace-nowrap">{p.advance_paid ? '₹ ' + fmt(p.advance_paid) : '—'}</td>
                     <td className="px-3 py-2.5 font-medium text-gray-800 whitespace-nowrap">{p.total_cost ? '₹ ' + fmt(p.total_cost) : '—'}</td>
                     <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap">{p.balance_to_pay ? '₹ ' + fmt(p.balance_to_pay) : '—'}</td>
                     <td className="px-3 py-2.5 whitespace-nowrap">
