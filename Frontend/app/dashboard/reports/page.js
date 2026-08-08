@@ -93,7 +93,7 @@ const POSSESSION_STYLE = {
 };
 
 function SalesReport() {
-  const [filters, setFilters] = useState({ date_from: '', date_to: '', project_id: '', broker_id: '', status: '', possession: '', sold_by_id: '' });
+  const [filters, setFilters] = useState({ date_from: '', date_to: '', project_id: '', broker_id: '', status: '', possession: '', sold_by_id: '', facing: '' });
   const [result, setResult]   = useState(null);
   const [loading, setLoading] = useState(false);
   const [projects,  setProjects]  = useState([]);
@@ -126,6 +126,7 @@ function SalesReport() {
       'Project':             s.project?.name || '',
       'Inventory Unit':      s.inventory_unit || '',
       'Total Area':          fmtNum(s.total_area),
+      'Facing':              s.facing || '',
       'Plot Rate':           fmtNum(s.plot_rate),
       'Total Value':         fmtNum(s.total_value),
       'Selling Rate':        fmtNum(s.selling_rate),
@@ -183,6 +184,9 @@ function SalesReport() {
               {employees.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
           </Field>
+          <Field label="Facing">
+            <input type="text" value={filters.facing} onChange={e => set('facing', e.target.value)} className={inputCls} placeholder="e.g. North" style={{ minWidth: 110 }} />
+          </Field>
           <RunBtn onClick={run} loading={loading} />
           {result && <><PrintBtn /><ExcelBtn onClick={doExcel} /></>}
         </FilterRow>
@@ -200,14 +204,14 @@ function SalesReport() {
             <table className="w-full text-sm border-collapse">
               <thead className="sticky top-0 z-10 bg-gray-50">
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  {['#','Sale Code','Customer','Broker','Project','Unit','Total Area','Plot Rate','Total Value','Selling Rate','Actual Price','Balance','Status','Reg. Date','Intkaal No.','Vasika','Possession','Entry By'].map(h => (
+                  {['#','Sale Code','Customer','Broker','Project','Unit','Total Area','Facing','Plot Rate','Total Value','Selling Rate','Actual Price','Balance','Status','Reg. Date','Intkaal No.','Vasika','Possession','Entry By'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {result.sales.length === 0 ? (
-                  <tr><td colSpan={18} className="py-10 text-center text-sm text-gray-400">No sales found for the selected criteria</td></tr>
+                  <tr><td colSpan={19} className="py-10 text-center text-sm text-gray-400">No sales found for the selected criteria</td></tr>
                 ) : result.sales.map((s, i) => (
                   <tr key={s.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
@@ -217,6 +221,7 @@ function SalesReport() {
                     <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{s.project?.name || '—'}</td>
                     <td className="px-3 py-2.5 whitespace-nowrap"><span className="font-mono text-xs text-gray-600">{s.inventory_unit || '—'}</span></td>
                     <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{s.total_area ? fmtN(s.total_area) + (s.total_area_details ? ' ' + s.total_area_details : '') : '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-500 whitespace-nowrap">{s.facing || '—'}</td>
                     <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{s.plot_rate ? '₹ ' + fmt(s.plot_rate) : '—'}</td>
                     <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap">{s.total_value ? '₹ ' + fmt(s.total_value) : '—'}</td>
                     <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{s.selling_rate ? '₹ ' + fmt(s.selling_rate) : '—'}</td>
@@ -250,7 +255,7 @@ function SalesReport() {
 
 // ── Inventory Report ──────────────────────────────────────────────────────────
 function InventoryReport() {
-  const [filters, setFilters] = useState({ project_id: '', status: '', area_type: '' });
+  const [filters, setFilters] = useState({ project_id: '', status: '', area_type: '', facing: '' });
   const [result, setResult]   = useState(null);
   const [loading, setLoading] = useState(false);
   const [projects, setProjects] = useState([]);
@@ -277,6 +282,7 @@ function InventoryReport() {
       'Plot No':     u.plot_no || '',
       'Project':     u.project?.name || '',
       'Type':        u.area_type || '',
+      'Facing':      u.facing || '',
       'Front Area':  fmtNum(u.front_area),
       'Back Area':   fmtNum(u.back_area),
       'Total Area':  fmtNum(u.total_area),
@@ -317,6 +323,9 @@ function InventoryReport() {
               <option value="SHOP_WIRE">Shop Wire</option>
             </select>
           </Field>
+          <Field label="Facing">
+            <input type="text" value={filters.facing} onChange={e => set('facing', e.target.value)} className={inputCls} placeholder="e.g. North" style={{ minWidth: 110 }} />
+          </Field>
           <RunBtn onClick={run} loading={loading} />
           {result && <><PrintBtn /><ExcelBtn onClick={doExcel} /></>}
         </FilterRow>
@@ -339,14 +348,14 @@ function InventoryReport() {
             <table className="w-full text-sm border-collapse">
               <thead className="sticky top-0 z-10 bg-gray-50">
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  {['#','Unit Code','Plot No','Project','Type','Front Area','Back Area','Total Area','Rate / Unit','Total Value','Status'].map(h => (
+                  {['#','Unit Code','Plot No','Project','Type','Facing','Front Area','Back Area','Total Area','Rate / Unit','Total Value','Status'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {result.units.length === 0 ? (
-                  <tr><td colSpan={11} className="py-10 text-center text-sm text-gray-400">No inventory found</td></tr>
+                  <tr><td colSpan={12} className="py-10 text-center text-sm text-gray-400">No inventory found</td></tr>
                 ) : result.units.map((u, i) => (
                   <tr key={u.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
@@ -354,6 +363,7 @@ function InventoryReport() {
                     <td className="px-3 py-2.5 text-gray-700 font-medium">{u.plot_no || '—'}</td>
                     <td className="px-3 py-2.5 text-gray-700">{u.project?.name || '—'}</td>
                     <td className="px-3 py-2.5 text-gray-500">{u.area_type || '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-500">{u.facing || '—'}</td>
                     <td className="px-3 py-2.5 text-gray-600">{fmtN(u.front_area)}</td>
                     <td className="px-3 py-2.5 text-gray-600">{fmtN(u.back_area)}</td>
                     <td className="px-3 py-2.5 font-medium text-gray-800">{fmtN(u.total_area)}{u.area_unit ? ' ' + u.area_unit : ''}</td>
@@ -924,7 +934,7 @@ function InstalmentsReport() {
 
 // ── Availability Report ───────────────────────────────────────────────────────
 function AvailabilityReport() {
-  const [filters, setFilters] = useState({ purchase_id: '', project_id: '', status: '', created_by_id: '' });
+  const [filters, setFilters] = useState({ purchase_id: '', project_id: '', status: '', created_by_id: '', facing: '' });
   const [result, setResult]   = useState(null);
   const [loading, setLoading] = useState(false);
   const [purchases, setPurchases] = useState([]);
@@ -954,6 +964,7 @@ function AvailabilityReport() {
       '#':           i + 1,
       'SL No.':      u.sl_no   || '',
       'Plot No.':    u.plot_no || '',
+      'Facing':      u.facing  || '',
       'Front Area':  u.front_area ? fmtNum(u.front_area) : '',
       'Back Area':   u.back_area  ? fmtNum(u.back_area)  : '',
       'Type':        TYPE_LABEL[u.type] || u.type || '',
@@ -1019,6 +1030,9 @@ function AvailabilityReport() {
               {employees.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
           </Field>
+          <Field label="Facing">
+            <input type="text" value={filters.facing} onChange={e => set('facing', e.target.value)} className={inputCls} placeholder="e.g. North" style={{ minWidth: 110 }} />
+          </Field>
           <RunBtn onClick={run} loading={loading} />
           {result && <><PrintBtn /><ExcelBtn onClick={doExcel} /></>}
         </FilterRow>
@@ -1037,14 +1051,14 @@ function AvailabilityReport() {
             <table className="w-full text-sm border-collapse">
               <thead className="sticky top-0 z-10 bg-gray-50">
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  {['#', 'SL No.', 'Plot No.', 'Front Area', 'Back Area', 'Type', 'Total Area', 'Status'].map(h => (
+                  {['#', 'SL No.', 'Plot No.', 'Facing', 'Front Area', 'Back Area', 'Type', 'Total Area', 'Status'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {result.units.length === 0 ? (
-                  <tr><td colSpan={8} className="py-10 text-center text-sm text-gray-400">No inventory found</td></tr>
+                  <tr><td colSpan={9} className="py-10 text-center text-sm text-gray-400">No inventory found</td></tr>
                 ) : result.units.map((u, i) => {
                   const TYPE_LABEL = { PLOT: 'Plot', SHOP: 'Shop', LAND: 'Land', FLAT: 'Flat', PLOT_WIRE: 'Plot Wire', SHOP_WIRE: 'Shop Wire' };
                   return (
@@ -1052,6 +1066,7 @@ function AvailabilityReport() {
                     <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
                     <td className="px-3 py-2.5 text-gray-700">{u.sl_no   || '—'}</td>
                     <td className="px-3 py-2.5 text-gray-700">{u.plot_no || '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-500">{u.facing  || '—'}</td>
                     <td className="px-3 py-2.5 text-gray-600">{u.front_area ? fmtN(u.front_area) : '—'}</td>
                     <td className="px-3 py-2.5 text-gray-600">{u.back_area  ? fmtN(u.back_area)  : '—'}</td>
                     <td className="px-3 py-2.5 text-sm font-semibold text-gray-700">{TYPE_LABEL[u.type] || u.type || '—'}</td>

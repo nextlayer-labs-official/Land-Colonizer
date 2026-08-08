@@ -52,6 +52,7 @@ function sanitize(body) {
     back_area_details:  str(body.back_area_details),
     ...(computedArea !== undefined ? { area: computedArea } : {}),
     area_unit:          computedUnit || undefined,
+    facing:             str(body.facing),
     rate:               num(body.rate),
     registration_date:  body.registration_date ? new Date(body.registration_date) : null,
     project_id:         int(body.project_id),

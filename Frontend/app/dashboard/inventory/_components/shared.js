@@ -14,6 +14,7 @@ export const EMPTY = {
   back_area_details:  '',
   area:               '',
   area_unit:          'gaj',
+  facing:             '',
   rate:               '',
   registration_date:  '',
   status:             'AVAILABLE',

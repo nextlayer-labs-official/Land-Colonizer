@@ -1599,6 +1599,7 @@ body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#1f2937;backgro
       ['SL No',          s(inv.sl_no)],
       ['Location',       s(inv.location || form.details)],
       ['Area',           areaDisplay()],
+      ['Facing',         s(inv.facing)],
       ['Rate (per unit)',f(inv.rate || form.plot_rate)],
       ['Purchase Code',  s((inv.purchase || {}).purchase_code)],
     ])}
@@ -1998,6 +1999,9 @@ export default function SaleDetailPage() {
                         <p className="text-sm font-bold text-gray-800 mt-0.5">
                           Plot: {form._inventory.plot_no || form._inventory.sl_no}
                         </p>
+                      )}
+                      {form._inventory.facing && (
+                        <p className="text-xs text-gray-500 mt-0.5">{form._inventory.facing}</p>
                       )}
                     </div>
                   )}

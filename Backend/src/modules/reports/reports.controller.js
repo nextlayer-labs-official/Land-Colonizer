@@ -4,7 +4,7 @@ const num = (v) => (v !== undefined && v !== '' && v !== null ? parseFloat(v) : 
 
 // ── Sales Report ─────────────────────────────────────────────────────────────
 const salesReport = async (req, res) => {
-  const { date_from, date_to, project_id, broker_id, customer_id, status, possession, sold_by_id } = req.query;
+  const { date_from, date_to, project_id, broker_id, customer_id, status, possession, sold_by_id, facing } = req.query;
 
   const where = { archived: false };
   if (date_from || date_to) {
@@ -12,7 +12,10 @@ const salesReport = async (req, res) => {
     if (date_from) where.created_at.gte = new Date(date_from);
     if (date_to)   where.created_at.lte = new Date(date_to + 'T23:59:59.999');
   }
-  if (project_id)  where.inventory    = { project_id: parseInt(project_id) };
+  const invWhere = {};
+  if (project_id) invWhere.project_id = parseInt(project_id);
+  if (facing)     invWhere.facing     = { contains: facing };
+  if (Object.keys(invWhere).length > 0) where.inventory = invWhere;
   if (broker_id)   where.broker_id    = parseInt(broker_id);
   if (customer_id) where.customer_id  = parseInt(customer_id);
   if (sold_by_id)  where.sold_by_id   = parseInt(sold_by_id);
@@ -40,7 +43,7 @@ const salesReport = async (req, res) => {
       sold_by_name: true, sale_date: true, created_at: true,
       customer:     { select: { id: true, name: true } },
       broker:       { select: { id: true, name: true } },
-      inventory:    { select: { id: true, inventory_code: true, project: { select: { id: true, name: true } } } },
+      inventory:    { select: { id: true, inventory_code: true, facing: true, project: { select: { id: true, name: true } } } },
       installment:  { select: Object.fromEntries([...Array(24)].flatMap((_, i) => [[`inst_${i+1}_amount`, true], [`inst_${i+1}_paid`, true]])) },
     },
     orderBy: { created_at: 'desc' },
@@ -62,6 +65,7 @@ const salesReport = async (req, res) => {
       balance_amount: balance,
       project:        s.inventory?.project || null,
       inventory_unit: s.inventory?.inventory_code || null,
+      facing:         s.inventory?.facing || null,
     };
   });
 
@@ -77,12 +81,13 @@ const salesReport = async (req, res) => {
 
 // ── Inventory Report ─────────────────────────────────────────────────────────
 const inventoryReport = async (req, res) => {
-  const { project_id, status, area_type } = req.query;
+  const { project_id, status, area_type, facing } = req.query;
 
   const where = {};
   if (project_id) where.project_id = parseInt(project_id);
   if (status)     where.status     = status;
   if (area_type)  where.type       = area_type;
+  if (facing)     where.facing     = { contains: facing };
 
   const units = await prisma.inventory.findMany({
     where,
@@ -375,12 +380,13 @@ const instalmentsReport = async (req, res) => {
 
 // ── Availability Report ──────────────────────────────────────────────────────
 const availabilityReport = async (req, res) => {
-  const { purchase_id, project_id, status, created_by_id } = req.query;
+  const { purchase_id, project_id, status, created_by_id, facing } = req.query;
 
   const where = {};
   if (purchase_id)   where.purchase_id   = parseInt(purchase_id);
   if (project_id)    where.project_id    = parseInt(project_id);
   if (created_by_id) where.created_by_id = parseInt(created_by_id);
+  if (facing)        where.facing        = { contains: facing };
   if (status === 'FULL_FINAL') {
     where.sales = { some: { status: 'ACTIVE', full_final_completed: true } };
   } else if (status === 'ATTORNEY') {
@@ -400,6 +406,7 @@ const availabilityReport = async (req, res) => {
       front_area: true,
       back_area: true,
       area_unit: true,
+      facing: true,
       status: true,
       created_by_id: true,
       created_by_name: true,

@@ -592,6 +592,7 @@ model Inventory {
   back_area_details  String?
   area              Decimal?        @db.Decimal(10, 4)
   area_unit         String?
+  facing            String?
   rate              Decimal?        @db.Decimal(10, 2)
   registration_date DateTime?
   status            InventoryStatus @default(AVAILABLE)

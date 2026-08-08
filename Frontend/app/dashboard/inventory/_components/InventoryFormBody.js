@@ -339,6 +339,11 @@ export default function InventoryFormBody({ form, set, onPurchasePick, readOnly 
         <FInput value={form.plot_no} onChange={set('plot_no')} placeholder="e.g. P-01, Lot-5" readOnly={readOnly} />
       </div>
 
+      <div>
+        <FieldLabel>Facing</FieldLabel>
+        <FInput value={form.facing} onChange={set('facing')} placeholder="e.g. North Facing, East Facing" readOnly={readOnly} />
+      </div>
+
       {/* ── AREA ─────────────────────────────────────────────── */}
       <SectionDivider title="Area" />
 
