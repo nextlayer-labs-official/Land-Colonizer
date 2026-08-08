@@ -302,6 +302,8 @@ const INV_STATUS_BADGE = {
   REGISTERED: 'bg-violet-50  text-violet-700',
 };
 
+const INV_PICK_LIMIT = 20;
+
 export function InventoryPickerModal({ value, onPick, onClear, readOnly }) {
   const [open,          setOpen]          = useState(false);
   const [search,        setSearch]        = useState('');
@@ -310,17 +312,27 @@ export function InventoryPickerModal({ value, onPick, onClear, readOnly }) {
   const [projects,      setProjects]      = useState([]);
   const [items,         setItems]         = useState([]);
   const [loading,       setLoading]       = useState(false);
-  const tmr = useRef(null);
+  const [loadingMore,   setLoadingMore]   = useState(false);
+  const [page,          setPage]          = useState(1);
+  const [total,         setTotal]         = useState(0);
+  const scrollRef  = useRef(null);
+  const filtersRef = useRef({ search: '', typeFilter: '', projectFilter: '' });
 
-  const load = useCallback(async (q = '', pid = '') => {
-    setLoading(true);
+  const fetchPage = useCallback(async (pg, q, pid, typ, append = false) => {
+    if (pg === 1) setLoading(true); else setLoadingMore(true);
     try {
-      const params = new URLSearchParams({ search: q, limit: '40' });
+      const params = new URLSearchParams({ limit: String(INV_PICK_LIMIT), page: String(pg) });
+      if (q)   params.set('search',     q);
       if (pid) params.set('project_id', pid);
-      const data = await apiGet(`/lookup/inventory?${params}`);
-      setItems(Array.isArray(data) ? data : []);
-    } catch { setItems([]); }
-    finally  { setLoading(false); }
+      if (typ) params.set('type',       typ);
+      const d = await apiGet(`/lookup/inventory?${params}`);
+      const fetched = d?.items || [];
+      const tot     = d?.total ?? 0;
+      setItems(prev => append ? [...prev, ...fetched] : fetched);
+      setTotal(tot);
+      setPage(pg);
+    } catch { if (!append) setItems([]); }
+    finally { setLoading(false); setLoadingMore(false); }
   }, []);
 
   useEffect(() => {
@@ -329,18 +341,30 @@ export function InventoryPickerModal({ value, onPick, onClear, readOnly }) {
     }
   }, [open]);
 
-  useEffect(() => { if (open) load('', projectFilter); }, [open, projectFilter, load]);
-
+  // Reset + fetch page 1 whenever any filter changes
   useEffect(() => {
-    clearTimeout(tmr.current);
     if (!open) return;
-    tmr.current = setTimeout(() => load(search, projectFilter), 300);
-    return () => clearTimeout(tmr.current);
-  }, [search, open, load, projectFilter]);
+    filtersRef.current = { search, typeFilter, projectFilter };
+    setItems([]); setPage(1); setTotal(0);
+    const t = setTimeout(() => fetchPage(1, search, projectFilter, typeFilter, false), search.trim() ? 300 : 0);
+    return () => clearTimeout(t);
+  }, [open, search, typeFilter, projectFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const close = () => { setOpen(false); setSearch(''); setTypeFilter(''); setProjectFilter(''); };
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el || loadingMore || loading) return;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 100) {
+      const { search: q, typeFilter: typ, projectFilter: pid } = filtersRef.current;
+      setItems(cur => {
+        if (cur.length < total) {
+          fetchPage(page + 1, q, pid, typ, true);
+        }
+        return cur;
+      });
+    }
+  }, [page, total, loading, loadingMore, fetchPage]);
 
-  const filtered = typeFilter ? items.filter(u => u.type === typeFilter) : items;
+  const close = () => { setOpen(false); setSearch(''); setTypeFilter(''); setProjectFilter(''); setItems([]); setPage(1); setTotal(0); };
 
   if (readOnly) {
     return (
@@ -382,7 +406,12 @@ export function InventoryPickerModal({ value, onPick, onClear, readOnly }) {
           <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col" style={{ maxHeight: '82vh' }}>
 
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
-              <h3 className="text-base font-semibold text-gray-900">Select Inventory Unit</h3>
+              <div>
+                <h3 className="text-base font-semibold text-gray-900">Select Inventory Unit</h3>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {loading ? 'Loading…' : total > 0 ? `${items.length} of ${total} unit${total !== 1 ? 's' : ''} shown` : ''}
+                </p>
+              </div>
               <button type="button" onClick={close} className="text-gray-400 hover:text-gray-600">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
@@ -412,14 +441,14 @@ export function InventoryPickerModal({ value, onPick, onClear, readOnly }) {
               </select>
             </div>
 
-            <div className="overflow-y-auto flex-1">
+            <div ref={scrollRef} onScroll={handleScroll} className="overflow-y-auto flex-1">
               {loading ? (
                 <div className="flex items-center justify-center py-16 text-sm text-gray-400">Loading…</div>
-              ) : filtered.length === 0 ? (
+              ) : items.length === 0 ? (
                 <div className="flex items-center justify-center py-16 text-sm text-gray-400">No units found</div>
               ) : (
                 <div className="divide-y divide-gray-50">
-                  {filtered.map(u => {
+                  {items.map(u => {
                     const fa   = parseFloat(u.front_area || 0);
                     const ba   = parseFloat(u.back_area  || 0);
                     const area = fa && ba ? parseFloat((fa * (ba / 9)).toFixed(2)) : parseFloat(u.area || 0);
@@ -453,10 +482,21 @@ export function InventoryPickerModal({ value, onPick, onClear, readOnly }) {
                   })}
                 </div>
               )}
+              {loadingMore && (
+                <div className="py-4 text-center text-xs text-gray-400 flex items-center justify-center gap-2">
+                  <div className="w-3.5 h-3.5 border-2 border-[#875A7B]/30 border-t-[#875A7B] rounded-full animate-spin" />
+                  Loading more…
+                </div>
+              )}
+              {!loading && !loadingMore && items.length > 0 && items.length >= total && total > INV_PICK_LIMIT && (
+                <div className="py-3 text-center text-xs text-gray-300">All {total} units loaded</div>
+              )}
             </div>
 
             <div className="px-5 py-2.5 border-t border-gray-100 shrink-0 flex items-center justify-between">
-              <span className="text-xs text-gray-400">{!loading && `${filtered.length} unit${filtered.length !== 1 ? 's' : ''} found`}</span>
+              <span className="text-xs text-gray-400">
+                {!loading && total > 0 && `${items.length} of ${total} shown · scroll to load more`}
+              </span>
               <span className="text-xs text-gray-400">Only available units shown</span>
             </div>
           </div>
