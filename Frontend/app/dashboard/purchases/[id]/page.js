@@ -336,7 +336,7 @@ const AREA_UNITS = ['gaj', 'acres', 'bigha'];
 const UNIT_TYPES = ['PLOT', 'SHOP', 'LAND', 'FLAT', 'PLOT_WIRE', 'SHOP_WIRE'];
 
 function AddUnitModal({ open, onClose, purchase, inventory = [], onCreated, onCreatedAndNext }) {
-  const UNIT_EMPTY = { type: 'PLOT', sl_no: '', location: '', plot_no: '', front_area: '', front_area_details: '', back_area: '', back_area_details: '', rate: '' };
+  const UNIT_EMPTY = { type: 'PLOT', sl_no: '', location: '', plot_no: '', facing: '', front_area: '', front_area_details: '', back_area: '', back_area_details: '', rate: '' };
   const [unit,   setUnit]   = useState(UNIT_EMPTY);
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState('');
@@ -497,8 +497,8 @@ function AddUnitModal({ open, onClose, purchase, inventory = [], onCreated, onCr
                 className={`w-full border rounded-lg px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none transition placeholder:text-gray-300 ${areaExceeds ? 'border-red-400 focus:border-red-400 ring-1 ring-red-200' : 'border-gray-200 focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30'}`} />
             </div>
 
-            {/* Row 3: rate + computed total + date — 3 equal columns */}
-            <div className="col-span-full grid grid-cols-3 gap-4">
+            {/* Row 3: rate + computed total + facing + date — 4 equal columns */}
+            <div className="col-span-full grid grid-cols-4 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-gray-500 mb-1.5">
                   Plot Rate (₹ per {unit.front_area_details || 'unit'}) <span className="text-red-500">*</span>
@@ -516,6 +516,11 @@ function AddUnitModal({ open, onClose, purchase, inventory = [], onCreated, onCr
                   {enteredArea > 0 ? `${enteredArea} ${unit.front_area_details || ''}` : <span className="font-normal text-gray-300">Front × Back ÷ 9</span>}
                 </div>
                 {areaExceeds && <p className="text-xs text-red-500 mt-1">Exceeds by {(enteredArea - remainingArea).toFixed(4)}</p>}
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Facing</label>
+                <input type="text" value={unit.facing} onChange={set('facing')} placeholder="e.g. North Facing"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30 transition placeholder:text-gray-300" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-500 mb-1.5">Created Date</label>
@@ -550,7 +555,7 @@ function AddUnitModal({ open, onClose, purchase, inventory = [], onCreated, onCr
 
 // ── Edit Unit modal ────────────────────────────────────────────────────────────
 function EditUnitModal({ open, onClose, purchase, inventory = [], unitData, onSaved }) {
-  const UNIT_EMPTY = { type: 'PLOT', sl_no: '', location: '', plot_no: '', front_area: '', front_area_details: '', back_area: '', back_area_details: '', rate: '' };
+  const UNIT_EMPTY = { type: 'PLOT', sl_no: '', location: '', plot_no: '', facing: '', front_area: '', front_area_details: '', back_area: '', back_area_details: '', rate: '' };
   const [unit,   setUnit]   = useState(UNIT_EMPTY);
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState('');
@@ -573,6 +578,7 @@ function EditUnitModal({ open, onClose, purchase, inventory = [], unitData, onSa
       sl_no:              unitData.sl_no              || '',
       location:           unitData.location           || '',
       plot_no:            unitData.plot_no            || '',
+      facing:             unitData.facing             || '',
       front_area:         unitData.front_area  != null ? String(unitData.front_area)  : '',
       front_area_details: unitData.front_area_details || '',
       back_area:          unitData.back_area   != null ? String(unitData.back_area)   : '',
@@ -679,8 +685,8 @@ function EditUnitModal({ open, onClose, purchase, inventory = [], unitData, onSa
                 className={`w-full border rounded-lg px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none transition placeholder:text-gray-300 ${areaExceeds ? 'border-red-400 focus:border-red-400 ring-1 ring-red-200' : 'border-gray-200 focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30'}`} />
             </div>
 
-            {/* Row 3 — 3 equal columns */}
-            <div className="col-span-full grid grid-cols-3 gap-4">
+            {/* Row 3 — 4 equal columns */}
+            <div className="col-span-full grid grid-cols-4 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-gray-500 mb-1.5">
                   Plot Rate (₹ per {unit.front_area_details || 'unit'})
@@ -697,6 +703,10 @@ function EditUnitModal({ open, onClose, purchase, inventory = [], unitData, onSa
                   {enteredArea > 0 ? `${enteredArea} ${unit.front_area_details || ''}` : <span className="font-normal text-gray-300">Front × Back ÷ 9</span>}
                 </div>
                 {areaExceeds && <p className="text-xs text-red-500 mt-1">Exceeds by {(enteredArea - remainingArea).toFixed(4)}</p>}
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Facing</label>
+                <input type="text" value={unit.facing} onChange={set('facing')} placeholder="e.g. North Facing" className={inputCls} />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-500 mb-1.5">Inventory Code</label>
