@@ -133,7 +133,7 @@ const getPurchases = async (req, res) => {
 };
 
 const getInventoryUnits = async (req, res) => {
-  const { purchase_id, search = '', limit = '3', id, no_project, project_id } = req.query;
+  const { purchase_id, search = '', limit = '3', page, id, no_project, project_id } = req.query;
 
   const SELECT = {
     id: true, inventory_code: true, type: true, plot_no: true, sl_no: true, location: true,
@@ -166,11 +166,22 @@ const getInventoryUnits = async (req, res) => {
     } : {}),
   };
 
+  const take = Math.min(Number(limit) || 20, 200);
+  const skip = page ? (Number(page) - 1) * take : 0;
+
+  if (page !== undefined) {
+    const [units, total] = await Promise.all([
+      prisma.inventory.findMany({ where, select: SELECT, orderBy: { created_at: 'desc' }, take, skip }),
+      prisma.inventory.count({ where }),
+    ]);
+    return res.json({ items: units, total, page: Number(page), limit: take });
+  }
+
   const units = await prisma.inventory.findMany({
     where,
     select: SELECT,
     orderBy: { created_at: 'desc' },
-    take: Math.min(Number(limit) || 3, 50),
+    take,
   });
   res.json(units);
 };

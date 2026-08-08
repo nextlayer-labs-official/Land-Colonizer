@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
@@ -94,23 +94,54 @@ const STATUS_CHIP = {
   REGISTERED: 'bg-[#875A7B]/10 text-[#875A7B] ring-[#875A7B]/20',
 };
 
-function InventoryPicker({ onPick }) {
-  const [open,    setOpen]    = useState(false);
-  const [search,  setSearch]  = useState('');
-  const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(false);
+const PICK_LIMIT = 20;
 
+function InventoryPicker({ onPick }) {
+  const [open,     setOpen]     = useState(false);
+  const [search,   setSearch]   = useState('');
+  const [results,  setResults]  = useState([]);
+  const [loading,  setLoading]  = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page,     setPage]     = useState(1);
+  const [total,    setTotal]    = useState(0);
+  const scrollRef = useRef(null);
+  const searchRef = useRef(search);
+  searchRef.current = search;
+
+  const fetchPage = useCallback(async (pg, currentSearch, append = false) => {
+    if (pg === 1) setLoading(true); else setLoadingMore(true);
+    try {
+      const q = currentSearch.trim() ? `&search=${encodeURIComponent(currentSearch.trim())}` : '';
+      const d = await apiGet(`/lookup/inventory?no_project=1&limit=${PICK_LIMIT}&page=${pg}${q}`);
+      const items = d?.items || [];
+      const tot   = d?.total ?? 0;
+      setResults(prev => append ? [...prev, ...items] : items);
+      setTotal(tot);
+      setPage(pg);
+    } catch { if (!append) setResults([]); }
+    finally { setLoading(false); setLoadingMore(false); }
+  }, []);
+
+  // Reset on open / search change
   useEffect(() => {
     if (!open) return;
-    setLoading(true);
-    const url = search.trim()
-      ? `/lookup/inventory?no_project=1&search=${encodeURIComponent(search.trim())}&limit=20`
-      : `/lookup/inventory?no_project=1&limit=20`;
-    apiGet(url).then(d => setResults(d || [])).catch(() => setResults([])).finally(() => setLoading(false));
-  }, [open, search]);
+    setResults([]); setPage(1); setTotal(0);
+    const t = setTimeout(() => fetchPage(1, search, false), search.trim() ? 300 : 0);
+    return () => clearTimeout(t);
+  }, [open, search]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const close = () => { setOpen(false); setSearch(''); setResults([]); };
-  const pick  = (unit) => { onPick(unit); setResults(prev => prev.filter(u => u.id !== unit.id)); };
+  // Infinite scroll
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el || loadingMore || loading) return;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80) {
+      const nextPage = page + 1;
+      if (results.length < total) fetchPage(nextPage, searchRef.current, true);
+    }
+  }, [page, total, results.length, loading, loadingMore, fetchPage]);
+
+  const close = () => { setOpen(false); setSearch(''); setResults([]); setPage(1); setTotal(0); };
+  const pick  = (unit) => { onPick(unit); setResults(prev => prev.filter(u => u.id !== unit.id)); setTotal(t => Math.max(0, t - 1)); };
 
   return (
     <>
@@ -134,7 +165,9 @@ function InventoryPicker({ onPick }) {
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
               <div>
                 <p className="text-base font-black text-gray-900">Add Inventory Unit</p>
-                <p className="text-xs text-gray-400 mt-0.5">Select a unit to link to this project</p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {loading ? 'Loading…' : total > 0 ? `${results.length} of ${total} unit${total !== 1 ? 's' : ''} shown` : 'Select a unit to link to this project'}
+                </p>
               </div>
               <button onClick={close} className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -156,7 +189,7 @@ function InventoryPicker({ onPick }) {
             </div>
 
             {/* Table */}
-            <div className="overflow-y-auto flex-1 min-h-0">
+            <div ref={scrollRef} onScroll={handleScroll} className="overflow-y-auto flex-1 min-h-0">
               {loading ? (
                 <div className="py-10 text-center text-sm text-gray-400">Loading…</div>
               ) : results.length === 0 ? (
@@ -206,6 +239,15 @@ function InventoryPicker({ onPick }) {
                     ))}
                   </tbody>
                 </table>
+              )}
+              {loadingMore && (
+                <div className="py-4 text-center text-xs text-gray-400 flex items-center justify-center gap-2">
+                  <div className="w-3.5 h-3.5 border-2 border-[#875A7B]/30 border-t-[#875A7B] rounded-full animate-spin" />
+                  Loading more…
+                </div>
+              )}
+              {!loading && !loadingMore && results.length > 0 && results.length >= total && total > PICK_LIMIT && (
+                <div className="py-3 text-center text-xs text-gray-300">All {total} units loaded</div>
               )}
             </div>
 
