@@ -80,29 +80,36 @@ export default function SalesPage() {
   const [unarchiving,    setUnarchiving]    = useState(false);
   const [showArchived,   setShowArchived]   = useState(false);
 
-  const [search,       setSearch]       = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [showFilter,   setShowFilter]   = useState(false);
-  const [exportOpen,   setExportOpen]   = useState(false);
+  const [search,         setSearch]         = useState('');
+  const [statusFilter,   setStatusFilter]   = useState('');
+  const [projectFilter,  setProjectFilter]  = useState('');
+  const [projects,       setProjects]       = useState([]);
+  const [showFilter,     setShowFilter]     = useState(false);
+  const [exportOpen,     setExportOpen]     = useState(false);
   const filterRef = useRef(null);
   const exportRef  = useRef(null);
 
   const [limit, setLimit] = useState(15);
 
+  useEffect(() => {
+    apiGet('/lookup/projects?limit=500').then(d => setProjects(Array.isArray(d) ? d : [])).catch(() => {});
+  }, []);
+
   const load = useCallback(async (p = 1) => {
     setLoading(true);
     try {
       const q = new URLSearchParams({ page: p, limit, archived: showArchived ? 'true' : 'false' });
-      if (search)       q.set('search', search);
-      if (statusFilter) q.set('status', statusFilter);
+      if (search)        q.set('search',     search);
+      if (statusFilter)  q.set('status',     statusFilter);
+      if (projectFilter) q.set('project_id', projectFilter);
       const data = await apiGet(`/sales?${q}`);
       setRows(data.sales || []);
       setTotal(data.total || 0);
       setPage(p);
     } finally { setLoading(false); }
-  }, [search, statusFilter, showArchived, limit]);
+  }, [search, statusFilter, projectFilter, showArchived, limit]);
 
-  useEffect(() => { load(1); }, [search, statusFilter, showArchived, limit]);
+  useEffect(() => { load(1); }, [search, statusFilter, projectFilter, showArchived, limit]);
 
   useEffect(() => {
     const h = (e) => {
@@ -116,8 +123,9 @@ export default function SalesPage() {
   const handleExport = async (format) => {
     setExportOpen(false);
     const q = new URLSearchParams({ page: 1, limit: 9999, archived: showArchived ? 'true' : 'false' });
-    if (search)       q.set('search', search);
-    if (statusFilter) q.set('status', statusFilter);
+    if (search)        q.set('search',     search);
+    if (statusFilter)  q.set('status',     statusFilter);
+    if (projectFilter) q.set('project_id', projectFilter);
     const data  = await apiGet(`/sales?${q}`);
     const items = data.sales || [];
     const date  = new Date().toISOString().slice(0, 10);
@@ -188,7 +196,7 @@ export default function SalesPage() {
 
         {/* Archived toggle */}
         <button
-          onClick={() => { setShowArchived(v => !v); setSearch(''); setStatusFilter(''); }}
+          onClick={() => { setShowArchived(v => !v); setSearch(''); setStatusFilter(''); setProjectFilter(''); }}
           className={`flex items-center gap-1.5 h-8 px-3 text-sm border rounded transition-colors font-medium ${showArchived ? 'bg-amber-50 border-amber-200 text-amber-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12"/>
@@ -221,19 +229,35 @@ export default function SalesPage() {
         {/* Filter dropdown (only when not in archived view) */}
         {!showArchived && (
           <div className="relative" ref={filterRef}>
+            {(() => { const activeCount = (statusFilter ? 1 : 0) + (projectFilter ? 1 : 0); return (
             <button onClick={() => setShowFilter(v => !v)}
-              className={`flex items-center gap-1 text-sm h-8 px-3 rounded border transition-colors ${statusFilter ? 'bg-[#875A7B]/10 border-[#875A7B]/30 text-[#875A7B] font-medium' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-              Filters {statusFilter && '(1)'}
+              className={`flex items-center gap-1 text-sm h-8 px-3 rounded border transition-colors ${activeCount ? 'bg-[#875A7B]/10 border-[#875A7B]/30 text-[#875A7B] font-medium' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+              Filters {activeCount > 0 && `(${activeCount})`}
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
             </button>
+          ); })()}
             {showFilter && (
-              <div className="absolute left-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-30 py-1">
+              <div className="absolute left-0 top-full mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-30 py-1">
                 <p className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</p>
                 {[['', 'All'], ['ACTIVE', 'Active'], ['INACTIVE', 'Inactive']].map(([v, label]) => (
                   <button key={v} onClick={() => { setStatusFilter(v); setShowFilter(false); }}
                     className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${statusFilter === v ? 'text-[#875A7B] font-medium' : 'text-gray-700'}`}>
                     {label}
                     {statusFilter === v && <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
+                  </button>
+                ))}
+                <div className="border-t border-gray-100 my-1" />
+                <p className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Project</p>
+                <button onClick={() => { setProjectFilter(''); setShowFilter(false); }}
+                  className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${!projectFilter ? 'text-[#875A7B] font-medium' : 'text-gray-700'}`}>
+                  All Projects
+                  {!projectFilter && <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
+                </button>
+                {projects.map(p => (
+                  <button key={p.id} onClick={() => { setProjectFilter(String(p.id)); setShowFilter(false); }}
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${projectFilter === String(p.id) ? 'text-[#875A7B] font-medium' : 'text-gray-700'}`}>
+                    <span className="truncate">{p.name}</span>
+                    {projectFilter === String(p.id) && <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
                   </button>
                 ))}
               </div>
@@ -245,6 +269,14 @@ export default function SalesPage() {
           <span className="inline-flex items-center gap-1 bg-[#875A7B]/10 text-[#875A7B] text-xs font-medium px-2 py-1 rounded-full">
             {statusFilter}
             <button onClick={() => setStatusFilter('')} className="hover:opacity-70">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </span>
+        )}
+        {projectFilter && (
+          <span className="inline-flex items-center gap-1 bg-violet-50 text-violet-700 text-xs font-medium px-2 py-1 rounded-full">
+            {projects.find(p => String(p.id) === projectFilter)?.name || 'Project'}
+            <button onClick={() => setProjectFilter('')} className="hover:opacity-70">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
           </span>

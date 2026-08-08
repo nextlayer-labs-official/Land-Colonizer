@@ -111,7 +111,7 @@ const INCLUDE = {
 };
 
 async function getSales(req, res) {
-  const { page = 1, limit = 15, search = '', status = '', customer_id = '', archived = 'false' } = req.query;
+  const { page = 1, limit = 15, search = '', status = '', customer_id = '', project_id = '', archived = 'false' } = req.query;
   const skip = (Number(page) - 1) * Number(limit);
 
   const where = {
@@ -127,8 +127,9 @@ async function getSales(req, res) {
           { inventory: { plot_no:         { contains: search } } },
         ],
       } : {},
-      status      ? { status }                           : {},
-      customer_id ? { customer_id: Number(customer_id) } : {},
+      status      ? { status }                                               : {},
+      customer_id ? { customer_id: Number(customer_id) }                    : {},
+      project_id  ? { inventory: { project_id: Number(project_id) } }       : {},
     ],
   };
 
