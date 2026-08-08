@@ -441,8 +441,12 @@ const balanceDueReport = async (req, res) => {
   const { project_id, due_date_from, due_date_to } = req.query;
   const where = { status: 'ACTIVE' };
   if (project_id) where.inventory = { project: { id: Number(project_id) } };
-  const dueDateFrom = due_date_from ? new Date(due_date_from) : null;
-  const dueDateTo   = due_date_to   ? new Date(due_date_to + 'T23:59:59') : null;
+  // Filter by the sale's own payment_due_date field at DB level
+  if (due_date_from || due_date_to) {
+    where.payment_due_date = {};
+    if (due_date_from) where.payment_due_date.gte = new Date(due_date_from);
+    if (due_date_to)   where.payment_due_date.lte = new Date(due_date_to + 'T23:59:59');
+  }
 
   const sales = await prisma.sale.findMany({
     where,
@@ -460,7 +464,6 @@ const balanceDueReport = async (req, res) => {
     if (s.advance_payment) received += Number(s.advance_payment);
 
     let pending = 0;
-    let nextDueDate = null;
 
     if (s.installment) {
       for (let n = 1; n <= 24; n++) {
@@ -470,8 +473,6 @@ const balanceDueReport = async (req, res) => {
           received += amount;
         } else {
           pending += amount;
-          const d = s.installment[`inst_${n}_date`];
-          if (d && !nextDueDate) nextDueDate = d;
         }
       }
     }
@@ -491,18 +492,9 @@ const balanceDueReport = async (req, res) => {
       received,
       pending,
       balance,
-      next_due_date: nextDueDate,
+      next_due_date: s.payment_due_date || null,
     };
-  }).filter(r => {
-    if (r.balance <= 0) return false;
-    if (dueDateFrom || dueDateTo) {
-      if (!r.next_due_date) return false;
-      const d = new Date(r.next_due_date);
-      if (dueDateFrom && d < dueDateFrom) return false;
-      if (dueDateTo   && d > dueDateTo)   return false;
-    }
-    return true;
-  });
+  }).filter(r => r.balance > 0);
 
   res.json({
     rows,
