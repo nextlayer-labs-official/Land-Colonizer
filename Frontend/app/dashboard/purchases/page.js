@@ -636,7 +636,7 @@ export default function PurchasesPage() {
       {/* ── Table ── */}
       <div className="flex-1 overflow-auto bg-white">
         <table className="w-full text-sm border-collapse">
-          <thead>
+          <thead className="sticky top-0 z-10 bg-white">
             <tr className="border-b border-gray-200 bg-white">
               <th className="w-10 px-3 py-2.5 text-left">
                 <input type="checkbox"
