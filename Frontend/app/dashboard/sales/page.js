@@ -304,7 +304,7 @@ export default function SalesPage() {
       {/* Table */}
       <div className="flex-1 overflow-auto bg-white">
         <table className="w-full text-sm border-collapse">
-          <thead>
+          <thead className="sticky top-0 z-10 bg-white">
             <tr className="border-b border-gray-200 bg-white">
               {['Sale Code', 'Inventory', 'Project', 'Customer', 'Broker', 'Actual Price', 'Balance', 'Possession', 'Status', 'Date', ''].map(h => (
                 <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
