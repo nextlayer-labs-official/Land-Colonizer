@@ -95,7 +95,7 @@ function DeleteRoleModal({ role, onClose, onDeleted }) {
 }
 
 // ── Permission Matrix Panel ───────────────────────────────────────────────────
-const MODULE_ORDER = ['USER','ROLE','PURCHASE','CUSTOMER','SALE','INVENTORY','BROKER','PROJECT','SETTINGS','REPORTS','AUDIT'];
+const MODULE_ORDER = ['USER','ROLE','PURCHASE','CUSTOMER','SALE','INVENTORY','BROKER','PROJECT','SETTINGS','REPORTS','AUDIT','NOTES'];
 const ACTION_ORDER = ['VIEW','CREATE','EDIT','DELETE','ARCHIVE','APPROVE','FINANCE','BOOKING','INSTALLMENT'];
 const ACTION_LABELS = { BOOKING: 'Booking', INSTALLMENT: 'Installment' };
 const ACTION_COLORS = {
