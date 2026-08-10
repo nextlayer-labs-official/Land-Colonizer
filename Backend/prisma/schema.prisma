@@ -33,6 +33,7 @@ model User {
   updated_at          DateTime             @updatedAt
   passwordResetTokens PasswordResetToken[]
   documents           Document[]
+  notes               Note[]
 }
 
 enum UserStatus {
@@ -671,4 +672,17 @@ model AuditLog {
   @@index([entity, entity_id])
   @@index([user_id])
   @@index([created_at])
+}
+
+model Note {
+  id         Int      @id @default(autoincrement())
+  title      String?
+  content    String   @db.Text
+  color      String?  @default("default")
+  user_id    Int
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([user_id])
 }
