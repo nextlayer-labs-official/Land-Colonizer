@@ -86,19 +86,56 @@ body {
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
 @media print {
-  /* Hide sidebar, nav, buttons — show only the main content */
-  aside, nav, header,
-  .print\:hidden { display: none !important; }
+  /* 1. Hide all nav chrome — sidebar, topbar, tab bars, filter panels, buttons */
+  aside, nav, header, .print\:hidden { display: none !important; }
 
-  body { background: white; }
+  /* 2. Reset html/body so nothing clips the print layout */
+  html, body {
+    height: auto !important;
+    overflow: visible !important;
+    background: white !important;
+  }
 
-  main, [class*="main"] { margin: 0 !important; padding: 0 !important; }
+  /* 3. The dashboard shell is h-screen overflow-hidden — remove both */
+  .h-screen {
+    height: auto !important;
+    overflow: visible !important;
+  }
 
-  /* Expand the content to full page width */
-  .bg-white.rounded-2xl { box-shadow: none !important; border: 1px solid #e5e7eb !important; }
+  /* 4. The <main> element clips via overflow-y-auto */
+  main {
+    overflow: visible !important;
+    height: auto !important;
+    flex: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
 
-  table { page-break-inside: auto; }
-  tr { page-break-inside: avoid; }
+  /* 5. All overflow containers — inner scroll areas, table wrappers */
+  .overflow-auto,
+  .overflow-y-auto,
+  .overflow-x-auto,
+  .overflow-hidden {
+    overflow: visible !important;
+  }
 
-  @page { margin: 1.5cm; }
+  /* 6. Height / flex constraints that clip scroll containers */
+  .h-full  { height: auto !important; }
+  .flex-1  { flex: none !important; height: auto !important; }
+  .min-h-screen { min-height: auto !important; }
+
+  /* 7. The report table wrappers use max-h-[70vh] for sticky headers */
+  .max-h-\[70vh\] { max-height: none !important; }
+
+  /* 8. Table: repeat headers on every page, avoid row splits */
+  table  { width: 100%; page-break-inside: auto; border-collapse: collapse; }
+  tr     { page-break-inside: avoid; page-break-after: auto; }
+  thead  { display: table-header-group; }
+  tfoot  { display: table-footer-group; }
+
+  /* 9. Keep background colours & borders on table cells */
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  /* 10. Page setup — landscape fits wide report tables */
+  @page { margin: 1.5cm; size: A4 landscape; }
 }

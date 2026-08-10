@@ -1249,9 +1249,12 @@ export default function ReportsPage() {
 
       <style>{`
         @media print {
-          body * { visibility: hidden; }
-          .flex-1.overflow-auto, .flex-1.overflow-auto * { visibility: visible; }
-          .flex-1.overflow-auto { position: absolute; left: 0; top: 0; width: 100%; }
+          /* Remove the bg colour so report prints on white */
+          .bg-\\[\\#F4F5F7\\] { background: white !important; }
+          /* Summary cards: remove shadow, keep border */
+          .rounded-lg { box-shadow: none !important; }
+          /* Padding on the content wrapper */
+          .p-4 { padding: 0 !important; }
         }
       `}</style>
     </div>
