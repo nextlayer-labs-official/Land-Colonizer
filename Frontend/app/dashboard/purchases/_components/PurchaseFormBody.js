@@ -210,7 +210,7 @@ export default function PurchaseFormBody({ form, set, setForm, c, readOnly = fal
 
       <div>
         <FieldLabel>Brokerage Details</FieldLabel>
-        <FInput value={form.brokerage_details} onChange={set('brokerage_details')} placeholder="Notes" readOnly={readOnly} />
+        <FTextarea value={form.brokerage_details} onChange={set('brokerage_details')} placeholder="Notes" readOnly={readOnly} />
       </div>
 
       <div>
@@ -240,7 +240,7 @@ export default function PurchaseFormBody({ form, set, setForm, c, readOnly = fal
 
       <div>
         <FieldLabel>Extra Income Details</FieldLabel>
-        <FInput value={form.extra_income_details} onChange={set('extra_income_details')} placeholder="Notes" readOnly={readOnly} />
+        <FTextarea value={form.extra_income_details} onChange={set('extra_income_details')} placeholder="Notes" readOnly={readOnly} />
       </div>
 
       <div className="col-span-full">

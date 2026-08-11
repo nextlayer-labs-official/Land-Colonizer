@@ -219,13 +219,13 @@ model Sale {
   payment_due_date          DateTime?
   registration_area         Decimal?         @db.Decimal(10, 2)
   discount                  Decimal?         @db.Decimal(10, 2)
-  discount_details          String?
+  discount_details          String?          @db.Text
   brokerage                 Decimal?         @db.Decimal(10, 2)
-  brokerage_details         String?
+  brokerage_details         String?          @db.Text
   incentive                 Decimal?         @db.Decimal(10, 2)
-  incentive_details         String?
+  incentive_details         String?          @db.Text
   extra_income              Decimal?         @db.Decimal(10, 2)
-  extra_income_details      String?
+  extra_income_details      String?          @db.Text
   net_amount                Decimal?         @db.Decimal(10, 2)
   intkaal_number            String?
   date_of_registration      DateTime?
@@ -543,13 +543,13 @@ model Purchase {
   full_final_completed         Boolean          @default(false)
   registration_details         String?          @db.Text
   brokerage                    Decimal?         @db.Decimal(10, 2)
-  brokerage_details            String?
+  brokerage_details            String?          @db.Text
   extra_expenses               Decimal?         @db.Decimal(10, 2)
   extra_expenses_details       String?
   registration_charges         Decimal?         @db.Decimal(10, 2)
   registration_charges_details String?
   extra_income                 Decimal?         @db.Decimal(10, 2)
-  extra_income_details         String?
+  extra_income_details         String?          @db.Text
   other_details                String?          @db.Text
   status                       PurchaseStatus   @default(ACTIVE)
   archived                     Boolean          @default(false)

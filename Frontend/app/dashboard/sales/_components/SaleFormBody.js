@@ -335,7 +335,7 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false, sho
 
         <div>
           <FieldLabel>Discount Details</FieldLabel>
-          <FInput value={form.discount_details} onChange={set('discount_details')} placeholder="Reason…" readOnly={readOnly} />
+          <FTextarea value={form.discount_details} onChange={set('discount_details')} placeholder="Reason…" readOnly={readOnly} />
         </div>
 
         <div>
@@ -345,7 +345,7 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false, sho
 
         <div>
           <FieldLabel>Brokerage Details</FieldLabel>
-          <FInput value={form.brokerage_details} onChange={set('brokerage_details')} placeholder="Notes…" readOnly={readOnly} />
+          <FTextarea value={form.brokerage_details} onChange={set('brokerage_details')} placeholder="Notes…" readOnly={readOnly} />
         </div>
 
         <div>
@@ -355,7 +355,7 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false, sho
 
         <div>
           <FieldLabel>Incentive Details</FieldLabel>
-          <FInput value={form.incentive_details} onChange={set('incentive_details')} placeholder="Notes…" readOnly={readOnly} />
+          <FTextarea value={form.incentive_details} onChange={set('incentive_details')} placeholder="Notes…" readOnly={readOnly} />
         </div>
 
         <div>
@@ -365,7 +365,7 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false, sho
 
         <div>
           <FieldLabel>Extra Income Details</FieldLabel>
-          <FInput value={form.extra_income_details} onChange={set('extra_income_details')} placeholder="Notes…" readOnly={readOnly} />
+          <FTextarea value={form.extra_income_details} onChange={set('extra_income_details')} placeholder="Notes…" readOnly={readOnly} />
         </div>
 
         <SectionDivider title="Registration & Possession" />
