@@ -378,6 +378,11 @@ export default function ProjectDetailPage() {
   const totalRcvd  = inventory.reduce((s, u) => s + saleReceived(u.sales?.[0]), 0);
   const totalBal   = totalVal - totalRcvd;
   const pct        = totalVal > 0 ? Math.min(100, Math.round((totalRcvd / totalVal) * 100)) : 0;
+
+  const SOLD_STATUSES = new Set(['RESERVED', 'SOLD', 'REGISTERED', 'ATTORNEY', 'FULL_FINAL']);
+  const soldArea    = inventory.filter(u => SOLD_STATUSES.has(u.status)).reduce((s, u) => s + (Number(u.area) || 0), 0);
+  const areaUnit    = inventory.find(u => u.area_unit)?.area_unit || '';
+  const balanceArea = Math.max(0, (Number(project.total_area) || 0) - soldArea);
   const statusCfg  = STATUS_CFG[project.status] || STATUS_CFG.OPEN;
   const inp        = 'border border-white/30 rounded-xl px-3 py-2 text-sm bg-white/10 text-white placeholder:text-white/40 focus:outline-none focus:border-white/60 focus:bg-white/20 backdrop-blur-sm transition w-full';
 
@@ -568,7 +573,17 @@ export default function ProjectDetailPage() {
                   </div>
                   <div>
                     <p className="text-[10px] text-gray-400 uppercase tracking-wide">Total Area</p>
-                    <p className="text-lg font-black text-gray-900">{project.total_area > 0 ? fmt(project.total_area) : '—'}</p>
+                    <p className="text-lg font-black text-gray-900">{project.total_area > 0 ? `${fmt(project.total_area)}${areaUnit ? ' ' + areaUnit : ''}` : '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wide">Sold Area</p>
+                    <p className="text-lg font-black text-blue-700">{soldArea > 0 ? `${fmt(soldArea)}${areaUnit ? ' ' + areaUnit : ''}` : '—'}</p>
+                    <p className="text-[9px] text-gray-400 mt-0.5">Reserved · Sold · Registered · Attorney · F&amp;F</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wide">Balance Area</p>
+                    <p className={`text-lg font-black ${balanceArea > 0 ? 'text-emerald-700' : 'text-gray-400'}`}>{project.total_area > 0 ? `${fmt(balanceArea)}${areaUnit ? ' ' + areaUnit : ''}` : '—'}</p>
+                    <p className="text-[9px] text-gray-400 mt-0.5">Available to sell</p>
                   </div>
                 </div>
               </div>
