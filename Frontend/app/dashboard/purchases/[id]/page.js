@@ -1407,7 +1407,7 @@ export default function PurchaseRecordPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-gray-50/60 border-b border-gray-100">
-                      {['Unit', 'Plot No', 'SL No', 'Location', 'Area', 'Plot Rate', 'Status', ''].map(h => (
+                      {['Unit', 'Plot No', 'Facing', 'SL No', 'Location', 'Area', 'Plot Rate', 'Status', ''].map(h => (
                         <th key={h} className="px-4 py-2 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -1425,6 +1425,7 @@ export default function PurchaseRecordPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3 font-semibold text-gray-900">{inv.plot_no || '—'}</td>
+                        <td className="px-4 py-3 text-gray-500 text-xs">{inv.facing || '—'}</td>
                         <td className="px-4 py-3 text-gray-500 text-xs">{inv.sl_no || '—'}</td>
                         <td className="px-4 py-3 text-gray-500 text-xs max-w-[120px]">
                           <span className="truncate block">{inv.location || '—'}</span>
