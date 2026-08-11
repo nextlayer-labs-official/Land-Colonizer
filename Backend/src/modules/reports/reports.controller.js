@@ -307,7 +307,7 @@ const instalmentsReport = async (req, res) => {
         purchaseInstallment: true,
         inventory: { take: 1, include: { project: { select: { id: true, name: true } } } },
       },
-      orderBy: { created_at: 'desc' },
+      orderBy: { created_at: 'asc' },
     }),
     prisma.sale.findMany({
       where: saleWhere,
@@ -316,7 +316,7 @@ const instalmentsReport = async (req, res) => {
         customer:  { select: { id: true, name: true, phone: true, customer_code: true } },
         inventory: { select: { plot_no: true, sl_no: true, front_area: true, back_area: true, area: true, area_unit: true, project: { select: { id: true, name: true } } } },
       },
-      orderBy: { created_at: 'desc' },
+      orderBy: { created_at: 'asc' },
     }),
   ]);
 
@@ -462,7 +462,7 @@ const balanceDueReport = async (req, res) => {
       customer:  { select: { id: true, name: true, phone: true } },
       inventory: { select: { plot_no: true, sl_no: true, area: true, front_area: true, back_area: true, area_unit: true, project: { select: { id: true, name: true } } } },
     },
-    orderBy: { created_at: 'desc' },
+    orderBy: { created_at: 'asc' },
   });
 
   const rows = sales.map(s => {
