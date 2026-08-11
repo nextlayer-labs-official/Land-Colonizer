@@ -719,6 +719,7 @@ export default function InventoryRecordPage() {
                       <FIn label="SL No" value={form.sl_no} onChange={set('sl_no')} placeholder="Survey / serial no" readOnly={!editing} />
                       <FIn label="Plot No" value={form.plot_no} onChange={set('plot_no')} placeholder="e.g. A-125" readOnly={!editing} />
                       <FIn label="Location" value={form.location} onChange={set('location')} placeholder="Sector / area" readOnly={!editing} />
+                      <FIn label="Facing" value={form.facing} onChange={set('facing')} placeholder="e.g. North Facing" readOnly={!editing} />
                     </div>
                   </div>
                   <div>
