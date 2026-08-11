@@ -73,6 +73,7 @@ enum PermissionAction {
   ARCHIVE
   BOOKING
   INSTALLMENT
+  UNLOCK
 }
 
 model RolePermission {

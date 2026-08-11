@@ -96,8 +96,8 @@ function DeleteRoleModal({ role, onClose, onDeleted }) {
 
 // ── Permission Matrix Panel ───────────────────────────────────────────────────
 const MODULE_ORDER = ['USER','ROLE','PURCHASE','CUSTOMER','SALE','INVENTORY','BROKER','PROJECT','SETTINGS','REPORTS','AUDIT','NOTES'];
-const ACTION_ORDER = ['VIEW','CREATE','EDIT','DELETE','ARCHIVE','APPROVE','FINANCE','BOOKING','INSTALLMENT'];
-const ACTION_LABELS = { BOOKING: 'Booking', INSTALLMENT: 'Installment' };
+const ACTION_ORDER = ['VIEW','CREATE','EDIT','DELETE','ARCHIVE','APPROVE','FINANCE','BOOKING','INSTALLMENT','UNLOCK'];
+const ACTION_LABELS = { BOOKING: 'Booking', INSTALLMENT: 'Installment', UNLOCK: 'Edit Locked' };
 const ACTION_COLORS = {
   VIEW:        { on: '#dbeafe', text: '#1d4ed8', border: '#93c5fd' },
   CREATE:      { on: '#dcfce7', text: '#15803d', border: '#86efac' },
@@ -108,6 +108,7 @@ const ACTION_COLORS = {
   FINANCE:     { on: '#d1fae5', text: '#065f46', border: '#6ee7b7' },
   BOOKING:     { on: '#e0f2fe', text: '#0369a1', border: '#7dd3fc' },
   INSTALLMENT: { on: '#fce7f3', text: '#9d174d', border: '#f9a8d4' },
+  UNLOCK:      { on: '#fdf2f8', text: '#9d174d', border: '#f0abfc' },
 };
 
 function PermissionPanel({ role, onClose, canEdit }) {
