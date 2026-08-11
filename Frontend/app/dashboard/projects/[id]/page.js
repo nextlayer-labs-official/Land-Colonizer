@@ -97,22 +97,30 @@ const STATUS_CHIP = {
 const PICK_LIMIT = 20;
 
 function InventoryPicker({ onPick }) {
-  const [open,     setOpen]     = useState(false);
-  const [search,   setSearch]   = useState('');
-  const [results,  setResults]  = useState([]);
-  const [loading,  setLoading]  = useState(false);
+  const [open,        setOpen]        = useState(false);
+  const [search,      setSearch]      = useState('');
+  const [purchaseId,  setPurchaseId]  = useState('');
+  const [purchases,   setPurchases]   = useState([]);
+  const [results,     setResults]     = useState([]);
+  const [loading,     setLoading]     = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [page,     setPage]     = useState(1);
-  const [total,    setTotal]    = useState(0);
-  const scrollRef = useRef(null);
-  const searchRef = useRef(search);
-  searchRef.current = search;
+  const [page,        setPage]        = useState(1);
+  const [total,       setTotal]       = useState(0);
+  const scrollRef  = useRef(null);
+  const filtersRef = useRef({ search, purchaseId });
+  filtersRef.current = { search, purchaseId };
 
-  const fetchPage = useCallback(async (pg, currentSearch, append = false) => {
+  useEffect(() => {
+    apiGet('/lookup/purchases?limit=500').then(d => setPurchases(d || [])).catch(() => {});
+  }, []);
+
+  const fetchPage = useCallback(async (pg, currentSearch, currentPurchaseId, append = false) => {
     if (pg === 1) setLoading(true); else setLoadingMore(true);
     try {
-      const q = currentSearch.trim() ? `&search=${encodeURIComponent(currentSearch.trim())}` : '';
-      const d = await apiGet(`/lookup/inventory?no_project=1&limit=${PICK_LIMIT}&page=${pg}${q}`);
+      const params = new URLSearchParams({ no_project: '1', limit: String(PICK_LIMIT), page: String(pg) });
+      if (currentSearch.trim())  params.set('search',      currentSearch.trim());
+      if (currentPurchaseId)     params.set('purchase_id', currentPurchaseId);
+      const d = await apiGet(`/lookup/inventory?${params}`);
       const items = d?.items || [];
       const tot   = d?.total ?? 0;
       setResults(prev => append ? [...prev, ...items] : items);
@@ -122,13 +130,13 @@ function InventoryPicker({ onPick }) {
     finally { setLoading(false); setLoadingMore(false); }
   }, []);
 
-  // Reset on open / search change
+  // Reset on open / filter change
   useEffect(() => {
     if (!open) return;
     setResults([]); setPage(1); setTotal(0);
-    const t = setTimeout(() => fetchPage(1, search, false), search.trim() ? 300 : 0);
+    const t = setTimeout(() => fetchPage(1, search, purchaseId, false), search.trim() ? 300 : 0);
     return () => clearTimeout(t);
-  }, [open, search]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, search, purchaseId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Infinite scroll
   const handleScroll = useCallback(() => {
@@ -136,11 +144,11 @@ function InventoryPicker({ onPick }) {
     if (!el || loadingMore || loading) return;
     if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80) {
       const nextPage = page + 1;
-      if (results.length < total) fetchPage(nextPage, searchRef.current, true);
+      if (results.length < total) fetchPage(nextPage, filtersRef.current.search, filtersRef.current.purchaseId, true);
     }
   }, [page, total, results.length, loading, loadingMore, fetchPage]);
 
-  const close = () => { setOpen(false); setSearch(''); setResults([]); setPage(1); setTotal(0); };
+  const close = () => { setOpen(false); setSearch(''); setPurchaseId(''); setResults([]); setPage(1); setTotal(0); };
   const pick  = (unit) => { onPick(unit); setResults(prev => prev.filter(u => u.id !== unit.id)); setTotal(t => Math.max(0, t - 1)); };
 
   return (
@@ -176,9 +184,9 @@ function InventoryPicker({ onPick }) {
               </button>
             </div>
 
-            {/* Search */}
-            <div className="px-5 py-3 border-b border-gray-100">
-              <div className="relative">
+            {/* Search + Purchase filter */}
+            <div className="px-5 py-3 border-b border-gray-100 flex gap-3">
+              <div className="relative flex-1">
                 <svg className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
@@ -186,6 +194,11 @@ function InventoryPicker({ onPick }) {
                   placeholder="Search by code, plot no, location…"
                   className="w-full h-9 pl-9 pr-3 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30" />
               </div>
+              <select value={purchaseId} onChange={e => setPurchaseId(e.target.value)}
+                className="h-9 px-3 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30 text-gray-700" style={{ minWidth: 170 }}>
+                <option value="">All Purchases</option>
+                {purchases.map(p => <option key={p.id} value={p.id}>{p.purchase_code}{p.plot_no ? ` · ${p.plot_no}` : ''}</option>)}
+              </select>
             </div>
 
             {/* Table */}

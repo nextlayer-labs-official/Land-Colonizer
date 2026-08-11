@@ -127,7 +127,7 @@ const getPurchases = async (req, res) => {
     where,
     select: { id: true, purchase_code: true, purchase_category: true, type: true, plot_no: true, sl_no: true, location: true },
     orderBy: { created_at: 'desc' },
-    take: Math.min(Number(limit) || 3, 50),
+    take: Math.min(Number(limit) || 3, 500),
   });
   res.json(purchases);
 };
