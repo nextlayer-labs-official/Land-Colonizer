@@ -716,6 +716,7 @@ function InstalmentsReport() {
   const [expandS, setExpandS] = useState({});
   const [projects, setProjects] = useState([]);
   const [projectId, setProjectId] = useState('');
+  const [instTab, setInstTab] = useState('seller');
 
   useEffect(() => {
     apiGet('/lookup/projects?limit=500').then(d => setProjects(d || [])).catch(() => {});
@@ -792,11 +793,24 @@ function InstalmentsReport() {
 
       {result && (
         <>
+          {/* ── Tab bar ── */}
+          <div className="flex border-b border-gray-200 bg-white rounded-t-lg overflow-hidden">
+            {[
+              { id: 'seller',   label: 'A · Pending to Seller',      count: result.purchase_pending.length },
+              { id: 'customer', label: 'B · Pending from Customer',   count: result.sale_pending.length },
+            ].map(t => (
+              <button key={t.id} onClick={() => setInstTab(t.id)}
+                className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 -mb-px transition whitespace-nowrap ${instTab === t.id ? 'border-[#875A7B] text-[#875A7B]' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-200'}`}>
+                {t.label}
+                <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${instTab === t.id ? 'bg-[#875A7B]/10 text-[#875A7B]' : 'bg-gray-100 text-gray-500'}`}>{t.count}</span>
+              </button>
+            ))}
+          </div>
+
           {/* ── A: Purchase Pending ── */}
-          <div>
+          {instTab === 'seller' && <div>
             <div className="flex items-center gap-3 mb-3">
-              <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide">A · Pending to Seller</h2>
-              <span className="text-xs text-gray-400">instalments we still owe the seller (from Purchase)</span>
+              <span className="text-xs text-gray-400">Instalments we still owe the seller (from Purchase)</span>
             </div>
             <div className="grid grid-cols-3 gap-3 mb-3">
               <SummaryCard label="Purchases with Pending" value={result.purchase_summary.count} />
@@ -852,13 +866,12 @@ function InstalmentsReport() {
                 </tbody>
               </table>
             </div>
-          </div>
+          </div>}
 
           {/* ── B: Sale Pending ── */}
-          <div>
+          {instTab === 'customer' && <div>
             <div className="flex items-center gap-3 mb-3">
-              <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide">B · Pending from Customer</h2>
-              <span className="text-xs text-gray-400">instalments customers still owe us (from Sale)</span>
+              <span className="text-xs text-gray-400">Instalments customers still owe us (from Sale)</span>
             </div>
             <div className="grid grid-cols-3 gap-3 mb-3">
               <SummaryCard label="Sales with Pending" value={result.sale_summary.count} />
@@ -925,7 +938,7 @@ function InstalmentsReport() {
                 </tbody>
               </table>
             </div>
-          </div>
+          </div>}
         </>
       )}
     </div>
