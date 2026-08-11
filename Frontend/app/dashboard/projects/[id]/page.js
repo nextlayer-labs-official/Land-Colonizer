@@ -379,9 +379,9 @@ export default function ProjectDetailPage() {
   const totalBal   = totalVal - totalRcvd;
   const pct        = totalVal > 0 ? Math.min(100, Math.round((totalRcvd / totalVal) * 100)) : 0;
 
-  const SOLD_STATUSES = new Set(['RESERVED', 'SOLD', 'REGISTERED', 'ATTORNEY', 'FULL_FINAL']);
-  const soldArea    = inventory.filter(u => SOLD_STATUSES.has(u.status)).reduce((s, u) => s + (Number(u.area) || 0), 0);
   const areaUnit    = inventory.find(u => u.area_unit)?.area_unit || '';
+  const areaByStatus = (st) => inventory.filter(u => u.status === st).reduce((s, u) => s + (Number(u.area) || 0), 0);
+  const soldArea    = ['RESERVED','SOLD','REGISTERED','ATTORNEY','FULL_FINAL'].reduce((s, st) => s + areaByStatus(st), 0);
   const balanceArea = Math.max(0, (Number(project.total_area) || 0) - soldArea);
   const statusCfg  = STATUS_CFG[project.status] || STATUS_CFG.OPEN;
   const inp        = 'border border-white/30 rounded-xl px-3 py-2 text-sm bg-white/10 text-white placeholder:text-white/40 focus:outline-none focus:border-white/60 focus:bg-white/20 backdrop-blur-sm transition w-full';
@@ -566,24 +566,41 @@ export default function ProjectDetailPage() {
                     );
                   })}
                 </div>
-                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-50">
-                  <div>
-                    <p className="text-[10px] text-gray-400 uppercase tracking-wide">Total Units</p>
-                    <p className="text-lg font-black text-gray-900">{fmt(project.unit_count)}</p>
+                <div className="pt-2 border-t border-gray-50 space-y-2">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-[10px] text-gray-400 uppercase tracking-wide">Total Units</p>
+                      <p className="text-lg font-black text-gray-900">{fmt(project.unit_count)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-gray-400 uppercase tracking-wide">Total Area</p>
+                      <p className="text-lg font-black text-gray-900">{project.total_area > 0 ? `${fmt(project.total_area)}${areaUnit ? ' ' + areaUnit : ''}` : '—'}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-[10px] text-gray-400 uppercase tracking-wide">Total Area</p>
-                    <p className="text-lg font-black text-gray-900">{project.total_area > 0 ? `${fmt(project.total_area)}${areaUnit ? ' ' + areaUnit : ''}` : '—'}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-gray-400 uppercase tracking-wide">Sold Area</p>
-                    <p className="text-lg font-black text-blue-700">{soldArea > 0 ? `${fmt(soldArea)}${areaUnit ? ' ' + areaUnit : ''}` : '—'}</p>
-                    <p className="text-[9px] text-gray-400 mt-0.5">Reserved · Sold · Registered · Attorney · F&amp;F</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-gray-400 uppercase tracking-wide">Balance Area</p>
-                    <p className={`text-lg font-black ${balanceArea > 0 ? 'text-emerald-700' : 'text-gray-400'}`}>{project.total_area > 0 ? `${fmt(balanceArea)}${areaUnit ? ' ' + areaUnit : ''}` : '—'}</p>
-                    <p className="text-[9px] text-gray-400 mt-0.5">Available to sell</p>
+                  <div className="pt-1 border-t border-gray-50 space-y-1.5">
+                    {[
+                      { label: 'Reserved',   st: 'RESERVED',   color: 'text-amber-600'  },
+                      { label: 'Sold',       st: 'SOLD',       color: 'text-blue-600'   },
+                      { label: 'Registered', st: 'REGISTERED', color: 'text-violet-600' },
+                      { label: 'Attorney',   st: 'ATTORNEY',   color: 'text-orange-600' },
+                      { label: 'Full & Final', st: 'FULL_FINAL', color: 'text-green-700' },
+                    ].map(({ label, st, color }) => {
+                      const a = areaByStatus(st);
+                      return (
+                        <div key={st} className="flex items-center justify-between text-xs">
+                          <span className="text-gray-500">{label}</span>
+                          <span className={`font-semibold ${a > 0 ? color : 'text-gray-300'}`}>
+                            {a > 0 ? `${fmt(a)}${areaUnit ? ' ' + areaUnit : ''}` : '—'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                    <div className="flex items-center justify-between text-xs pt-1.5 border-t border-gray-100">
+                      <span className="font-semibold text-gray-700">Balance Area</span>
+                      <span className={`font-black ${balanceArea > 0 ? 'text-emerald-700' : 'text-gray-400'}`}>
+                        {project.total_area > 0 ? `${fmt(balanceArea)}${areaUnit ? ' ' + areaUnit : ''}` : '—'}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
