@@ -391,6 +391,10 @@ const availabilityReport = async (req, res) => {
     where.sales = { some: { status: 'ACTIVE', full_final_completed: true } };
   } else if (status === 'ATTORNEY') {
     where.sales = { some: { status: 'ACTIVE', attorney_completed: true, full_final_completed: false } };
+  } else if (status === 'REGISTERED' || status === 'SOLD') {
+    // Exclude items whose sale has promoted their display_status to ATTORNEY or FULL_FINAL
+    where.status = status;
+    where.sales  = { none: { status: 'ACTIVE', OR: [{ attorney_completed: true }, { full_final_completed: true }] } };
   } else if (status) {
     where.status = status;
   }
@@ -416,7 +420,7 @@ const availabilityReport = async (req, res) => {
         where:   { status: 'ACTIVE' },
         orderBy: { created_at: 'desc' },
         take: 1,
-        select:  { sold_by_name: true, full_final_completed: true, attorney_completed: true },
+        select:  { sold_by_name: true, full_final_completed: true, attorney_completed: true, customer: { select: { name: true } } },
       },
     },
     orderBy: [{ purchase_id: 'asc' }, { created_at: 'asc' }],
@@ -426,10 +430,11 @@ const availabilityReport = async (req, res) => {
     const total_area = Number(u.area || 0) || (Number(u.front_area || 0) + Number(u.back_area || 0));
     const sale = u.sales?.[0] || null;
     const sold_by_name = sale?.sold_by_name || null;
+    const customer_name = sale?.customer?.name || null;
     let display_status = u.status;
     if (sale?.full_final_completed) display_status = 'FULL_FINAL';
     else if (sale?.attorney_completed) display_status = 'ATTORNEY';
-    return { ...u, total_area: total_area || null, sold_by_name, display_status };
+    return { ...u, total_area: total_area || null, sold_by_name, customer_name, display_status };
   });
 
   const summary = {

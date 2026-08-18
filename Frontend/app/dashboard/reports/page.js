@@ -778,6 +778,9 @@ function InstalmentsReport() {
 
   return (
     <div className="space-y-6">
+      <div className="hidden print:block mb-4">
+        <h1 className="text-xl font-bold text-gray-900">Instalments Report</h1>
+      </div>
       <div className="bg-white border border-gray-200 rounded-lg p-4 print:hidden">
         <FilterRow>
           <Field label="Project">
@@ -809,10 +812,10 @@ function InstalmentsReport() {
 
           {/* ── A: Purchase Pending ── */}
           {instTab === 'seller' && <div>
-            <div className="flex items-center gap-3 mb-3">
+            <div className="flex items-center gap-3 mb-3 print:hidden">
               <span className="text-xs text-gray-400">Instalments we still owe the seller (from Purchase)</span>
             </div>
-            <div className="grid grid-cols-3 gap-3 mb-3">
+            <div className="grid grid-cols-3 gap-3 mb-3 print:hidden">
               <SummaryCard label="Purchases with Pending" value={result.purchase_summary.count} />
               <SummaryCard label="Already Paid"           value={'₹ ' + fmt(result.purchase_summary.total_paid)} />
               <SummaryCard label="Total Pending"          value={'₹ ' + fmt(result.purchase_summary.total_pending)} />
@@ -870,10 +873,10 @@ function InstalmentsReport() {
 
           {/* ── B: Sale Pending ── */}
           {instTab === 'customer' && <div>
-            <div className="flex items-center gap-3 mb-3">
+            <div className="flex items-center gap-3 mb-3 print:hidden">
               <span className="text-xs text-gray-400">Instalments customers still owe us (from Sale)</span>
             </div>
-            <div className="grid grid-cols-3 gap-3 mb-3">
+            <div className="grid grid-cols-3 gap-3 mb-3 print:hidden">
               <SummaryCard label="Sales with Pending" value={result.sale_summary.count} />
               <SummaryCard label="Already Received"   value={'₹ ' + fmt(result.sale_summary.total_paid)} />
               <SummaryCard label="Total Pending"      value={'₹ ' + fmt(result.sale_summary.total_pending)} />
@@ -977,10 +980,11 @@ function AvailabilityReport() {
       '#':           i + 1,
       'SL No.':      u.sl_no   || '',
       'Plot No.':    u.plot_no || '',
+      'Customer':    ['SOLD','RESERVED','REGISTERED','ATTORNEY','FULL_FINAL'].includes(u.display_status || u.status) ? (u.customer_name || '') : '',
       'Facing':      u.facing  || '',
+      'Type':        TYPE_LABEL[u.type] || u.type || '',
       'Front Area':  u.front_area ? fmtNum(u.front_area) : '',
       'Back Area':   u.back_area  ? fmtNum(u.back_area)  : '',
-      'Type':        TYPE_LABEL[u.type] || u.type || '',
       'Total Area':  fmtNum(u.total_area),
       'Status':      { FULL_FINAL: 'Full & Final', ATTORNEY: 'Attorney' }[u.display_status] || u.status,
     }));
@@ -1071,14 +1075,14 @@ function AvailabilityReport() {
             <table className="w-full text-sm border-collapse">
               <thead className="sticky top-0 z-10 bg-gray-50">
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  {['#', 'SL No.', 'Plot No.', 'Facing', 'Front Area', 'Back Area', 'Type', 'Total Area', 'Status'].map(h => (
+                  {['#', 'SL No.', 'Plot No.', 'Customer', 'Facing', 'Type', 'Front Area', 'Back Area', 'Total Area', 'Status'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {result.units.length === 0 ? (
-                  <tr><td colSpan={9} className="py-10 text-center text-sm text-gray-400">No inventory found</td></tr>
+                  <tr><td colSpan={10} className="py-10 text-center text-sm text-gray-400">No inventory found</td></tr>
                 ) : result.units.map((u, i) => {
                   const TYPE_LABEL = { PLOT: 'Plot', SHOP: 'Shop', LAND: 'Land', FLAT: 'Flat', PLOT_WIRE: 'Plot Wire', SHOP_WIRE: 'Shop Wire' };
                   return (
@@ -1086,10 +1090,14 @@ function AvailabilityReport() {
                     <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
                     <td className="px-3 py-2.5 text-gray-700">{u.sl_no   || '—'}</td>
                     <td className="px-3 py-2.5 text-gray-700">{u.plot_no || '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-800 font-medium">
+                      {['SOLD','RESERVED','REGISTERED','ATTORNEY','FULL_FINAL'].includes(u.display_status || u.status) && u.customer_name
+                        ? u.customer_name : ''}
+                    </td>
                     <td className="px-3 py-2.5 text-gray-500">{u.facing  || '—'}</td>
+                    <td className="px-3 py-2.5 text-sm font-semibold text-gray-700">{TYPE_LABEL[u.type] || u.type || '—'}</td>
                     <td className="px-3 py-2.5 text-gray-600">{u.front_area ? fmtN(u.front_area) : '—'}</td>
                     <td className="px-3 py-2.5 text-gray-600">{u.back_area  ? fmtN(u.back_area)  : '—'}</td>
-                    <td className="px-3 py-2.5 text-sm font-semibold text-gray-700">{TYPE_LABEL[u.type] || u.type || '—'}</td>
                     <td className="px-3 py-2.5 text-gray-600">{u.total_area ? fmtN(u.total_area) + (u.area_unit ? ' ' + u.area_unit : '') : '—'}</td>
                     <td className="px-3 py-2.5">{statusBadge(u.display_status || u.status)}</td>
                   </tr>
@@ -1152,6 +1160,9 @@ function BalanceDueReport() {
 
   return (
     <div className="space-y-4">
+      <div className="hidden print:block mb-4">
+        <h1 className="text-xl font-bold text-gray-900">Balance Due Report</h1>
+      </div>
       {/* Filters */}
       <div className="bg-white border border-gray-200 rounded-lg p-4">
         <FilterRow>
@@ -1175,7 +1186,7 @@ function BalanceDueReport() {
       {result && (
         <>
           {/* Summary */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 print:hidden">
             <SummaryCard label="Sales with Balance" value={result.summary.count} />
             <SummaryCard label="Total Received"     value={'₹ ' + fmt(result.summary.total_received)} />
             <SummaryCard label="Pending (Inst.)"    value={'₹ ' + fmt(result.summary.total_pending)} />

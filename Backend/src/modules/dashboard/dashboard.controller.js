@@ -49,7 +49,7 @@ async function getDashboard(req, res) {
   ] = await Promise.all([
     prisma.purchase.count(),
     prisma.purchase.aggregate({
-      _sum: { advance_paid: true, registration_charges: true, brokerage: true, extra_expenses: true, extra_income: true },
+      _sum: { purchase_price: true, advance_paid: true, registration_charges: true, brokerage: true, extra_expenses: true, extra_income: true },
     }),
     prisma.customer.count({ where: { status: 'ACTIVE' } }),
     prisma.sale.count({ where: { status: 'ACTIVE', archived: false } }),
@@ -71,12 +71,8 @@ async function getDashboard(req, res) {
     }),
   ]);
 
-  const advSum  = Number(purchaseAgg._sum.advance_paid         || 0);
-  const brokSum = Number(purchaseAgg._sum.brokerage            || 0);
-  const extSum  = Number(purchaseAgg._sum.extra_expenses       || 0);
-  const regSum  = Number(purchaseAgg._sum.registration_charges || 0);
-  const incSum  = Number(purchaseAgg._sum.extra_income         || 0);
-  const purchaseCost = advSum + brokSum + extSum + regSum - incSum;
+  const purchaseTotalValue = Number(purchaseAgg._sum.purchase_price || 0);
+  const purchaseTotalPaid  = Number(purchaseAgg._sum.advance_paid   || 0);
 
   const invSt = (s) => inventoryByStatus.find(g => g.status === s)?._count?.id || 0;
   const invTotal = inventoryByStatus.reduce((s, g) => s + g._count.id, 0);
@@ -100,7 +96,7 @@ async function getDashboard(req, res) {
       total_received: parseFloat(totalReceived.toFixed(2)),
       total_net:      parseFloat(totalNet.toFixed(2)),
     },
-    purchases: { count: purchaseCount, cost: parseFloat(purchaseCost.toFixed(2)) },
+    purchases: { count: purchaseCount, total_value: parseFloat(purchaseTotalValue.toFixed(2)), total_paid: parseFloat(purchaseTotalPaid.toFixed(2)) },
   };
 
   result.recentSales = recentSales.map(s => ({

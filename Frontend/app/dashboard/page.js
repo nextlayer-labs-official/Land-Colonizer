@@ -15,13 +15,6 @@ function greeting() {
 
 const fmt    = (n) => Number(n || 0).toLocaleString('en-IN');
 const fmtINR = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
-const fmtCr  = (n) => {
-  const v = Number(n || 0);
-  if (v >= 10_000_000) return `₹${(v / 10_000_000).toFixed(2)} Cr`;
-  if (v >= 100_000)    return `₹${(v / 100_000).toFixed(2)} L`;
-  if (v > 0)           return `₹${v.toLocaleString('en-IN')}`;
-  return '₹0';
-};
 const fmtDate = (d) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
@@ -125,20 +118,23 @@ function InventoryHealthCard({ inventory }) {
   );
 }
 
-// ── Financial Overview Card ───────────────────────────────────────────────────
-function FinancialCard({ sales, purchases }) {
-  const totalActual   = sales.total_actual   || 0;
-  const totalReceived = sales.total_received || 0;
-  const totalNet      = sales.total_net      || 0;
-  const purchaseCost  = purchases.cost       || 0;
-  const pct = totalActual > 0 ? Math.min(100, Math.round((totalReceived / totalActual) * 100)) : 0;
+// ── Financial Cards ───────────────────────────────────────────────────────────
+const fmtFull = fmtINR;
 
-  const rows = [
-    { label: 'Total Sale Value',   value: fmtCr(totalActual),   color: 'text-gray-800',    bold: true },
-    { label: 'Amount Received',    value: fmtCr(totalReceived), color: 'text-emerald-700', bold: false },
-    { label: 'Net Amount (incl. charges)', value: fmtCr(totalNet), color: 'text-blue-700', bold: false },
-    { label: 'Purchase / Land Cost', value: fmtCr(purchaseCost), color: 'text-amber-700', bold: false },
-  ];
+function OverviewRow({ label, value, color, bold }) {
+  return (
+    <div className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+      <span className="text-xs text-gray-500">{label}</span>
+      <span className={`text-sm ${bold ? 'font-black' : 'font-semibold'} ${color}`}>{value}</span>
+    </div>
+  );
+}
+
+function FinancialCard({ sales }) {
+  const total    = sales.total_actual   || 0;
+  const received = sales.total_received || 0;
+  const balance  = Math.max(0, total - received);
+  const pct      = total > 0 ? Math.min(100, Math.round((received / total) * 100)) : 0;
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-4">
@@ -146,29 +142,49 @@ function FinancialCard({ sales, purchases }) {
         <p className="text-sm font-bold text-gray-800">Financial Overview</p>
         <Link href="/dashboard/sales" className="text-[11px] font-semibold text-[#875A7B] hover:underline">View sales →</Link>
       </div>
-
-      <div className="space-y-3">
-        {rows.map(({ label, value, color, bold }) => (
-          <div key={label} className="flex items-center justify-between py-1 border-b border-gray-50 last:border-0">
-            <span className="text-xs text-gray-500">{label}</span>
-            <span className={`text-sm ${bold ? 'font-black' : 'font-bold'} ${color}`}>{value}</span>
-          </div>
-        ))}
+      <div>
+        <OverviewRow label="Total Sale Value" value={fmtFull(total)}    color="text-gray-800"    bold />
+        <OverviewRow label="Amount Received"  value={fmtFull(received)} color="text-emerald-700" />
+        <OverviewRow label="Balance Amount"   value={fmtFull(balance)}  color="text-red-600"     />
       </div>
-
-      {/* Collection progress */}
       <div className="mt-auto">
         <div className="flex justify-between text-[10px] text-gray-400 mb-1.5">
           <span>Collection rate</span>
           <span className="font-bold text-emerald-600">{pct}%</span>
         </div>
-        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-          <div className="h-full bg-emerald-400 rounded-full transition-all duration-700"
-            style={{ width: `${pct}%` }} />
+        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+          <div className="h-full bg-emerald-400 rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
         </div>
-        <p className="text-[10px] text-gray-400 mt-1">
-          {fmtCr(totalReceived)} received of {fmtCr(totalActual)} total
-        </p>
+      </div>
+    </div>
+  );
+}
+
+function PurchaseCard({ purchases }) {
+  const total   = purchases.total_value || 0;
+  const paid    = purchases.total_paid  || 0;
+  const balance = Math.max(0, total - paid);
+  const pct     = total > 0 ? Math.min(100, Math.round((paid / total) * 100)) : 0;
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-bold text-gray-800">Purchase Overview</p>
+        <Link href="/dashboard/purchases" className="text-[11px] font-semibold text-[#875A7B] hover:underline">View purchases →</Link>
+      </div>
+      <div>
+        <OverviewRow label="Total Purchase"  value={fmtFull(total)}   color="text-gray-800"  bold />
+        <OverviewRow label="Given Amount"    value={fmtFull(paid)}    color="text-blue-700"  />
+        <OverviewRow label="Balance Amount"  value={fmtFull(balance)} color="text-red-600"   />
+      </div>
+      <div className="mt-auto">
+        <div className="flex justify-between text-[10px] text-gray-400 mb-1.5">
+          <span>Payment rate</span>
+          <span className="font-bold text-blue-600">{pct}%</span>
+        </div>
+        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+          <div className="h-full bg-blue-400 rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
+        </div>
       </div>
     </div>
   );
@@ -313,7 +329,7 @@ export default function DashboardPage() {
         <KpiCard
           label="Active Sales"
           value={fmt(sales.count)}
-          sub={fmtCr(sales.total_actual) + ' total value'}
+          sub={fmtFull(sales.total_actual) + ' total value'}
           href="/dashboard/sales"
           iconBg="bg-blue-50"
           icon={<svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>}
@@ -327,18 +343,19 @@ export default function DashboardPage() {
         />
         <KpiCard
           label="Amount Received"
-          value={fmtCr(sales.total_received)}
-          sub={`of ${fmtCr(sales.total_actual)} total`}
+          value={fmtFull(sales.total_received)}
+          sub={`of ${fmtFull(sales.total_actual)} total`}
           iconBg="bg-emerald-50"
           valueColor="text-emerald-700"
           icon={<svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>}
         />
       </div>
 
-      {/* ── Inventory Health + Financial Overview ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* ── Inventory Health + Financial Overview + Purchase Overview ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <InventoryHealthCard inventory={inv} />
-        <FinancialCard sales={sales} purchases={purchases} />
+        <FinancialCard sales={sales} />
+        <PurchaseCard purchases={purchases} />
       </div>
 
       {/* ── Recent Sales ── */}
