@@ -560,6 +560,19 @@ model Purchase {
   updated_at                   DateTime         @updatedAt
   inventory                    Inventory[]
   purchaseInstallment          PurchaseInstallment?
+  layout                       PurchaseLayout?
+}
+
+model PurchaseLayout {
+  id          Int      @id @default(autoincrement())
+  purchase_id Int      @unique
+  purchase    Purchase @relation(fields: [purchase_id], references: [id], onDelete: Cascade)
+  grid_cols   Int      @default(10)
+  grid_rows   Int      @default(20)
+  locked      Boolean  @default(false)
+  items       Json     @default("[]")
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
 }
 
 model Project {

@@ -8,6 +8,7 @@ import usePermissions from '@/lib/usePermissions';
 import { apiGet, apiPut, apiDelete, apiPost, apiPatch } from '@/lib/api';
 import { EMPTY, computed, getStageIndex, StatusPipeline, TYPE_RING, fmtINR, fmtNum, BrokerPicker } from '../_components/shared';
 import DocumentsPanel from '../../_components/DocumentsPanel';
+import LayoutDesigner from '../_components/LayoutDesigner';
 
 // ── Inline field atoms ─────────────────────────────────────────────────────────
 function Label({ children }) {
@@ -1475,6 +1476,23 @@ export default function PurchaseRecordPage() {
               </div>
             )}
           </div>
+
+          {/* ── Layout Designer ── */}
+          {form.purchase_category === 'DIVIDED' && (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+              <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-3">
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Layout Designer</p>
+                <span className="text-[10px] text-gray-400 border border-gray-200 rounded px-1.5 py-px">Drag &amp; drop</span>
+              </div>
+              <div className="p-4">
+                <LayoutDesigner
+                  purchaseId={Number(params.id)}
+                  inventory={inventory}
+                  canEdit={canEdit}
+                />
+              </div>
+            </div>
+          )}
 
           {/* ── Sticky edit save bar ── */}
           {editing && (
