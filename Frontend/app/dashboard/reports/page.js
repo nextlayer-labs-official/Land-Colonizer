@@ -668,7 +668,7 @@ function BrokerReport() {
                               <td className="px-3 py-1 text-[10px] font-bold text-violet-500 uppercase tracking-widest">Sale Code</td>
                               <td className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Customer</td>
                               <td className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Project</td>
-                              <td className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Plot No / Area</td>
+                              <td className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Plot No</td>
                               <td className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Brokerage</td>
                               <td/>
                             </tr>
