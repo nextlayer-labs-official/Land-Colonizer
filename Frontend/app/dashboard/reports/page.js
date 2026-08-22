@@ -572,7 +572,7 @@ function BrokerReport() {
           'Purchase Code': p.purchase_code || `PUR-${String(p.id).padStart(4,'0')}`,
           'Plot No':       p.plot_no || '',
           Location:        p.location || '',
-          Area:            p.purchased_area ? `${p.purchased_area} ${p.area_unit || ''}` : '',
+          Area:            p.purchased_area ? `${p.purchased_area} ${p.purchased_area_details || ''}` : '',
           Brokerage:       fmtNum(p.brokerage),
         });
       }
@@ -695,7 +695,7 @@ function BrokerReport() {
                                 <td className="px-3 py-2" /><td className="px-3 py-2 text-amber-700">{p.purchase_code || `PUR-${String(p.id).padStart(4,'0')}`}</td>
                                 <td className="px-3 py-2 pl-4 text-gray-500">{p.location || '—'}</td>
                                 <td className="px-3 py-2 text-gray-600">{p.plot_no || '—'}</td>
-                                <td className="px-3 py-2 text-gray-600">{p.purchased_area ? `${p.purchased_area} ${p.area_unit || ''}` : '—'}</td>
+                                <td className="px-3 py-2 text-gray-600">{p.purchased_area ? `${p.purchased_area} ${p.purchased_area_details || ''}` : '—'}</td>
                                 <td className="px-3 py-2" />
                                 <td className="px-3 py-2 font-semibold text-amber-700">₹ {fmt(p.brokerage)}</td>
                               </tr>

@@ -244,7 +244,7 @@ const brokerReport = async (req, res) => {
       where: purchaseFilter,
       select: {
         id: true, purchase_code: true, plot_no: true, location: true, type: true, status: true,
-        purchased_area: true, area_unit: true, brokerage: true,
+        purchased_area: true, purchased_area_details: true, brokerage: true,
         purchase_price: true, global_rate: true, rate: true,
         purchase_broker_name: true, sell_broker_name: true, created_at: true,
       },
