@@ -5,6 +5,15 @@ import useAuth from '@/lib/useAuth';
 import usePermissions from '@/lib/usePermissions';
 import { apiGet } from '@/lib/api';
 
+const TYPE_LABEL = { PLOT: 'Plot', LAND: 'Land', SHOP: 'Shop', SCO: 'S.C.O', FLAT: 'Flat' };
+const TYPE_BADGE = {
+  PLOT: 'bg-violet-50 text-violet-700 ring-1 ring-violet-200',
+  LAND: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',
+  SHOP: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200',
+  SCO:  'bg-cyan-50 text-cyan-700 ring-1 ring-cyan-200',
+  FLAT: 'bg-orange-50 text-orange-700 ring-1 ring-orange-200',
+};
+
 const fmt     = (n) => { if (n == null) return '—'; const v = Number(n); const d = v % 1 === 0 ? 0 : 2; return v.toLocaleString('en-IN', { minimumFractionDigits: d, maximumFractionDigits: 2 }); };
 const fmtN    = (n) => n == null ? '—' : parseFloat(Number(n).toFixed(4)).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 4 });
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -498,7 +507,7 @@ function PurchaseReport() {
                     <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
                     <td className="px-3 py-2.5 whitespace-nowrap"><span className="font-mono text-xs font-semibold text-[#875A7B] bg-[#875A7B]/8 px-1.5 py-0.5 rounded">{p.purchase_code || `PUR-${String(p.id).padStart(4,'0')}`}</span></td>
                     <td className="px-3 py-2.5 text-gray-600 capitalize">{p.purchase_category ? p.purchase_category.charAt(0) + p.purchase_category.slice(1).toLowerCase() : '—'}</td>
-                    <td className="px-3 py-2.5 text-gray-600 capitalize">{p.type ? p.type.charAt(0) + p.type.slice(1).toLowerCase() : '—'}</td>
+                    <td className="px-3 py-2.5"><span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${TYPE_BADGE[p.type] || 'bg-gray-100 text-gray-500'}`}>{TYPE_LABEL[p.type] || p.type || '—'}</span></td>
                     <td className="px-3 py-2.5">
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${p.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{p.status ? p.status.charAt(0) + p.status.slice(1).toLowerCase() : '—'}</span>
                     </td>
