@@ -664,24 +664,21 @@ function BrokerReport() {
                         {b.sales.length > 0 && (
                           <>
                             <tr className="bg-violet-50/40">
-                              <td/>
                               <td className="px-3 py-1 text-[10px] font-bold text-violet-500 uppercase tracking-widest">Sale Code</td>
                               <td className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Customer</td>
                               <td className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Project</td>
                               <td className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Plot No</td>
+                              <td className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Area</td>
                               <td className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Brokerage</td>
                               <td/>
                             </tr>
                             {b.sales.map(s => (
                               <tr key={`s-${s.id}`} className="border-b border-gray-50 bg-gray-50/60 text-xs">
-                                <td/>
                                 <td className="px-3 py-2 font-mono text-gray-400 whitespace-nowrap">{s.sale_code || `SL-${String(s.id).padStart(4,'0')}`}</td>
                                 <td className="px-3 py-2 text-gray-600 max-w-[160px] truncate">{s.customer?.name || '—'}</td>
                                 <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{s.project?.name || '—'}</td>
-                                <td className="px-3 py-2 text-gray-500">
-                                  <div className="whitespace-nowrap">{s.plot_no || '—'}</div>
-                                  {s.area && <div className="text-[10px] text-gray-400 whitespace-nowrap mt-0.5">{s.area} {s.area_unit || ''}</div>}
-                                </td>
+                                <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{s.plot_no || '—'}</td>
+                                <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{s.area ? `${s.area} ${s.area_unit || ''}` : '—'}</td>
                                 <td className="px-3 py-2 font-semibold text-violet-700 whitespace-nowrap">₹ {fmt(s.brokerage)}</td>
                                 <td/>
                               </tr>
