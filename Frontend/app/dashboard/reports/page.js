@@ -525,14 +525,18 @@ function PurchaseReport() {
 
 // ── Broker Report ─────────────────────────────────────────────────────────────
 function BrokerReport() {
-  const [filters, setFilters] = useState({ date_from: '', date_to: '', broker_id: '' });
-  const [result, setResult]   = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [brokers, setBrokers] = useState([]);
-  const [expanded, setExpanded] = useState({});
+  const [filters, setFilters] = useState({ date_from: '', date_to: '', broker_id: '', project_id: '', purchase_id: '' });
+  const [result,    setResult]   = useState(null);
+  const [loading,   setLoading]  = useState(false);
+  const [brokers,   setBrokers]  = useState([]);
+  const [projects,  setProjects] = useState([]);
+  const [purchases, setPurchases]= useState([]);
+  const [expanded,  setExpanded] = useState({});
 
   useEffect(() => {
-    apiGet('/lookup/brokers?limit=500').then(d => setBrokers(d || [])).catch(() => {});
+    apiGet('/lookup/brokers?limit=500').then(d  => setBrokers(d  || [])).catch(() => {});
+    apiGet('/lookup/projects?limit=500').then(d => setProjects(d || [])).catch(() => {});
+    apiGet('/lookup/purchases?limit=500').then(d => setPurchases(d || [])).catch(() => {});
   }, []);
 
   const run = async () => {
@@ -552,25 +556,23 @@ function BrokerReport() {
     for (const b of result.brokers) {
       for (const s of b.sales) {
         salesRows.push({
-          Broker:        b.name,
-          Phone:         b.phone || '',
-          'Sale Code':   s.sale_code || `SL-${String(s.id).padStart(4,'0')}`,
-          Customer:      s.customer?.name || '',
-          Project:       s.project?.name || '',
-          Status:        s.status === 'ACTIVE' ? 'Active' : 'Inactive',
-          'Sale Value':  fmtNum(s.actual_price),
+          Broker:       b.name,
+          'Sale Code':  s.sale_code || `SL-${String(s.id).padStart(4,'0')}`,
+          Customer:     s.customer?.name || '',
+          Project:      s.project?.name || '',
+          'Plot No':    s.plot_no || '',
+          Area:         s.area ? `${s.area} ${s.area_unit}` : '',
+          Brokerage:    fmtNum(s.brokerage),
         });
       }
       for (const p of b.purchases) {
         purchaseRows.push({
-          Broker:           b.name,
-          Phone:            b.phone || '',
-          'Purchase Code':  p.purchase_code || `PUR-${String(p.id).padStart(4,'0')}`,
-          Location:         p.location || '',
-          Type:             p.type || '',
-          Role:             p.purchase_broker_name === b.name && p.sell_broker_name === b.name ? 'Both'
-                          : p.purchase_broker_name === b.name ? 'Purchase Broker' : 'Sell Broker',
-          'Total Amount':   fmtNum(p.total_amount),
+          Broker:          b.name,
+          'Purchase Code': p.purchase_code || `PUR-${String(p.id).padStart(4,'0')}`,
+          'Plot No':       p.plot_no || '',
+          Location:        p.location || '',
+          Area:            p.purchased_area ? `${p.purchased_area} ${p.area_unit || ''}` : '',
+          Brokerage:       fmtNum(p.brokerage),
         });
       }
     }
@@ -580,6 +582,8 @@ function BrokerReport() {
     );
   };
 
+  const COLS = 7;
+
   return (
     <div>
       <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4 print:hidden">
@@ -587,9 +591,21 @@ function BrokerReport() {
           <Field label="From"><input type="date" value={filters.date_from} onChange={e => set('date_from', e.target.value)} className={inputCls} /></Field>
           <Field label="To"><input type="date" value={filters.date_to} onChange={e => set('date_to', e.target.value)} className={inputCls} /></Field>
           <Field label="Broker">
-            <select value={filters.broker_id} onChange={e => set('broker_id', e.target.value)} className={selectCls} style={{ minWidth: 160 }}>
+            <select value={filters.broker_id} onChange={e => set('broker_id', e.target.value)} className={selectCls} style={{ minWidth: 150 }}>
               <option value="">All Brokers</option>
               {brokers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </Field>
+          <Field label="Project">
+            <select value={filters.project_id} onChange={e => set('project_id', e.target.value)} className={selectCls} style={{ minWidth: 150 }}>
+              <option value="">All Projects</option>
+              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </Field>
+          <Field label="Purchase">
+            <select value={filters.purchase_id} onChange={e => set('purchase_id', e.target.value)} className={selectCls} style={{ minWidth: 150 }}>
+              <option value="">All Purchases</option>
+              {purchases.map(p => <option key={p.id} value={p.id}>{p.purchase_code || p.location || `PUR-${p.id}`}</option>)}
             </select>
           </Field>
           <RunBtn onClick={run} loading={loading} />
@@ -599,24 +615,24 @@ function BrokerReport() {
 
       {result && (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-            <SummaryCard label="Brokers"          value={result.summary.broker_count} />
-            <SummaryCard label="Total Sales"      value={result.summary.total_sales} />
-            <SummaryCard label="Total Purchases"  value={result.summary.total_purchases} />
-            <SummaryCard label="Total Value"      value={'₹ ' + fmt(result.summary.total_value)} />
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4 print:hidden">
+            <SummaryCard label="Brokers"            value={result.summary.broker_count} />
+            <SummaryCard label="Total Sales"        value={result.summary.total_sales} />
+            <SummaryCard label="Total Purchases"    value={result.summary.total_purchases} />
+            <SummaryCard label="Total Brokerage"    value={'₹ ' + fmt(result.summary.total_brokerage)} />
           </div>
           <div className="bg-white border border-gray-200 rounded-lg overflow-auto max-h-[70vh]">
             <table className="w-full text-sm border-collapse">
               <thead className="sticky top-0 z-10 bg-gray-50">
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  {['','#','Broker','Phone','Sales','Purchases','Total Value'].map(h => (
+                  {['','#','Broker','Sales','Purchases','Sale Brokerage','Purchase Brokerage'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {result.brokers.length === 0 ? (
-                  <tr><td colSpan={7} className="py-10 text-center text-sm text-gray-400">No broker data found</td></tr>
+                  <tr><td colSpan={COLS} className="py-10 text-center text-sm text-gray-400">No broker data found</td></tr>
                 ) : result.brokers.map((b, i) => {
                   const hasRows = b.sales_count > 0 || b.purchases_count > 0;
                   return (
@@ -632,68 +648,59 @@ function BrokerReport() {
                       </td>
                       <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
                       <td className="px-3 py-2.5 font-medium text-gray-800">{b.name}</td>
-                      <td className="px-3 py-2.5 text-gray-500">{b.phone || '—'}</td>
                       <td className="px-3 py-2.5">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-violet-50 text-violet-700 ring-1 ring-violet-200">
-                          {b.sales_count}
-                        </span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-violet-50 text-violet-700 ring-1 ring-violet-200">{b.sales_count}</span>
                       </td>
                       <td className="px-3 py-2.5">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 ring-1 ring-amber-200">
-                          {b.purchases_count}
-                        </span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 ring-1 ring-amber-200">{b.purchases_count}</span>
                       </td>
-                      <td className="px-3 py-2.5 font-medium text-gray-800">₹ {fmt(b.total_value)}</td>
+                      <td className="px-3 py-2.5 font-medium text-violet-700">₹ {fmt(b.sales_brokerage)}</td>
+                      <td className="px-3 py-2.5 font-medium text-amber-700">₹ {fmt(b.purchase_brokerage)}</td>
                     </tr>
+
                     {expanded[b.id] && (
                       <>
                         {b.sales.length > 0 && (
-                          <tr className="bg-violet-50/40">
-                            <td colSpan={7} className="px-3 py-1 text-[10px] font-bold text-violet-500 uppercase tracking-widest">Sales</td>
-                          </tr>
-                        )}
-                        {b.sales.map(s => (
-                          <tr key={`s-${s.id}`} className="border-b border-gray-50 bg-gray-50/60">
-                            <td className="px-3 py-2" /><td className="px-3 py-2" />
-                            <td className="px-3 py-2 pl-6">
-                              <span className="font-mono text-xs text-[#875A7B]">{s.sale_code || `SL-${String(s.id).padStart(4,'0')}`}</span>
-                              <span className="text-xs text-gray-500 ml-2">{s.customer?.name}</span>
-                            </td>
-                            <td className="px-3 py-2 text-xs text-gray-500">{s.project?.name}</td>
-                            <td colSpan={2} className="px-3 py-2">
-                              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium ${s.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
-                                <span className={`w-1.5 h-1.5 rounded-full ${s.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-gray-400'}`} />
-                                {s.status === 'ACTIVE' ? 'Active' : 'Inactive'}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-xs text-gray-700">₹ {fmt(s.actual_price)}</td>
-                          </tr>
-                        ))}
-                        {b.purchases.length > 0 && (
-                          <tr className="bg-amber-50/40">
-                            <td colSpan={7} className="px-3 py-1 text-[10px] font-bold text-amber-600 uppercase tracking-widest">Purchases</td>
-                          </tr>
-                        )}
-                        {b.purchases.map(p => {
-                          const role = p.purchase_broker_name === b.name && p.sell_broker_name === b.name ? 'Both'
-                                     : p.purchase_broker_name === b.name ? 'Purchase Broker' : 'Sell Broker';
-                          return (
-                            <tr key={`p-${p.id}`} className="border-b border-gray-50 bg-amber-50/20">
-                              <td className="px-3 py-2" /><td className="px-3 py-2" />
-                              <td className="px-3 py-2 pl-6">
-                                <span className="font-mono text-xs text-amber-700">{p.purchase_code || `PUR-${String(p.id).padStart(4,'0')}`}</span>
-                                <span className="text-xs text-gray-500 ml-2">{p.location}</span>
+                          <>
+                            <tr className="bg-violet-50/40">
+                              <td colSpan={COLS} className="px-3 py-1">
+                                <span className="text-[10px] font-bold text-violet-500 uppercase tracking-widest">Sales</span>
+                                <span className="ml-3 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Project · Plot No · Area · Brokerage</span>
                               </td>
-                              <td className="px-3 py-2 text-xs text-gray-500">{p.type || '—'}</td>
-                              <td colSpan={2} className="px-3 py-2">
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 ring-1 ring-amber-200">
-                                  {role}
-                                </span>
-                              </td>
-                              <td className="px-3 py-2 text-xs text-gray-700">₹ {fmt(p.total_amount)}</td>
                             </tr>
-                          );
-                        })}
+                            {b.sales.map(s => (
+                              <tr key={`s-${s.id}`} className="border-b border-gray-50 bg-gray-50/60 text-xs">
+                                <td className="px-3 py-2" /><td className="px-3 py-2 text-gray-400">{s.sale_code || `SL-${String(s.id).padStart(4,'0')}`}</td>
+                                <td className="px-3 py-2 pl-4 text-gray-500">{s.customer?.name || '—'}</td>
+                                <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{s.project?.name || '—'}</td>
+                                <td className="px-3 py-2 text-gray-600">{s.plot_no || '—'}</td>
+                                <td className="px-3 py-2 text-gray-600">{s.area ? `${s.area} ${s.area_unit}` : '—'}</td>
+                                <td className="px-3 py-2 font-semibold text-violet-700">₹ {fmt(s.brokerage)}</td>
+                              </tr>
+                            ))}
+                          </>
+                        )}
+
+                        {b.purchases.length > 0 && (
+                          <>
+                            <tr className="bg-amber-50/40">
+                              <td colSpan={COLS} className="px-3 py-1">
+                                <span className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">Purchases</span>
+                                <span className="ml-3 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Plot No · Area · Brokerage</span>
+                              </td>
+                            </tr>
+                            {b.purchases.map(p => (
+                              <tr key={`p-${p.id}`} className="border-b border-gray-50 bg-amber-50/20 text-xs">
+                                <td className="px-3 py-2" /><td className="px-3 py-2 text-amber-700">{p.purchase_code || `PUR-${String(p.id).padStart(4,'0')}`}</td>
+                                <td className="px-3 py-2 pl-4 text-gray-500">{p.location || '—'}</td>
+                                <td className="px-3 py-2 text-gray-600">{p.plot_no || '—'}</td>
+                                <td className="px-3 py-2 text-gray-600">{p.purchased_area ? `${p.purchased_area} ${p.area_unit || ''}` : '—'}</td>
+                                <td className="px-3 py-2" />
+                                <td className="px-3 py-2 font-semibold text-amber-700">₹ {fmt(p.brokerage)}</td>
+                              </tr>
+                            ))}
+                          </>
+                        )}
                       </>
                     )}
                   </>
