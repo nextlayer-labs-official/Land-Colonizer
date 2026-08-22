@@ -40,6 +40,7 @@ const TYPE_BADGE = {
   FLAT: 'bg-orange-50  text-orange-700  ring-1 ring-orange-200',
   SCO:  'bg-cyan-50    text-cyan-700    ring-1 ring-cyan-200',
 };
+const TYPE_LABEL = { PLOT: 'Plot', LAND: 'Land', SHOP: 'Shop', SCO: 'S.C.O', FLAT: 'Flat' };
 
 function effPct(row) {
   const total  = Number(row.total_amount || 0);
@@ -724,7 +725,7 @@ export default function PurchasesPage() {
                     <td className="px-3 py-2.5">
                       {row.type && (
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${TYPE_BADGE[row.type]}`}>
-                          {row.type}
+                          {TYPE_LABEL[row.type] || row.type}
                         </span>
                       )}
                     </td>
