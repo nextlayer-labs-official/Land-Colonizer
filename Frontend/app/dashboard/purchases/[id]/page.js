@@ -1289,13 +1289,13 @@ export default function PurchaseRecordPage() {
             <Card title="Additional Costs">
               <div className="grid grid-cols-2 gap-x-5 gap-y-4">
                 <FInput label="Brokerage (₹)" value={form.brokerage} onChange={set('brokerage')} type="number" placeholder="0" readOnly={!editing} />
-                <FInput label="Brokerage Details" value={form.brokerage_details} onChange={set('brokerage_details')} placeholder="Notes" readOnly={!editing} />
+                <FTextarea label="Brokerage Details" value={form.brokerage_details} onChange={set('brokerage_details')} placeholder="Notes" rows={2} readOnly={!editing} />
                 <FInput label="Extra Expenses (₹)" value={form.extra_expenses} onChange={set('extra_expenses')} type="number" placeholder="0" readOnly={!editing} />
-                <FInput label="Extra Expenses Details" value={form.extra_expenses_details} onChange={set('extra_expenses_details')} placeholder="Notes" readOnly={!editing} />
+                <FTextarea label="Extra Expenses Details" value={form.extra_expenses_details} onChange={set('extra_expenses_details')} placeholder="Notes" rows={2} readOnly={!editing} />
                 <FInput label="Reg. Charges (₹)" value={form.registration_charges} onChange={set('registration_charges')} type="number" placeholder="0" readOnly={!editing} />
-                <FInput label="Reg. Charges Details" value={form.registration_charges_details} onChange={set('registration_charges_details')} placeholder="Notes" readOnly={!editing} />
+                <FTextarea label="Reg. Charges Details" value={form.registration_charges_details} onChange={set('registration_charges_details')} placeholder="Notes" rows={2} readOnly={!editing} />
                 <FInput label="Extra Income (₹)" value={form.extra_income} onChange={set('extra_income')} type="number" placeholder="0" readOnly={!editing} />
-                <FInput label="Extra Income Details" value={form.extra_income_details} onChange={set('extra_income_details')} placeholder="Notes" readOnly={!editing} />
+                <FTextarea label="Extra Income Details" value={form.extra_income_details} onChange={set('extra_income_details')} placeholder="Notes" rows={2} readOnly={!editing} />
               </div>
               <div className="mt-4 rounded-lg border border-amber-100 bg-amber-50/60 px-4 py-3 flex items-center justify-between">
                 <div>

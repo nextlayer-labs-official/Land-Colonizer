@@ -546,9 +546,9 @@ model Purchase {
   brokerage                    Decimal?         @db.Decimal(10, 2)
   brokerage_details            String?          @db.Text
   extra_expenses               Decimal?         @db.Decimal(10, 2)
-  extra_expenses_details       String?
+  extra_expenses_details       String?          @db.LongText
   registration_charges         Decimal?         @db.Decimal(10, 2)
-  registration_charges_details String?
+  registration_charges_details String?          @db.LongText
   extra_income                 Decimal?         @db.Decimal(10, 2)
   extra_income_details         String?          @db.Text
   other_details                String?          @db.Text
