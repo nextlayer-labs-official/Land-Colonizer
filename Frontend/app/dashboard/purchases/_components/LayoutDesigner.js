@@ -173,6 +173,8 @@ export default function LayoutDesigner({ purchaseId, inventory = [], canEdit = t
   const [lockConfirm, setLockConfirm]= useState(false);
   const [configOpen,  setConfigOpen] = useState(false);
   const [editLabel,   setEditLabel]  = useState(null);
+  const [startPin,    setStartPin]   = useState(null);   // item id
+  const [endPin,      setEndPin]     = useState(null);   // item id
 
   useEffect(() => { itemsRef.current  = items;   }, [items]);
   useEffect(() => { snapRef.current   = snapG;   }, [snapG]);
@@ -436,10 +438,21 @@ export default function LayoutDesigner({ purchaseId, inventory = [], canEdit = t
                 return (
                   <>
                     {si?.type === 'plot' && (
-                      <button onClick={e => rotateItem(e, selected)}
-                        className="h-8 px-3 text-xs border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition font-semibold">
-                        ↺ Rotate
-                      </button>
+                      <>
+                        <button onClick={e => rotateItem(e, selected)}
+                          className="h-8 px-3 text-xs border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition font-semibold">
+                          ↺ Rotate
+                        </button>
+                        <div className="h-5 w-px bg-gray-200 mx-0.5"/>
+                        <button onClick={() => setStartPin(p => p === selected ? null : selected)}
+                          className={`h-8 px-3 text-xs border rounded-lg transition font-semibold ${startPin === selected ? 'border-emerald-500 text-emerald-700 bg-emerald-50' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                          ▶ Start
+                        </button>
+                        <button onClick={() => setEndPin(p => p === selected ? null : selected)}
+                          className={`h-8 px-3 text-xs border rounded-lg transition font-semibold ${endPin === selected ? 'border-orange-400 text-orange-600 bg-orange-50' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                          End ◀
+                        </button>
+                      </>
                     )}
                     <button onClick={() => { setItems(p => p.filter(i => i.id !== selected)); setSelected(null); }}
                       className="h-8 px-3 text-xs border border-red-200 text-red-500 rounded-lg hover:bg-red-50 transition font-semibold">
@@ -448,6 +461,12 @@ export default function LayoutDesigner({ purchaseId, inventory = [], canEdit = t
                   </>
                 );
               })()}
+              {(startPin || endPin) && (
+                <button onClick={() => { setStartPin(null); setEndPin(null); }}
+                  className="h-8 px-3 text-xs border border-gray-200 text-gray-400 rounded-lg hover:bg-gray-50 transition">
+                  ✕ Pins
+                </button>
+              )}
               <button onClick={() => setConfigOpen(v => !v)}
                 className={`h-8 px-3 text-xs border rounded-lg transition ${configOpen ? 'border-[#875A7B] text-[#875A7B]' : 'border-gray-200 text-gray-500'}`}>
                 Canvas
@@ -539,12 +558,20 @@ export default function LayoutDesigner({ purchaseId, inventory = [], canEdit = t
               if (item.type === 'plot') {
                 const unit = unitFor(item.inventory_id);
                 if (!unit) return null;
+                const isStart = item.id === startPin;
+                const isEnd   = item.id === endPin;
                 return (
                   <div key={item.id} data-item={item.id}
                     style={{ ...basePos, touchAction: 'none', cursor: !locked && canEdit ? 'move' : 'default' }}>
                     <svg width={item.w} height={item.h} style={{ overflow: 'visible', display: 'block' }}>
                       <PlotContent item={item} unit={unit} isSel={isSel}/>
                     </svg>
+                    {isStart && (
+                      <div style={{ position: 'absolute', top: 2, left: 2, background: '#059669', color: 'white', fontSize: 7, fontWeight: 900, padding: '1px 4px', borderRadius: 3, pointerEvents: 'none', lineHeight: 1.4, letterSpacing: '0.04em' }}>START</div>
+                    )}
+                    {isEnd && (
+                      <div style={{ position: 'absolute', top: 2, right: 2, background: '#ea580c', color: 'white', fontSize: 7, fontWeight: 900, padding: '1px 4px', borderRadius: 3, pointerEvents: 'none', lineHeight: 1.4, letterSpacing: '0.04em' }}>END</div>
+                    )}
                     {isSel && !locked && canEdit && (
                       <ResizeHandle id={item.id} color="#875A7B"/>
                     )}
@@ -613,6 +640,54 @@ export default function LayoutDesigner({ purchaseId, inventory = [], canEdit = t
 
               const selCX = sel.x + sel.w / 2;
               const selCY = sel.y + sel.h / 2;
+              const dimUnit = unitFor(sel.inventory_id)?.front_area_details || "'";
+
+              // ── Helper: calc sum of h-dims for a list of plots ──────────────
+              const hDimVal = (p) => {
+                const u = unitFor(p.inventory_id);
+                const v = p.rotated ? parseFloat(u?.back_area) : parseFloat(u?.front_area);
+                return isNaN(v) ? 0 : v;
+              };
+              const vDimVal = (p) => {
+                const u = unitFor(p.inventory_id);
+                const v = p.rotated ? parseFloat(u?.front_area) : parseFloat(u?.back_area);
+                return isNaN(v) ? 0 : v;
+              };
+              const fmt = (v) => `${Number.isInteger(v) ? v : v.toFixed(2)}${dimUnit}`;
+
+              // ── Helper: render one horizontal dim-bar ────────────────────────
+              const HBar = ({ x1, x2, barY, refY, color, label }) => {
+                const mx = (x1 + x2) / 2, tw = label.length * 5.5 + 14;
+                return (
+                  <g>
+                    <line x1={x1} y1={barY + 7} x2={x1} y2={refY} stroke={color} strokeWidth="0.7" strokeDasharray="3 2" opacity="0.45"/>
+                    <line x1={x2} y1={barY + 7} x2={x2} y2={refY} stroke={color} strokeWidth="0.7" strokeDasharray="3 2" opacity="0.45"/>
+                    <line x1={x1} y1={barY} x2={x2} y2={barY} stroke={color} strokeWidth="1.4"/>
+                    <line x1={x1} y1={barY - 6} x2={x1} y2={barY + 6} stroke={color} strokeWidth="1.4"/>
+                    <line x1={x2} y1={barY - 6} x2={x2} y2={barY + 6} stroke={color} strokeWidth="1.4"/>
+                    <rect x={mx - tw / 2} y={barY - 15} width={tw} height={14} rx="3" fill={color}/>
+                    <text x={mx} y={barY - 5} textAnchor="middle" fontSize="9" fontWeight="700" fill="white" fontFamily="sans-serif">{label}</text>
+                  </g>
+                );
+              };
+
+              // ── Helper: render one vertical dim-bar ─────────────────────────
+              const VBar = ({ y1, y2, barX, refX, color, label }) => {
+                const my = (y1 + y2) / 2, tw = label.length * 5.5 + 14;
+                return (
+                  <g>
+                    <line x1={barX + 7} y1={y1} x2={refX} y2={y1} stroke={color} strokeWidth="0.7" strokeDasharray="3 2" opacity="0.45"/>
+                    <line x1={barX + 7} y1={y2} x2={refX} y2={y2} stroke={color} strokeWidth="0.7" strokeDasharray="3 2" opacity="0.45"/>
+                    <line x1={barX} y1={y1} x2={barX} y2={y2} stroke={color} strokeWidth="1.4"/>
+                    <line x1={barX - 6} y1={y1} x2={barX + 6} y2={y1} stroke={color} strokeWidth="1.4"/>
+                    <line x1={barX - 6} y1={y2} x2={barX + 6} y2={y2} stroke={color} strokeWidth="1.4"/>
+                    <g transform={`rotate(-90,${barX},${my})`}>
+                      <rect x={barX - tw / 2} y={my - 15} width={tw} height={14} rx="3" fill={color}/>
+                      <text x={barX} y={my - 5} textAnchor="middle" fontSize="9" fontWeight="700" fill="white" fontFamily="sans-serif">{label}</text>
+                    </g>
+                  </g>
+                );
+              };
 
               // Detect horizontal neighbours (same Y band)
               const rowPlots = items
@@ -624,63 +699,103 @@ export default function LayoutDesigner({ purchaseId, inventory = [], canEdit = t
                 .filter(i => i.type === 'plot' && Math.abs((i.x + i.w / 2) - selCX) < Math.max(sel.w * 0.6, 30))
                 .sort((a, b) => a.y - b.y);
 
-              // Use whichever axis has more plots (prefer horizontal on tie)
               const isVertical = colPlots.length > rowPlots.length;
-              const dimUnit = unitFor(sel.inventory_id)?.front_area_details || "'";
 
+              // ── PIN MODE: startPin + endPin both set ─────────────────────────
+              const spItem = startPin ? items.find(i => i.id === startPin) : null;
+              const epItem = endPin   ? items.find(i => i.id === endPin)   : null;
+
+              if (spItem && epItem && startPin !== selected && endPin !== selected) {
+                if (!isVertical) {
+                  // horizontal pin mode
+                  const spIdx  = rowPlots.findIndex(i => i.id === startPin);
+                  const epIdx  = rowPlots.findIndex(i => i.id === endPin);
+                  const selIdx = rowPlots.findIndex(i => i.id === selected);
+                  if (spIdx < 0 || epIdx < 0 || selIdx < 0) return null;
+                  const [lIdx, rIdx] = spIdx < epIdx ? [spIdx, epIdx] : [epIdx, spIdx];
+                  if (selIdx <= lIdx || selIdx >= rIdx) return null;
+
+                  const refY = Math.min(...rowPlots.map(i => i.y));
+                  const barY1 = Math.max(18, refY - 26);
+
+                  // Distance from start to selected
+                  const leftPlots = rowPlots.slice(lIdx, selIdx);
+                  const dLeft = leftPlots.reduce((s, p) => s + hDimVal(p), 0);
+
+                  // Distance from selected to end
+                  const rightPlots = rowPlots.slice(selIdx + 1, rIdx + 1);
+                  const dRight = rightPlots.reduce((s, p) => s + hDimVal(p), 0);
+
+                  if (!dLeft && !dRight) return null;
+                  const x1 = rowPlots[lIdx].x, x2 = sel.x, x3 = sel.x + sel.w, x4 = rowPlots[rIdx].x + rowPlots[rIdx].w;
+
+                  const selHDim = hDimVal(sel);
+                  return (
+                    <svg key="cum-dim" style={{ position: 'absolute', top: 0, left: 0, width: canvasW, height: canvasH, pointerEvents: 'none', overflow: 'visible' }}>
+                      {dLeft     > 0 && <HBar x1={x1} x2={x2} barY={barY1} refY={refY} color="#059669" label={fmt(dLeft)}/>}
+                      {selHDim   > 0 && <HBar x1={x2} x2={x3} barY={barY1} refY={refY} color="#875A7B" label={fmt(selHDim)}/>}
+                      {dRight    > 0 && <HBar x1={x3} x2={x4} barY={barY1} refY={refY} color="#ea580c" label={fmt(dRight)}/>}
+                    </svg>
+                  );
+                } else {
+                  // vertical pin mode
+                  const spIdx  = colPlots.findIndex(i => i.id === startPin);
+                  const epIdx  = colPlots.findIndex(i => i.id === endPin);
+                  const selIdx = colPlots.findIndex(i => i.id === selected);
+                  if (spIdx < 0 || epIdx < 0 || selIdx < 0) return null;
+                  const [tIdx, bIdx] = spIdx < epIdx ? [spIdx, epIdx] : [epIdx, spIdx];
+                  if (selIdx <= tIdx || selIdx >= bIdx) return null;
+
+                  const refX = Math.min(...colPlots.map(i => i.x));
+                  const barX1 = Math.max(18, refX - 26);
+
+                  const abovePlots = colPlots.slice(tIdx, selIdx);
+                  const dAbove = abovePlots.reduce((s, p) => s + vDimVal(p), 0);
+
+                  const belowPlots = colPlots.slice(selIdx + 1, bIdx + 1);
+                  const dBelow = belowPlots.reduce((s, p) => s + vDimVal(p), 0);
+
+                  if (!dAbove && !dBelow) return null;
+                  const y1 = colPlots[tIdx].y, y2 = sel.y, y3 = sel.y + sel.h, y4 = colPlots[bIdx].y + colPlots[bIdx].h;
+
+                  const selVDim = vDimVal(sel);
+                  return (
+                    <svg key="cum-dim" style={{ position: 'absolute', top: 0, left: 0, width: canvasW, height: canvasH, pointerEvents: 'none', overflow: 'visible' }}>
+                      {dAbove  > 0 && <VBar y1={y1} y2={y2} barX={barX1} refX={refX} color="#059669" label={fmt(dAbove)}/>}
+                      {selVDim > 0 && <VBar y1={y2} y2={y3} barX={barX1} refX={refX} color="#875A7B" label={fmt(selVDim)}/>}
+                      {dBelow  > 0 && <VBar y1={y3} y2={y4} barX={barX1} refX={refX} color="#ea580c" label={fmt(dBelow)}/>}
+                    </svg>
+                  );
+                }
+              }
+
+              // ── DEFAULT MODE: cumulative from first plot to selected ─────────
               if (!isVertical) {
-                // ── Horizontal ──
                 const selIdx = rowPlots.findIndex(i => i.id === selected);
                 if (selIdx <= 0) return null;
                 const leftPlots = rowPlots.slice(0, selIdx);
-                const cumVal = leftPlots.reduce((sum, item) => {
-                  const u = unitFor(item.inventory_id);
-                  const v = item.rotated ? parseFloat(u?.back_area) : parseFloat(u?.front_area);
-                  return sum + (isNaN(v) ? 0 : v);
-                }, 0);
+                const cumVal = leftPlots.reduce((s, p) => s + hDimVal(p), 0);
                 if (!cumVal) return null;
-                const label = `${Number.isInteger(cumVal) ? cumVal : cumVal.toFixed(2)}${dimUnit}`;
+                const label = fmt(cumVal);
                 const x1 = leftPlots[0].x, x2 = sel.x;
                 const barY = Math.max(18, Math.min(...rowPlots.map(i => i.y)) - 26);
-                const midX = (x1 + x2) / 2, tw = label.length * 5.5 + 14;
                 return (
                   <svg key="cum-dim" style={{ position: 'absolute', top: 0, left: 0, width: canvasW, height: canvasH, pointerEvents: 'none', overflow: 'visible' }}>
-                    <line x1={x1} y1={barY + 7} x2={x1} y2={Math.min(...rowPlots.map(i => i.y))} stroke="#875A7B" strokeWidth="0.7" strokeDasharray="3 2" opacity="0.45"/>
-                    <line x1={x2} y1={barY + 7} x2={x2} y2={Math.min(...rowPlots.map(i => i.y))} stroke="#875A7B" strokeWidth="0.7" strokeDasharray="3 2" opacity="0.45"/>
-                    <line x1={x1} y1={barY} x2={x2} y2={barY} stroke="#875A7B" strokeWidth="1.4"/>
-                    <line x1={x1} y1={barY - 6} x2={x1} y2={barY + 6} stroke="#875A7B" strokeWidth="1.4"/>
-                    <line x1={x2} y1={barY - 6} x2={x2} y2={barY + 6} stroke="#875A7B" strokeWidth="1.4"/>
-                    <rect x={midX - tw / 2} y={barY - 15} width={tw} height={14} rx="3" fill="#875A7B"/>
-                    <text x={midX} y={barY - 5} textAnchor="middle" fontSize="9" fontWeight="700" fill="white" fontFamily="sans-serif">{label}</text>
+                    <HBar x1={x1} x2={x2} barY={barY} refY={Math.min(...rowPlots.map(i => i.y))} color="#875A7B" label={label}/>
                   </svg>
                 );
               } else {
-                // ── Vertical ──
                 const selIdx = colPlots.findIndex(i => i.id === selected);
                 if (selIdx <= 0) return null;
                 const abovePlots = colPlots.slice(0, selIdx);
-                const cumVal = abovePlots.reduce((sum, item) => {
-                  const u = unitFor(item.inventory_id);
-                  // vertical stacking: height dim = back_area (normal), front_area (rotated)
-                  const v = item.rotated ? parseFloat(u?.front_area) : parseFloat(u?.back_area);
-                  return sum + (isNaN(v) ? 0 : v);
-                }, 0);
+                const cumVal = abovePlots.reduce((s, p) => s + vDimVal(p), 0);
                 if (!cumVal) return null;
-                const label = `${Number.isInteger(cumVal) ? cumVal : cumVal.toFixed(2)}${dimUnit}`;
+                const label = fmt(cumVal);
                 const y1 = abovePlots[0].y, y2 = sel.y;
                 const barX = Math.max(18, Math.min(...colPlots.map(i => i.x)) - 26);
-                const midY = (y1 + y2) / 2, tw = label.length * 5.5 + 14;
                 return (
                   <svg key="cum-dim" style={{ position: 'absolute', top: 0, left: 0, width: canvasW, height: canvasH, pointerEvents: 'none', overflow: 'visible' }}>
-                    <line x1={barX + 7} y1={y1} x2={Math.min(...colPlots.map(i => i.x))} y2={y1} stroke="#875A7B" strokeWidth="0.7" strokeDasharray="3 2" opacity="0.45"/>
-                    <line x1={barX + 7} y1={y2} x2={Math.min(...colPlots.map(i => i.x))} y2={y2} stroke="#875A7B" strokeWidth="0.7" strokeDasharray="3 2" opacity="0.45"/>
-                    <line x1={barX} y1={y1} x2={barX} y2={y2} stroke="#875A7B" strokeWidth="1.4"/>
-                    <line x1={barX - 6} y1={y1} x2={barX + 6} y2={y1} stroke="#875A7B" strokeWidth="1.4"/>
-                    <line x1={barX - 6} y1={y2} x2={barX + 6} y2={y2} stroke="#875A7B" strokeWidth="1.4"/>
-                    <g transform={`rotate(-90,${barX},${midY})`}>
-                      <rect x={barX - tw / 2} y={midY - 15} width={tw} height={14} rx="3" fill="#875A7B"/>
-                      <text x={barX} y={midY - 5} textAnchor="middle" fontSize="9" fontWeight="700" fill="white" fontFamily="sans-serif">{label}</text>
-                    </g>
+                    <VBar y1={y1} y2={y2} barX={barX} refX={Math.min(...colPlots.map(i => i.x))} color="#875A7B" label={label}/>
                   </svg>
                 );
               }
