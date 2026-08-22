@@ -629,6 +629,7 @@ enum PurchaseType {
   LAND
   SHOP
   PLOT
+  SCO
   FLAT
 }
 

@@ -758,7 +758,7 @@ function generatePurchaseReportHTML(form, c, totalInstPaid, inventory, companyNa
 
   const effectiveBal = Math.max(0, c.balance_to_pay - totalInstPaid);
   const pct = c.total_amount > 0 ? Math.min(100, ((c.total_amount - effectiveBal) / c.total_amount) * 100) : 0;
-  const TYPE_MAP = { PLOT: 'Plot', LAND: 'Land', SHOP: 'Shop', FLAT: 'Flat' };
+  const TYPE_MAP = { PLOT: 'Plot', LAND: 'Land', SHOP: 'Shop', SCO: 'S.C.O', FLAT: 'Flat' };
 
   const inst = form.installment || null;
   const instRows = [];
@@ -1174,6 +1174,7 @@ export default function PurchaseRecordPage() {
                   <option value="PLOT">Plot</option>
                   <option value="LAND">Land</option>
                   <option value="SHOP">Shop</option>
+                  <option value="SCO">S.C.O</option>
                   <option value="FLAT">Flat</option>
                 </FSelect>
                 <FSelect label="Status" value={form.status} onChange={set('status')} readOnly={!editing}>

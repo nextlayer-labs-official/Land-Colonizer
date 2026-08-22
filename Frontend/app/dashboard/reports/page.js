@@ -453,9 +453,10 @@ function PurchaseReport() {
           <Field label="Type">
             <select value={filters.type} onChange={e => set('type', e.target.value)} className={selectCls}>
               <option value="">All</option>
-              <option value="LAND">Land</option>
               <option value="PLOT">Plot</option>
+              <option value="LAND">Land</option>
               <option value="SHOP">Shop</option>
+              <option value="SCO">S.C.O</option>
               <option value="FLAT">Flat</option>
             </select>
           </Field>
