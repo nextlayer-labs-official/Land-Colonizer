@@ -671,7 +671,7 @@ function BrokerReport() {
                                   <span className="text-gray-400 w-28 shrink-0">Project</span>
                                   <span className="text-gray-400 w-16 shrink-0">Plot No</span>
                                   <span className="text-gray-400 w-20 shrink-0">Area</span>
-                                  <span className="text-gray-400 ml-auto">Brokerage</span>
+                                  <span className="text-gray-400 w-28 shrink-0">Brokerage</span>
                                 </div>
                               </td>
                             </tr>
@@ -684,7 +684,7 @@ function BrokerReport() {
                                     <span className="text-gray-500 w-28 shrink-0 truncate">{s.project?.name || '—'}</span>
                                     <span className="text-gray-500 w-16 shrink-0">{s.plot_no || '—'}</span>
                                     <span className="text-gray-500 w-20 shrink-0">{s.area ? `${s.area} ${s.area_unit || ''}` : '—'}</span>
-                                    <span className="font-semibold text-violet-700 ml-auto">₹ {fmt(s.brokerage)}</span>
+                                    <span className="font-semibold text-violet-700 w-28 shrink-0">₹ {fmt(s.brokerage)}</span>
                                   </div>
                                 </td>
                               </tr>
@@ -701,7 +701,7 @@ function BrokerReport() {
                                   <span className="text-gray-400 w-48 shrink-0">Location</span>
                                   <span className="text-gray-400 w-16 shrink-0">Plot No</span>
                                   <span className="text-gray-400 w-20 shrink-0">Area</span>
-                                  <span className="text-gray-400 ml-auto">Brokerage</span>
+                                  <span className="text-gray-400 w-28 shrink-0">Brokerage</span>
                                 </div>
                               </td>
                             </tr>
@@ -713,7 +713,7 @@ function BrokerReport() {
                                     <span className="text-gray-500 w-48 shrink-0 truncate">{p.location || '—'}</span>
                                     <span className="text-gray-500 w-16 shrink-0">{p.plot_no || '—'}</span>
                                     <span className="text-gray-500 w-20 shrink-0">{p.purchased_area ? `${p.purchased_area} ${p.purchased_area_details || ''}` : '—'}</span>
-                                    <span className="font-semibold text-amber-700 ml-auto">₹ {fmt(p.brokerage)}</span>
+                                    <span className="font-semibold text-amber-700 w-28 shrink-0">₹ {fmt(p.brokerage)}</span>
                                   </div>
                                 </td>
                               </tr>
