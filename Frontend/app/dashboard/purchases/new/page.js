@@ -128,6 +128,7 @@ export default function NewPurchasePage() {
                 form.type === 'LAND' ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' :
                 form.type === 'SHOP' ? 'bg-blue-50    text-blue-700    ring-blue-200'    :
                 form.type === 'FLAT' ? 'bg-orange-50  text-orange-700  ring-orange-200'  :
+                form.type === 'SCO'  ? 'bg-cyan-50    text-cyan-700    ring-cyan-200'    :
                                        'bg-violet-50  text-violet-700  ring-violet-200'
               }`}>{form.type}</span>
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">

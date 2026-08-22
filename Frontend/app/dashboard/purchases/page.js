@@ -38,6 +38,7 @@ const TYPE_BADGE = {
   SHOP: 'bg-blue-50    text-blue-700    ring-1 ring-blue-200',
   PLOT: 'bg-violet-50  text-violet-700  ring-1 ring-violet-200',
   FLAT: 'bg-orange-50  text-orange-700  ring-1 ring-orange-200',
+  SCO:  'bg-cyan-50    text-cyan-700    ring-1 ring-cyan-200',
 };
 
 function effPct(row) {
