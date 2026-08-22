@@ -150,7 +150,7 @@ function DeleteModal({ item, onClose, onConfirm, deleting, error }) {
 
 // ─── CSV helpers ──────────────────────────────────────────────────────────────
 const CSV_HEADERS = ['type','purchase_category','sl_no','plot_no','location','purchased_area','purchased_area_details','rate','advance_paid','seller_details','purchase_broker_name','sell_broker_name','brokerage','extra_expenses','registration_charges','other_details'];
-const CSV_LABELS  = ['Type(PLOT/LAND/SHOP)','Category(SINGLE/DIVIDED)','SL No','Plot No','Location','Purchased Area','Area Unit','Rate(₹)','Advance Paid(₹)','Seller Details','Purchase Broker','Sell Broker','Brokerage(₹)','Extra Expenses(₹)','Reg Charges(₹)','Other Details'];
+const CSV_LABELS  = ['Type(PLOT/LAND/SHOP/SCO/FLAT)','Category(SINGLE/DIVIDED)','SL No','Plot No','Location','Purchased Area','Area Unit','Rate(₹)','Advance Paid(₹)','Seller Details','Purchase Broker','Sell Broker','Brokerage(₹)','Extra Expenses(₹)','Reg Charges(₹)','Other Details'];
 
 function downloadTemplate() {
   const lines = [
@@ -579,7 +579,7 @@ export default function PurchasesPage() {
           {showFilter && (
             <div className="absolute left-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-30 py-1">
               <p className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Type</p>
-              {[['', 'All Types'], ['PLOT', 'Plot'], ['LAND', 'Land'], ['SHOP', 'Shop'], ['FLAT', 'Flat']].map(([v, label]) => (
+              {[['', 'All Types'], ['PLOT', 'Plot'], ['LAND', 'Land'], ['SHOP', 'Shop'], ['SCO', 'S.C.O'], ['FLAT', 'Flat']].map(([v, label]) => (
                 <button key={v} onClick={() => { setTypeFilter(v); setShowFilter(false); }}
                   className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${typeFilter === v ? 'text-[#875A7B] font-medium' : 'text-gray-700'}`}>
                   {label}
