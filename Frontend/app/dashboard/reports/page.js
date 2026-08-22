@@ -625,13 +625,13 @@ function BrokerReport() {
           <div className="bg-white border border-gray-200 rounded-lg overflow-auto max-h-[70vh]">
             <table className="w-full text-sm border-collapse table-fixed">
               <colgroup>
-                <col className="w-8"/>
-                <col className="w-10"/>
-                <col className="w-44"/>
-                <col className="w-16"/>
+                <col className="w-28"/>
+                <col className="w-36"/>
+                <col className="w-36"/>
                 <col className="w-20"/>
+                <col className="w-24"/>
                 <col className="w-36"/>
-                <col className="w-36"/>
+                <col className="w-28"/>
               </colgroup>
               <thead className="sticky top-0 z-10 bg-gray-50">
                 <tr className="border-b border-gray-200 bg-gray-50">
