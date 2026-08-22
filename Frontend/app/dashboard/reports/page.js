@@ -664,29 +664,23 @@ function BrokerReport() {
                         {b.sales.length > 0 && (
                           <>
                             <tr className="bg-violet-50/40">
-                              <td colSpan={COLS} className="px-4 py-1">
-                                <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest">
-                                  <span className="text-violet-500 w-20 shrink-0">Sale Code</span>
-                                  <span className="text-gray-400 w-44 shrink-0">Customer</span>
-                                  <span className="text-gray-400 w-28 shrink-0">Project</span>
-                                  <span className="text-gray-400 w-16 shrink-0">Plot No</span>
-                                  <span className="text-gray-400 w-20 shrink-0">Area</span>
-                                  <span className="text-gray-400 w-28 shrink-0">Brokerage</span>
-                                </div>
-                              </td>
+                              <td/>
+                              <td className="px-3 py-1 text-[10px] font-bold text-violet-500 uppercase tracking-widest">Sale Code</td>
+                              <td className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Customer</td>
+                              <td className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Project</td>
+                              <td className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Plot No · Area</td>
+                              <td className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Brokerage</td>
+                              <td/>
                             </tr>
                             {b.sales.map(s => (
-                              <tr key={`s-${s.id}`} className="border-b border-gray-50 bg-gray-50/60">
-                                <td colSpan={COLS} className="px-4 py-1.5">
-                                  <div className="flex items-center gap-4 text-xs">
-                                    <span className="font-mono text-gray-400 w-20 shrink-0">{s.sale_code || `SL-${String(s.id).padStart(4,'0')}`}</span>
-                                    <span className="text-gray-600 w-44 shrink-0 truncate">{s.customer?.name || '—'}</span>
-                                    <span className="text-gray-500 w-28 shrink-0 truncate">{s.project?.name || '—'}</span>
-                                    <span className="text-gray-500 w-16 shrink-0">{s.plot_no || '—'}</span>
-                                    <span className="text-gray-500 w-20 shrink-0">{s.area ? `${s.area} ${s.area_unit || ''}` : '—'}</span>
-                                    <span className="font-semibold text-violet-700 w-28 shrink-0">₹ {fmt(s.brokerage)}</span>
-                                  </div>
-                                </td>
+                              <tr key={`s-${s.id}`} className="border-b border-gray-50 bg-gray-50/60 text-xs">
+                                <td/>
+                                <td className="px-3 py-2 font-mono text-gray-400 whitespace-nowrap">{s.sale_code || `SL-${String(s.id).padStart(4,'0')}`}</td>
+                                <td className="px-3 py-2 text-gray-600 max-w-[160px] truncate">{s.customer?.name || '—'}</td>
+                                <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{s.project?.name || '—'}</td>
+                                <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{s.plot_no || '—'}{s.area ? ` · ${s.area} ${s.area_unit || ''}` : ''}</td>
+                                <td className="px-3 py-2 font-semibold text-violet-700 whitespace-nowrap">₹ {fmt(s.brokerage)}</td>
+                                <td/>
                               </tr>
                             ))}
                           </>
@@ -695,27 +689,23 @@ function BrokerReport() {
                         {b.purchases.length > 0 && (
                           <>
                             <tr className="bg-amber-50/40">
-                              <td colSpan={COLS} className="px-4 py-1">
-                                <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest">
-                                  <span className="text-amber-600 w-28 shrink-0">Purchase Code</span>
-                                  <span className="text-gray-400 w-48 shrink-0">Location</span>
-                                  <span className="text-gray-400 w-16 shrink-0">Plot No</span>
-                                  <span className="text-gray-400 w-20 shrink-0">Area</span>
-                                  <span className="text-gray-400 w-28 shrink-0">Brokerage</span>
-                                </div>
-                              </td>
+                              <td/>
+                              <td className="px-3 py-1 text-[10px] font-bold text-amber-600 uppercase tracking-widest">Purchase Code</td>
+                              <td className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Location</td>
+                              <td className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Plot No</td>
+                              <td className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Area</td>
+                              <td/>
+                              <td className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Brokerage</td>
                             </tr>
                             {b.purchases.map(p => (
-                              <tr key={`p-${p.id}`} className="border-b border-gray-50 bg-amber-50/20">
-                                <td colSpan={COLS} className="px-4 py-1.5">
-                                  <div className="flex items-center gap-4 text-xs">
-                                    <span className="font-mono text-amber-700 w-28 shrink-0">{p.purchase_code || `PUR-${String(p.id).padStart(4,'0')}`}</span>
-                                    <span className="text-gray-500 w-48 shrink-0 truncate">{p.location || '—'}</span>
-                                    <span className="text-gray-500 w-16 shrink-0">{p.plot_no || '—'}</span>
-                                    <span className="text-gray-500 w-20 shrink-0">{p.purchased_area ? `${p.purchased_area} ${p.purchased_area_details || ''}` : '—'}</span>
-                                    <span className="font-semibold text-amber-700 w-28 shrink-0">₹ {fmt(p.brokerage)}</span>
-                                  </div>
-                                </td>
+                              <tr key={`p-${p.id}`} className="border-b border-gray-50 bg-amber-50/20 text-xs">
+                                <td/>
+                                <td className="px-3 py-2 font-mono text-amber-700 whitespace-nowrap">{p.purchase_code || `PUR-${String(p.id).padStart(4,'0')}`}</td>
+                                <td className="px-3 py-2 text-gray-500 max-w-[160px] truncate">{p.location || '—'}</td>
+                                <td className="px-3 py-2 text-gray-500">{p.plot_no || '—'}</td>
+                                <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{p.purchased_area ? `${p.purchased_area} ${p.purchased_area_details || ''}` : '—'}</td>
+                                <td/>
+                                <td className="px-3 py-2 font-semibold text-amber-700 whitespace-nowrap">₹ {fmt(p.brokerage)}</td>
                               </tr>
                             ))}
                           </>
