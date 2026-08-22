@@ -665,26 +665,26 @@ function BrokerReport() {
                           <>
                             <tr className="bg-violet-50/40">
                               <td colSpan={COLS} className="px-4 py-1">
-                                <div className="flex items-center gap-6 text-[10px] font-bold uppercase tracking-widest">
-                                  <span className="text-violet-500 w-20">Sale Code</span>
-                                  <span className="text-gray-400 flex-1">Customer</span>
-                                  <span className="text-gray-400 w-28">Project</span>
-                                  <span className="text-gray-400 w-16">Plot No</span>
-                                  <span className="text-gray-400 w-20">Area</span>
-                                  <span className="text-gray-400 w-24 text-right">Brokerage</span>
+                                <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest">
+                                  <span className="text-violet-500 w-20 shrink-0">Sale Code</span>
+                                  <span className="text-gray-400 w-44 shrink-0">Customer</span>
+                                  <span className="text-gray-400 w-28 shrink-0">Project</span>
+                                  <span className="text-gray-400 w-16 shrink-0">Plot No</span>
+                                  <span className="text-gray-400 w-20 shrink-0">Area</span>
+                                  <span className="text-gray-400 ml-auto">Brokerage</span>
                                 </div>
                               </td>
                             </tr>
                             {b.sales.map(s => (
                               <tr key={`s-${s.id}`} className="border-b border-gray-50 bg-gray-50/60">
                                 <td colSpan={COLS} className="px-4 py-1.5">
-                                  <div className="flex items-center gap-6 text-xs">
+                                  <div className="flex items-center gap-4 text-xs">
                                     <span className="font-mono text-gray-400 w-20 shrink-0">{s.sale_code || `SL-${String(s.id).padStart(4,'0')}`}</span>
-                                    <span className="text-gray-600 flex-1 truncate">{s.customer?.name || '—'}</span>
+                                    <span className="text-gray-600 w-44 shrink-0 truncate">{s.customer?.name || '—'}</span>
                                     <span className="text-gray-500 w-28 shrink-0 truncate">{s.project?.name || '—'}</span>
                                     <span className="text-gray-500 w-16 shrink-0">{s.plot_no || '—'}</span>
                                     <span className="text-gray-500 w-20 shrink-0">{s.area ? `${s.area} ${s.area_unit || ''}` : '—'}</span>
-                                    <span className="font-semibold text-violet-700 w-24 shrink-0 text-right">₹ {fmt(s.brokerage)}</span>
+                                    <span className="font-semibold text-violet-700 ml-auto">₹ {fmt(s.brokerage)}</span>
                                   </div>
                                 </td>
                               </tr>
@@ -696,24 +696,24 @@ function BrokerReport() {
                           <>
                             <tr className="bg-amber-50/40">
                               <td colSpan={COLS} className="px-4 py-1">
-                                <div className="flex items-center gap-6 text-[10px] font-bold uppercase tracking-widest">
-                                  <span className="text-amber-600 w-28">Purchase Code</span>
-                                  <span className="text-gray-400 flex-1">Location</span>
-                                  <span className="text-gray-400 w-16">Plot No</span>
-                                  <span className="text-gray-400 w-20">Area</span>
-                                  <span className="text-gray-400 w-24 text-right">Brokerage</span>
+                                <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest">
+                                  <span className="text-amber-600 w-28 shrink-0">Purchase Code</span>
+                                  <span className="text-gray-400 w-48 shrink-0">Location</span>
+                                  <span className="text-gray-400 w-16 shrink-0">Plot No</span>
+                                  <span className="text-gray-400 w-20 shrink-0">Area</span>
+                                  <span className="text-gray-400 ml-auto">Brokerage</span>
                                 </div>
                               </td>
                             </tr>
                             {b.purchases.map(p => (
                               <tr key={`p-${p.id}`} className="border-b border-gray-50 bg-amber-50/20">
                                 <td colSpan={COLS} className="px-4 py-1.5">
-                                  <div className="flex items-center gap-6 text-xs">
+                                  <div className="flex items-center gap-4 text-xs">
                                     <span className="font-mono text-amber-700 w-28 shrink-0">{p.purchase_code || `PUR-${String(p.id).padStart(4,'0')}`}</span>
-                                    <span className="text-gray-500 flex-1 truncate">{p.location || '—'}</span>
+                                    <span className="text-gray-500 w-48 shrink-0 truncate">{p.location || '—'}</span>
                                     <span className="text-gray-500 w-16 shrink-0">{p.plot_no || '—'}</span>
                                     <span className="text-gray-500 w-20 shrink-0">{p.purchased_area ? `${p.purchased_area} ${p.purchased_area_details || ''}` : '—'}</span>
-                                    <span className="font-semibold text-amber-700 w-24 shrink-0 text-right">₹ {fmt(p.brokerage)}</span>
+                                    <span className="font-semibold text-amber-700 ml-auto">₹ {fmt(p.brokerage)}</span>
                                   </div>
                                 </td>
                               </tr>
