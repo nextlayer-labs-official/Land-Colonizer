@@ -9,6 +9,8 @@ import { apiGet, apiPut, apiDelete, apiPost, apiPatch } from '@/lib/api';
 import { EMPTY, computed, getStageIndex, StatusPipeline, TYPE_RING, fmtINR, fmtNum, BrokerPicker } from '../_components/shared';
 import DocumentsPanel from '../../_components/DocumentsPanel';
 
+const TYPE_MAP = { PLOT: 'Plot', LAND: 'Land', SHOP: 'Shop', SCO: 'S.C.O', FLAT: 'Flat' };
+
 // ── Inline field atoms ─────────────────────────────────────────────────────────
 function Label({ children }) {
   return <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{children}</p>;
@@ -757,7 +759,6 @@ function generatePurchaseReportHTML(form, c, totalInstPaid, inventory, companyNa
 
   const effectiveBal = Math.max(0, c.balance_to_pay - totalInstPaid);
   const pct = c.total_amount > 0 ? Math.min(100, ((c.total_amount - effectiveBal) / c.total_amount) * 100) : 0;
-  const TYPE_MAP = { PLOT: 'Plot', LAND: 'Land', SHOP: 'Shop', SCO: 'S.C.O', FLAT: 'Flat' };
 
   const inst = form.installment || null;
   const instRows = [];
