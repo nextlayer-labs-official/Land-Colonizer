@@ -576,7 +576,7 @@ function BrokerReport() {
           Customer:     s.customer?.name || '',
           Project:      s.project?.name || '',
           'Plot No':    s.plot_no || '',
-          Area:         s.area ? `${s.area} ${s.area_unit}` : '',
+          Area:         s.total_area ? `${s.total_area} ${s.area_unit}` : '',
           Brokerage:    fmtNum(s.brokerage),
         });
       }
@@ -710,7 +710,7 @@ function BrokerReport() {
                                 <span className="text-gray-500 ml-2">{s.customer?.name || '—'}</span>
                               </td>
                               <td className="px-3 py-2 text-gray-500">
-                                {s.project?.name || '—'} · {s.plot_no || '—'} · {s.area ? `${s.area} ${s.area_unit || ''}` : '—'}
+                                {s.project?.name || '—'} · {s.plot_no || '—'} · {s.total_area ? `${fmtN(s.total_area)} ${s.area_unit || ''}` : '—'}
                               </td>
                               <td className="px-3 py-2 font-semibold text-violet-700 whitespace-nowrap">₹ {fmt(s.brokerage)}</td>
                             </tr>

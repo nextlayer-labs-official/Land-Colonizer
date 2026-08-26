@@ -217,7 +217,7 @@ const brokerReport = async (req, res) => {
           customer:  { select: { name: true } },
           inventory: {
             select: {
-              plot_no: true, sl_no: true, front_area: true, back_area: true, area_unit: true,
+              plot_no: true, sl_no: true, front_area: true, back_area: true, total_area: true, area_unit: true,
               project: { select: { id: true, name: true } },
             },
           },
@@ -274,10 +274,10 @@ const brokerReport = async (req, res) => {
       total_brokerage:    parseFloat((sales_brokerage + purchase_brokerage).toFixed(2)),
       sales:              b.sales.map(s => ({
         ...s,
-        project:  s.inventory?.project || null,
-        plot_no:  s.inventory?.plot_no || s.inventory?.sl_no || null,
-        area:     s.inventory?.front_area || s.inventory?.back_area || null,
-        area_unit: s.inventory?.area_unit || '',
+        project:    s.inventory?.project || null,
+        plot_no:    s.inventory?.plot_no || s.inventory?.sl_no || null,
+        total_area: s.inventory?.total_area || null,
+        area_unit:  s.inventory?.area_unit || '',
       })),
       purchases,
     };
