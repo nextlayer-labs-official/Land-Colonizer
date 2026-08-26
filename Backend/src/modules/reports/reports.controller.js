@@ -214,6 +214,7 @@ const brokerReport = async (req, res) => {
         where: salesWhere,
         select: {
           id: true, sale_code: true, actual_price: true, brokerage: true, status: true, created_at: true,
+          total_area: true, total_area_details: true,
           customer:  { select: { name: true } },
           inventory: {
             select: {
@@ -276,7 +277,7 @@ const brokerReport = async (req, res) => {
         ...s,
         project:    s.inventory?.project || null,
         plot_no:    s.inventory?.plot_no || s.inventory?.sl_no || null,
-        total_area: s.inventory?.area || null,
+        total_area: s.total_area || s.inventory?.area || null,
         area_unit:  s.inventory?.area_unit || '',
       })),
       purchases,

@@ -15,7 +15,7 @@ const TYPE_BADGE = {
 };
 
 const fmt     = (n) => { if (n == null) return '—'; const v = Number(n); const d = v % 1 === 0 ? 0 : 2; return v.toLocaleString('en-IN', { minimumFractionDigits: d, maximumFractionDigits: 2 }); };
-const fmtN    = (n) => n == null ? '—' : parseFloat(Number(n).toFixed(4)).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 4 });
+const fmtN    = (n) => n == null ? '—' : parseFloat(Number(n).toFixed(2)).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const fmtNum  = (n) => n == null ? 0 : Number(n);
 
