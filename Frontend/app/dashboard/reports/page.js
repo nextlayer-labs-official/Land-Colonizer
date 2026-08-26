@@ -550,7 +550,7 @@ function BrokerReport() {
   }, []);
 
   const run = async () => {
-    setLoading(true); setExpanded({});
+    setLoading(true);
     try {
       const q = new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([,v]) => v)));
       setResult(await apiGet(`/reports/brokers?${q}`));
