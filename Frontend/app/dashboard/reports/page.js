@@ -560,6 +560,10 @@ function BrokerReport() {
 
   const set = (k, v) => setFilters(f => ({ ...f, [k]: v }));
   const toggle = (id) => setExpanded(e => ({ ...e, [id]: !e[id] }));
+  const switchTab = (tab) => {
+    setBrokerTab(tab); setResult(null); setExpanded({});
+    setFilters(f => tab === 'sales' ? { ...f, purchase_id: '' } : { ...f, project_id: '' });
+  };
 
   const doExcel = async () => {
     if (!result) return;
@@ -595,7 +599,25 @@ function BrokerReport() {
 
   return (
     <div>
-      <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4 print:hidden">
+      {/* ── Tabs — always visible ── */}
+      <div className="flex border-b border-gray-200 bg-white rounded-t-lg overflow-hidden print:hidden">
+        {[
+          { key: 'sales',     label: 'Sales',     color: 'violet' },
+          { key: 'purchases', label: 'Purchases', color: 'amber'  },
+        ].map(t => (
+          <button key={t.key} onClick={() => switchTab(t.key)}
+            className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition ${
+              brokerTab === t.key
+                ? t.color === 'violet' ? 'border-violet-600 text-violet-700' : 'border-amber-500 text-amber-700'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Filters — tab-aware ── */}
+      <div className="bg-white border border-gray-200 border-t-0 rounded-b-lg p-4 mb-4 print:hidden">
         <FilterRow>
           <Field label="From"><input type="date" value={filters.date_from} onChange={e => set('date_from', e.target.value)} className={inputCls} /></Field>
           <Field label="To"><input type="date" value={filters.date_to} onChange={e => set('date_to', e.target.value)} className={inputCls} /></Field>
@@ -605,18 +627,22 @@ function BrokerReport() {
               {brokers.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
           </Field>
-          <Field label="Project">
-            <select value={filters.project_id} onChange={e => set('project_id', e.target.value)} className={selectCls} style={{ minWidth: 150 }}>
-              <option value="">All Projects</option>
-              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          </Field>
-          <Field label="Purchase">
-            <select value={filters.purchase_id} onChange={e => set('purchase_id', e.target.value)} className={selectCls} style={{ minWidth: 150 }}>
-              <option value="">All Purchases</option>
-              {purchases.map(p => <option key={p.id} value={p.id}>{p.purchase_code || p.location || `PUR-${p.id}`}</option>)}
-            </select>
-          </Field>
+          {brokerTab === 'sales' && (
+            <Field label="Project">
+              <select value={filters.project_id} onChange={e => set('project_id', e.target.value)} className={selectCls} style={{ minWidth: 150 }}>
+                <option value="">All Projects</option>
+                {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </Field>
+          )}
+          {brokerTab === 'purchases' && (
+            <Field label="Purchase">
+              <select value={filters.purchase_id} onChange={e => set('purchase_id', e.target.value)} className={selectCls} style={{ minWidth: 150 }}>
+                <option value="">All Purchases</option>
+                {purchases.map(p => <option key={p.id} value={p.id}>{p.purchase_code || p.location || `PUR-${p.id}`}</option>)}
+              </select>
+            </Field>
+          )}
           <RunBtn onClick={run} loading={loading} />
           {result && <><PrintBtn /><ExcelBtn onClick={doExcel} /></>}
         </FilterRow>
@@ -629,28 +655,6 @@ function BrokerReport() {
             <SummaryCard label="Total Sales"     value={result.summary.total_sales} />
             <SummaryCard label="Total Purchases" value={result.summary.total_purchases} />
             <SummaryCard label="Total Brokerage" value={'₹ ' + fmt(result.summary.total_brokerage)} />
-          </div>
-
-          {/* ── Tab bar ── */}
-          <div className="flex border-b border-gray-200 bg-white rounded-t-lg overflow-hidden">
-            {[
-              { key: 'sales',     label: 'Sales',     count: result.summary.total_sales,     color: 'violet' },
-              { key: 'purchases', label: 'Purchases', count: result.summary.total_purchases, color: 'amber'  },
-            ].map(t => (
-              <button key={t.key} onClick={() => { setBrokerTab(t.key); setExpanded({}); }}
-                className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition flex items-center gap-2 ${
-                  brokerTab === t.key
-                    ? t.color === 'violet' ? 'border-violet-600 text-violet-700' : 'border-amber-500 text-amber-700'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}>
-                {t.label}
-                <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
-                  brokerTab === t.key
-                    ? t.color === 'violet' ? 'bg-violet-100 text-violet-700' : 'bg-amber-100 text-amber-700'
-                    : 'bg-gray-100 text-gray-500'
-                }`}>{t.count}</span>
-              </button>
-            ))}
           </div>
 
           {/* ── Sales tab ── */}
