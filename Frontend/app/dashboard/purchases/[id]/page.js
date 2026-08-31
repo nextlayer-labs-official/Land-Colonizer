@@ -1114,18 +1114,6 @@ export default function PurchaseRecordPage() {
                 {editing && <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-50 text-amber-700 ring-1 ring-amber-200">Editing</span>}
               </div>
             </div>
-            {/* Layout Designer button */}
-            <a
-              href={`/dashboard/purchases/${form.id}/layout-builder`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="shrink-0 inline-flex items-center gap-1.5 h-8 px-3 text-xs font-semibold rounded-lg border border-[#875A7B] text-[#875A7B] hover:bg-[#875A7B]/8 transition"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
-              </svg>
-              Layout Designer
-            </a>
             {/* Mobile pipeline */}
             <div className="hidden sm:flex lg:hidden"><StatusPipeline current={stageIdx} /></div>
           </div>

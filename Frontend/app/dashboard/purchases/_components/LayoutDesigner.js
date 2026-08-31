@@ -173,7 +173,20 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
 
   // Load layout + inventory
   useEffect(() => {
-    if (!purchaseId) return;
+    if (!purchaseId) {
+      // Global mode: load from localStorage
+      try {
+        const saved = localStorage.getItem('global-layout');
+        if (saved) {
+          const data = JSON.parse(saved);
+          setItems(Array.isArray(data.items) ? data.items : []);
+          if (data.grid_cols > 100) setCanvasW(data.grid_cols);
+          if (data.grid_rows > 100) setCanvasH(data.grid_rows);
+        }
+      } catch {}
+      setLoading(false);
+      return;
+    }
     Promise.all([
       apiGet(`/purchases/${purchaseId}/layout`),
       inventoryProp.length === 0 ? apiGet(`/purchases/${purchaseId}`) : Promise.resolve(null),
@@ -374,12 +387,18 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   const handleSave = async () => {
     setSaving(true); setSaved(false);
     try {
-      const d = await apiPut(`/purchases/${purchaseId}/layout`, { grid_rows: canvasH, grid_cols: canvasW, items });
-      setLayout(d); setSaved(true); setTimeout(() => setSaved(false), 2500);
+      if (!purchaseId) {
+        localStorage.setItem('global-layout', JSON.stringify({ grid_rows: canvasH, grid_cols: canvasW, items }));
+        setSaved(true); setTimeout(() => setSaved(false), 2500);
+      } else {
+        const d = await apiPut(`/purchases/${purchaseId}/layout`, { grid_rows: canvasH, grid_cols: canvasW, items });
+        setLayout(d); setSaved(true); setTimeout(() => setSaved(false), 2500);
+      }
     } catch {} finally { setSaving(false); }
   };
 
   const handleToggleLock = async () => {
+    if (!purchaseId) return;
     try { const d = await apiPost(`/purchases/${purchaseId}/layout/lock`, {}); setLayout(d); setLockConfirm(false); } catch {}
   };
 
@@ -484,7 +503,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
           style={{ height: 32, padding: '0 16px', fontSize: 12, fontWeight: 600, borderRadius: 7, border: 'none', cursor: saving ? 'wait' : 'pointer', background: saved ? '#059669' : PRI, color: '#fff', transition: 'background 0.15s' }}>
           {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save Layout'}
         </button>
-        {canEdit && (
+        {canEdit && purchaseId && (
           <button onClick={() => setLockConfirm(true)}
             style={{ height: 32, padding: '0 12px', fontSize: 12, borderRadius: 7, border: '1px solid #e5e7eb', cursor: 'pointer', background: '#f9fafb', color: locked ? '#b45309' : '#6b7280', marginLeft: 4 }}>
             {locked ? '🔒 Unlock' : '🔓 Lock'}
