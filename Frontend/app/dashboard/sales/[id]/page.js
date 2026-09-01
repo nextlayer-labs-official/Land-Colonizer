@@ -234,23 +234,28 @@ function PayBar({ received, total }) {
 }
 
 // ── Single installment card ───────────────────────────────────────────────────
-function InstCard({ n, label, form, editing, setF }) {
+function InstCard({ n, label, form, editing, setF, partialData, onAddPartial, onViewHistory }) {
   const amt = form[`inst_${n}_amount`];
   const dt  = form[`inst_${n}_date`];
   const pd  = form[`inst_${n}_paid`];
   const pay = form[`inst_${n}_payment_details`];
   const hasData = !!(amt || dt);
+  const hasPartials = partialData?.list?.length > 0;
+  const balance = partialData?.balance ?? (Number(amt) || 0);
+  const partialTotal = partialData?.total ?? 0;
 
   if (editing) {
     return (
       <div className={`rounded-xl border-2 p-3 space-y-2 transition ${pd ? 'border-emerald-300 bg-emerald-50' : 'border-gray-200 bg-white'}`}>
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">{label}</span>
-          <label className="flex items-center gap-1.5 cursor-pointer select-none">
-            <input type="checkbox" checked={pd} onChange={e => setF(`inst_${n}_paid`, e.target.checked)}
-              className="w-3.5 h-3.5 rounded accent-emerald-600 cursor-pointer" />
-            <span className={`text-[10px] font-semibold ${pd ? 'text-emerald-700' : 'text-gray-400'}`}>Paid</span>
-          </label>
+          {!hasPartials && (
+            <label className="flex items-center gap-1.5 cursor-pointer select-none">
+              <input type="checkbox" checked={pd} onChange={e => setF(`inst_${n}_paid`, e.target.checked)}
+                className="w-3.5 h-3.5 rounded accent-emerald-600 cursor-pointer" />
+              <span className={`text-[10px] font-semibold ${pd ? 'text-emerald-700' : 'text-gray-400'}`}>Paid</span>
+            </label>
+          )}
         </div>
         <input type="number" value={amt} onChange={e => setF(`inst_${n}_amount`, e.target.value)}
           placeholder="Amount ₹"
@@ -267,14 +272,16 @@ function InstCard({ n, label, form, editing, setF }) {
   // View mode
   const cardCls = pd
     ? 'border-emerald-200 bg-emerald-50'
-    : hasData
-      ? 'border-amber-200 bg-amber-50'
-      : 'border-gray-100 bg-gray-50';
+    : hasPartials
+      ? 'border-blue-200 bg-blue-50'
+      : hasData
+        ? 'border-amber-200 bg-amber-50'
+        : 'border-gray-100 bg-gray-50';
 
   return (
     <div className={`rounded-xl border-2 p-3 ${cardCls}`}>
-      <div className="flex items-start justify-between mb-2">
-        <span className={`text-[10px] font-bold uppercase tracking-wide ${pd ? 'text-emerald-600' : hasData ? 'text-amber-600' : 'text-gray-300'}`}>
+      <div className="flex items-start justify-between mb-1.5">
+        <span className={`text-[10px] font-bold uppercase tracking-wide ${pd ? 'text-emerald-600' : hasPartials ? 'text-blue-600' : hasData ? 'text-amber-600' : 'text-gray-300'}`}>
           {label}
         </span>
         {pd ? (
@@ -282,30 +289,177 @@ function InstCard({ n, label, form, editing, setF }) {
             <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7"/></svg>
             Paid
           </span>
+        ) : hasPartials ? (
+          <span className="text-[9px] font-bold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded-full">Partial</span>
         ) : hasData ? (
           <span className="text-[9px] font-bold text-amber-500 bg-amber-100 px-1.5 py-0.5 rounded-full">Due</span>
         ) : null}
       </div>
+
       <p className={`text-sm font-bold leading-tight ${pd ? 'text-emerald-700' : hasData ? 'text-gray-800' : 'text-gray-200'}`}>
         {amt ? `₹${Number(amt).toLocaleString('en-IN')}` : <span className="text-xs font-normal text-gray-200">—</span>}
       </p>
-      {dt && <p className={`text-[10px] mt-1 ${pd ? 'text-emerald-500' : 'text-gray-400'}`}>{fmtDate(dt)}</p>}
-      {pay && <p className="text-[10px] mt-1 text-gray-500 truncate" title={pay}>{pay}</p>}
+      {dt && <p className={`text-[10px] mt-0.5 ${pd ? 'text-emerald-500' : 'text-gray-400'}`}>{fmtDate(dt)}</p>}
+      {pay && !hasPartials && <p className="text-[10px] mt-0.5 text-gray-500 truncate" title={pay}>{pay}</p>}
+
+      {/* Balance row */}
+      {hasPartials && !pd && (
+        <div className="mt-1 pt-1 border-t border-blue-100">
+          <p className="text-[9px] text-blue-500">Paid: ₹{Number(partialTotal).toLocaleString('en-IN')}</p>
+          <p className="text-[9px] font-bold text-red-500">Bal: ₹{Number(balance).toLocaleString('en-IN')}</p>
+        </div>
+      )}
+
+      {/* Action buttons */}
+      {hasData && !pd && (
+        <div className="flex gap-1 mt-2">
+          <button onClick={() => onAddPartial(n)}
+            className="flex-1 text-[9px] font-bold py-1 rounded-md bg-[#875A7B] text-white hover:bg-[#714B67] transition">
+            + Partial
+          </button>
+          {hasPartials && (
+            <button onClick={() => onViewHistory(n)}
+              className="flex items-center gap-0.5 text-[9px] font-bold py-1 px-1.5 rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200 transition">
+              <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              {partialData.list.length}
+            </button>
+          )}
+        </div>
+      )}
+      {hasData && pd && hasPartials && (
+        <button onClick={() => onViewHistory(n)}
+          className="w-full mt-2 flex items-center justify-center gap-0.5 text-[9px] font-bold py-1 rounded-md bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition">
+          <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          History ({partialData.list.length})
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ── Partial Payment Modal ─────────────────────────────────────────────────────
+function PartialModal({ n, label, instAmount, onClose, onSave, saving }) {
+  const [amount,  setAmount]  = useState('');
+  const [date,    setDate]    = useState(new Date().toISOString().slice(0, 10));
+  const [mode,    setMode]    = useState('');
+  const [details, setDetails] = useState('');
+
+  const submit = (e) => {
+    e.preventDefault();
+    if (!amount || !date) return;
+    onSave({ amount, date, payment_mode: mode, details });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-5" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-bold text-gray-800">Add Partial Payment</h3>
+            <p className="text-[10px] text-gray-400">{label} installment · ₹{Number(instAmount || 0).toLocaleString('en-IN')} total</p>
+          </div>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400">✕</button>
+        </div>
+        <form onSubmit={submit} className="space-y-3">
+          <div>
+            <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Amount ₹ *</label>
+            <input type="number" min="1" max={instAmount || undefined} value={amount} onChange={e => setAmount(e.target.value)} required
+              className="mt-1 w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/20" placeholder="Enter amount" />
+          </div>
+          <div>
+            <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Date *</label>
+            <input type="date" value={date} onChange={e => setDate(e.target.value)} required
+              className="mt-1 w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/20" />
+          </div>
+          <div>
+            <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Payment Mode</label>
+            <input type="text" value={mode} onChange={e => setMode(e.target.value)}
+              className="mt-1 w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/20" placeholder="Cash / UPI / Cheque…" />
+          </div>
+          <div>
+            <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Details / Notes</label>
+            <input type="text" value={details} onChange={e => setDetails(e.target.value)}
+              className="mt-1 w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/20" placeholder="Optional notes" />
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button type="button" onClick={onClose} className="flex-1 h-9 text-xs border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
+            <button type="submit" disabled={saving} className="flex-1 h-9 text-xs rounded-lg text-white font-semibold" style={{ backgroundColor: '#875A7B' }}>
+              {saving ? 'Saving…' : 'Save Payment'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── History Off-canvas ────────────────────────────────────────────────────────
+function HistoryCanvas({ n, label, instAmount, partialData, onClose, onDelete, deleting }) {
+  const { list = [], total = 0, balance = 0 } = partialData || {};
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
+      <div className="bg-white w-full max-w-sm h-full shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <div>
+            <h3 className="text-sm font-bold text-gray-800">Payment History</h3>
+            <p className="text-[10px] text-gray-400">{label} · ₹{Number(instAmount || 0).toLocaleString('en-IN')} total</p>
+          </div>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400">✕</button>
+        </div>
+
+        {/* Summary strip */}
+        <div className="grid grid-cols-3 gap-2 px-4 py-3 bg-gray-50 border-b border-gray-100">
+          {[
+            { l: 'Total',  v: `₹${Number(instAmount || 0).toLocaleString('en-IN')}`, c: 'text-gray-700' },
+            { l: 'Paid',   v: `₹${Number(total).toLocaleString('en-IN')}`,           c: 'text-emerald-600' },
+            { l: 'Balance',v: `₹${Number(balance).toLocaleString('en-IN')}`,         c: balance > 0 ? 'text-red-500' : 'text-emerald-600' },
+          ].map(({ l, v, c }) => (
+            <div key={l} className="text-center">
+              <p className="text-[9px] text-gray-400 uppercase tracking-wide">{l}</p>
+              <p className={`text-xs font-bold ${c}`}>{v}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+          {list.length === 0 ? (
+            <p className="text-center text-sm text-gray-300 mt-10">No partial payments yet</p>
+          ) : list.map((p, i) => (
+            <div key={p.id} className="flex items-start gap-3 bg-gray-50 rounded-xl p-3 border border-gray-100">
+              <div className="w-6 h-6 rounded-full bg-[#875A7B]/10 flex items-center justify-center text-[10px] font-bold text-[#875A7B] shrink-0">{i + 1}</div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-gray-800">₹{Number(p.amount).toLocaleString('en-IN')}</p>
+                <p className="text-[10px] text-gray-400">{fmtDate(p.date)}{p.payment_mode ? ` · ${p.payment_mode}` : ''}</p>
+                {p.details && <p className="text-[10px] text-gray-500 mt-0.5 truncate">{p.details}</p>}
+              </div>
+              <button onClick={() => onDelete(p.id)} disabled={deleting === p.id}
+                className="text-[10px] text-red-400 hover:text-red-600 shrink-0 px-1 py-0.5 rounded hover:bg-red-50 transition">
+                {deleting === p.id ? '…' : 'Del'}
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
 
 // ── Installment Panel (tab content) ──────────────────────────────────────────
 function InstallmentPanel({ saleId, canEdit, onTotalPaidChange }) {
-  const [form,       setForm]       = useState(emptyInst());
-  const [loading,    setLoading]    = useState(true);
-  const [editing,    setEditing]    = useState(false);
-  const [saving,     setSaving]     = useState(false);
-  const [saved,      setSaved]      = useState(false);
-  const [totalPaid,  setTotalPaid]  = useState(0);
-  const [netAmt,     setNetAmt]     = useState(0);
-  const [customer,   setCustomer]   = useState(null);
-  const [saveError,  setSaveError]  = useState('');
+  const [form,          setForm]          = useState(emptyInst());
+  const [loading,       setLoading]       = useState(true);
+  const [editing,       setEditing]       = useState(false);
+  const [saving,        setSaving]        = useState(false);
+  const [saved,         setSaved]         = useState(false);
+  const [totalPaid,     setTotalPaid]     = useState(0);
+  const [netAmt,        setNetAmt]        = useState(0);
+  const [customer,      setCustomer]      = useState(null);
+  const [saveError,     setSaveError]     = useState('');
+  const [partials,      setPartials]      = useState({});
+  const [partialModal,  setPartialModal]  = useState(null); // { n }
+  const [partialSaving, setPartialSaving] = useState(false);
+  const [historyCanvas, setHistoryCanvas] = useState(null); // { n }
+  const [deleting,      setDeleting]      = useState(null); // partial id
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -315,6 +469,7 @@ function InstallmentPanel({ saleId, canEdit, onTotalPaidChange }) {
       setTotalPaid(d.total_paid || 0);
       setNetAmt(d.net_amount || 0);
       setCustomer(d.customer || null);
+      setPartials(d.partials || {});
       onTotalPaidChange?.(d.total_paid || 0);
     } catch { /* ignore */ }
     finally { setLoading(false); }
@@ -344,6 +499,31 @@ function InstallmentPanel({ saleId, canEdit, onTotalPaidChange }) {
       setEditing(false); setSaved(true);
     } catch { /* ignore */ }
     finally { setSaving(false); }
+  };
+
+  const handleAddPartial = async (data) => {
+    const n = partialModal.n;
+    setPartialSaving(true);
+    try {
+      const d = await apiPost(`/sales/${saleId}/installments/${n}/partial`, data);
+      setPartials(prev => ({ ...prev, [n]: { list: d.partials, total: d.total, balance: d.balance } }));
+      if (d.paid) setForm(prev => ({ ...prev, [`inst_${n}_paid`]: true }));
+      setPartialModal(null);
+      load();
+    } catch { /* ignore */ }
+    finally { setPartialSaving(false); }
+  };
+
+  const handleDeletePartial = async (partialId) => {
+    const n = historyCanvas.n;
+    setDeleting(partialId);
+    try {
+      const d = await apiDelete(`/sales/${saleId}/installments/${n}/partial/${partialId}`);
+      setPartials(prev => ({ ...prev, [n]: { list: d.partials, total: d.total, balance: d.balance } }));
+      if (!d.paid) setForm(prev => ({ ...prev, [`inst_${n}_paid`]: false }));
+      load();
+    } catch { /* ignore */ }
+    finally { setDeleting(null); }
   };
 
   const remaining  = netAmt - totalPaid;
@@ -441,12 +621,42 @@ function InstallmentPanel({ saleId, canEdit, onTotalPaidChange }) {
         </div>
       </div>
 
-      {/* ── 20-card grid ── */}
+      {/* ── 24-card grid ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
         {ORDINALS.map((label, i) => (
-          <InstCard key={i + 1} n={i + 1} label={label} form={form} editing={editing} setF={setF} />
+          <InstCard
+            key={i + 1} n={i + 1} label={label} form={form} editing={editing} setF={setF}
+            partialData={partials[i + 1]}
+            onAddPartial={(n) => setPartialModal({ n })}
+            onViewHistory={(n) => setHistoryCanvas({ n })}
+          />
         ))}
       </div>
+
+      {/* ── Partial payment modal ── */}
+      {partialModal && (
+        <PartialModal
+          n={partialModal.n}
+          label={ORDINALS[partialModal.n - 1]}
+          instAmount={form[`inst_${partialModal.n}_amount`]}
+          saving={partialSaving}
+          onClose={() => setPartialModal(null)}
+          onSave={handleAddPartial}
+        />
+      )}
+
+      {/* ── History off-canvas ── */}
+      {historyCanvas && (
+        <HistoryCanvas
+          n={historyCanvas.n}
+          label={ORDINALS[historyCanvas.n - 1]}
+          instAmount={form[`inst_${historyCanvas.n}_amount`]}
+          partialData={partials[historyCanvas.n]}
+          deleting={deleting}
+          onClose={() => setHistoryCanvas(null)}
+          onDelete={handleDeletePartial}
+        />
+      )}
 
     </div>
   );

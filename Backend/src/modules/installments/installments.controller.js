@@ -45,11 +45,25 @@ async function getInstallment(req, res) {
     },
   });
 
+  const allPartials = await prisma.installmentPartial.findMany({
+    where: { sale_id },
+    orderBy: { date: 'asc' },
+  });
+
+  const partialsByN = {};
+  for (let n = 1; n <= 24; n++) {
+    const list  = allPartials.filter(p => p.installment_no === n);
+    const total = list.reduce((s, p) => s + Number(p.amount), 0);
+    const instAmt = Number(inst[`inst_${n}_amount`] || 0);
+    partialsByN[n] = { list, total, balance: Math.max(0, instAmt - total) };
+  }
+
   res.json({
     installment: inst,
     total_paid:  computeTotalPaid(inst),
     net_amount:  instNetAmount(sale),
     customer:    sale?.customer || null,
+    partials:    partialsByN,
   });
 }
 

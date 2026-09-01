@@ -251,6 +251,7 @@ model Sale {
   customer                  Customer?        @relation(fields: [customer_id], references: [id])
   broker                    Broker?          @relation(fields: [broker_id], references: [id])
   installment               Installment?
+  installmentPartials       InstallmentPartial[]
   bookings                  SaleBooking[]
 }
 
@@ -403,6 +404,20 @@ model Installment {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
   sale       Sale     @relation(fields: [sale_id], references: [id], onDelete: Cascade)
+}
+
+model InstallmentPartial {
+  id             Int      @id @default(autoincrement())
+  sale_id        Int
+  installment_no Int
+  amount         Decimal  @db.Decimal(12, 2)
+  date           DateTime
+  payment_mode   String?
+  details        String?  @db.Text
+  created_at     DateTime @default(now())
+  sale           Sale     @relation(fields: [sale_id], references: [id], onDelete: Cascade)
+
+  @@map("installment_partials")
 }
 
 model PurchaseInstallment {
