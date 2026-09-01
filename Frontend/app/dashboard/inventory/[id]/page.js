@@ -147,7 +147,7 @@ function PaymentBar({ received, total }) {
 }
 
 // ── PDF Report Generator ──────────────────────────────────────────────────────
-function generateInventoryReportHTML(form, inv, activeSale, companyName = 'Company') {
+function generateInventoryReportHTML(form, inv, activeSale, companyName = 'Company', instDataArg = null) {
   const mf = (n) => n != null && n !== '' ? `&#8377;${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '&mdash;';
   const df = (v) => v ? new Date(v).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '&mdash;';
   const sv = (v) => (v && String(v).trim()) ? String(v).trim() : '&mdash;';
@@ -188,6 +188,14 @@ function generateInventoryReportHTML(form, inv, activeSale, companyName = 'Compa
       const dt  = inst[`inst_${n}_date`];
       const pd  = inst[`inst_${n}_paid`];
       if (amt != null && Number(amt) > 0) { instRows.push({ n, amt: Number(amt), dt, pd }); if (pd) { instPaidCnt++; instPaidAmt += Number(amt); } }
+    }
+  }
+  // Include partial payments for unpaid installments
+  if (instDataArg && instDataArg.partials) {
+    for (let n = 1; n <= 24; n++) {
+      const pd = inst?.[`inst_${n}_paid`];
+      const partialTotal = instDataArg.partials[n]?.total || 0;
+      if (!pd && partialTotal > 0) instPaidAmt += partialTotal;
     }
   }
   const totalVal    = Number(activeSale?.actual_price    || 0);
@@ -322,9 +330,9 @@ export default function InventoryRecordPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Load installments when that tab is activated
+  // Load installments whenever inventory loads (needed for accurate balance across all tabs + print)
   useEffect(() => {
-    if (tab !== 'installments' || !inv) return;
+    if (!inv) return;
     const activeSale = inv.sales?.find(s => s.status !== 'INACTIVE');
     if (!activeSale) return;
     setInstLoading(true);
@@ -332,7 +340,7 @@ export default function InventoryRecordPage() {
       .then(d => setInstData(d))
       .catch(() => setInstData(null))
       .finally(() => setInstLoading(false));
-  }, [tab, inv]);
+  }, [inv]);
 
   const set = (key) => (e) => { setForm(p => ({ ...p, [key]: e.target.value })); setError(''); };
   const handleEdit    = () => { setEditing(true); setSaved(false); setError(''); };
@@ -359,7 +367,7 @@ export default function InventoryRecordPage() {
     let companyName = 'Company';
     try { const s = await apiGet('/settings/public'); if (s?.company_name) companyName = s.company_name; } catch { /* default */ }
     const sale = inv?.sales?.find(s => s.status !== 'INACTIVE') || null;
-    const html = generateInventoryReportHTML(form, inv, sale, companyName);
+    const html = generateInventoryReportHTML(form, inv, sale, companyName, instData);
     const w = window.open('', '_blank');
     if (!w) return;
     w.document.write(html);
@@ -386,7 +394,7 @@ export default function InventoryRecordPage() {
   const totalValue   = Number(activeSale?.actual_price    || 0);
   const netAmt       = Number(activeSale?.net_amount      || 0);
 
-  // Installment summary from activeSale.installment
+  // Installment summary — use instData.total_paid (includes partials) when loaded, else fall back
   const inst         = activeSale?.installment || null;
   let instTotalPaid  = 0;
   let instPaidCount  = 0;
@@ -397,8 +405,9 @@ export default function InventoryRecordPage() {
       if (inst[`inst_${n}_paid`]) { instPaidCount++; instTotalPaid += Number(inst[`inst_${n}_amount`] || 0); }
     }
   }
+  const effectiveInstPaid = instData?.total_paid ?? instTotalPaid;
   const bookingRcvd = activeSale?.booking_in_received ? Number(activeSale?.booking_amount || 0) : 0;
-  const received    = bookingRcvd + Number(activeSale?.advance_payment || 0) + instTotalPaid;
+  const received    = bookingRcvd + Number(activeSale?.advance_payment || 0) + effectiveInstPaid;
   const balanceAmt  = totalValue > 0 ? Math.max(0, totalValue - received) : 0;
 
   const TABS = [
