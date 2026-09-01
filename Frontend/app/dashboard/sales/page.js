@@ -355,8 +355,8 @@ export default function SalesPage() {
                   {row.customer?.phone && <p className="text-xs text-gray-400">{row.customer.phone}</p>}
                 </td>
                 <td className="px-3 py-2.5 text-gray-600">{row.broker?.name || row.broker_name || '—'}</td>
-                <td className="px-3 py-2.5 font-semibold text-gray-900">{row.actual_price ? fmtINR(row.actual_price) : '—'}</td>
-                <td className="px-3 py-2.5 text-gray-700">{effBalance(row) > 0 ? fmtINR(effBalance(row)) : '—'}</td>
+                <td className="px-3 py-2.5 font-semibold text-gray-900">{fmtINR(row.actual_price || 0)}</td>
+                <td className="px-3 py-2.5 text-gray-700">{fmtINR(Math.max(0, effBalance(row)))}</td>
                 <td className="px-3 py-2.5">
                   <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ring-1 ${POSS_COLOR[row.possession] || 'bg-gray-50 text-gray-500 ring-gray-200'}`}>
                     {POSS_LABEL[row.possession] || row.possession || '—'}
