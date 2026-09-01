@@ -803,6 +803,8 @@ function InstalmentsReport() {
   const [projects, setProjects] = useState([]);
   const [projectId, setProjectId] = useState('');
   const [instTab, setInstTab] = useState('seller');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo,   setDateTo]   = useState('');
 
   useEffect(() => {
     apiGet('/lookup/projects?limit=500').then(d => setProjects(d || [])).catch(() => {});
@@ -813,6 +815,8 @@ function InstalmentsReport() {
     try {
       const p = new URLSearchParams();
       if (projectId) p.set('project_id', projectId);
+      if (dateFrom)  p.set('due_date_from', dateFrom);
+      if (dateTo)    p.set('due_date_to',   dateTo);
       setResult(await apiGet('/reports/instalments?' + p));
     } finally { setLoading(false); }
   };
@@ -874,6 +878,12 @@ function InstalmentsReport() {
               <option value="">All Projects</option>
               {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
+          </Field>
+          <Field label="Due Date From">
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className={inputCls} />
+          </Field>
+          <Field label="Due Date To">
+            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className={inputCls} />
           </Field>
           <RunBtn onClick={run} loading={loading} />
           {result && <><PrintBtn /><ExcelBtn onClick={doExcel} /></>}

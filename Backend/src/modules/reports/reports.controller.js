@@ -311,23 +311,35 @@ const brokerReport = async (req, res) => {
 
 // ── Instalments Report ───────────────────────────────────────────────────────
 const instalmentsReport = async (req, res) => {
-  const { project_id } = req.query;
+  const { project_id, due_date_from, due_date_to } = req.query;
+  const dateFrom = due_date_from ? new Date(due_date_from) : null;
+  const dateTo   = due_date_to   ? new Date(due_date_to + 'T23:59:59') : null;
+
+  function inDateRange(date) {
+    if (!dateFrom && !dateTo) return true;
+    if (!date) return false;
+    const d = new Date(date);
+    if (dateFrom && d < dateFrom) return false;
+    if (dateTo   && d > dateTo)   return false;
+    return true;
+  }
 
   function pendingOf(inst, salePartials = {}) {
     const paid = [], pending = [];
     for (let n = 1; n <= 24; n++) {
       const amount = Number(inst[`inst_${n}_amount`] || 0);
       if (amount <= 0) continue;
+      const date = inst[`inst_${n}_date`] || null;
       if (inst[`inst_${n}_paid`]) {
-        paid.push({ no: n, amount, date: inst[`inst_${n}_date`] || null });
+        paid.push({ no: n, amount, date });
       } else {
         const partialAmt = salePartials[n] || 0;
         if (partialAmt > 0) {
-          paid.push({ no: n, amount: partialAmt, date: inst[`inst_${n}_date`] || null, partial: true });
+          paid.push({ no: n, amount: partialAmt, date, partial: true });
           const rem = parseFloat((amount - partialAmt).toFixed(2));
-          if (rem > 0) pending.push({ no: n, amount: rem, date: inst[`inst_${n}_date`] || null, partial: true });
+          if (rem > 0 && inDateRange(date)) pending.push({ no: n, amount: rem, date, partial: true });
         } else {
-          pending.push({ no: n, amount, date: inst[`inst_${n}_date`] || null });
+          if (inDateRange(date)) pending.push({ no: n, amount, date });
         }
       }
     }
