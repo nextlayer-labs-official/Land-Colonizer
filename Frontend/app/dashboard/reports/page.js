@@ -1097,6 +1097,9 @@ function AvailabilityReport() {
 
   return (
     <div>
+      <div className="hidden print:block mb-4">
+        <h1 className="text-xl font-bold text-gray-900">Availability Report</h1>
+      </div>
       <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4 print:hidden">
         <FilterRow>
           <Field label="Purchase">
