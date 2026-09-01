@@ -1,4 +1,5 @@
 const prisma = require('../../lib/prisma');
+const { auditLog } = require('../../lib/audit');
 
 async function recomputePaid(sale_id, n) {
   const inst = await prisma.installment.findUnique({ where: { sale_id } });
@@ -17,7 +18,7 @@ async function addPartial(req, res) {
 
   if (!amount || !date) return res.status(400).json({ error: 'amount and date are required' });
 
-  await prisma.installmentPartial.create({
+  const created = await prisma.installmentPartial.create({
     data: {
       sale_id,
       installment_no: n,
@@ -26,6 +27,15 @@ async function addPartial(req, res) {
       payment_mode: payment_mode || null,
       details: details || null,
     },
+  });
+
+  const sale = await prisma.sale.findUnique({ where: { id: sale_id }, select: { sale_code: true } });
+  auditLog({
+    req,
+    action: 'CREATE',
+    entity: 'installment_partial',
+    entityId: created.id,
+    entityCode: `${sale?.sale_code || sale_id}#inst${n}`,
   });
 
   const result = await recomputePaid(sale_id, n);
@@ -54,6 +64,15 @@ async function deletePartial(req, res) {
   const id = Number(req.params.id);
 
   await prisma.installmentPartial.delete({ where: { id } });
+
+  const sale = await prisma.sale.findUnique({ where: { id: sale_id }, select: { sale_code: true } });
+  auditLog({
+    req,
+    action: 'DELETE',
+    entity: 'installment_partial',
+    entityId: id,
+    entityCode: `${sale?.sale_code || sale_id}#inst${n}`,
+  });
 
   const result = await recomputePaid(sale_id, n);
   res.json(result);
