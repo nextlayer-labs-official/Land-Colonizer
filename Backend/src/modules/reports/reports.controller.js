@@ -49,14 +49,29 @@ const salesReport = async (req, res) => {
     orderBy: { created_at: 'desc' },
   });
 
+  const saleIds = sales.map(s => s.id);
+  const partialsList = saleIds.length ? await prisma.installmentPartial.findMany({
+    where: { sale_id: { in: saleIds } },
+    select: { sale_id: true, installment_no: true, amount: true },
+  }) : [];
+  const partialMap = {};
+  for (const p of partialsList) {
+    if (!partialMap[p.sale_id]) partialMap[p.sale_id] = {};
+    partialMap[p.sale_id][p.installment_no] = (partialMap[p.sale_id][p.installment_no] || 0) + Number(p.amount);
+  }
+
   const rows = sales.map(s => {
     const actual   = Number(s.actual_price    || 0);
     const advance  = Number(s.advance_payment || 0);
     const booking  = s.booking_in_received ? Number(s.booking_amount || 0) : 0;
     let instPaid = 0;
     if (s.installment) {
+      const sp = partialMap[s.id] || {};
       for (let n = 1; n <= 24; n++) {
-        if (s.installment[`inst_${n}_paid`]) instPaid += Number(s.installment[`inst_${n}_amount`] || 0);
+        const amt = Number(s.installment[`inst_${n}_amount`] || 0);
+        if (!amt) continue;
+        if (s.installment[`inst_${n}_paid`]) instPaid += amt;
+        else if (sp[n])                      instPaid += sp[n];
       }
     }
     const balance = actual > 0 ? Math.max(0, parseFloat((actual - advance - booking - instPaid).toFixed(2))) : null;
@@ -298,13 +313,23 @@ const brokerReport = async (req, res) => {
 const instalmentsReport = async (req, res) => {
   const { project_id } = req.query;
 
-  function pendingOf(inst) {
+  function pendingOf(inst, salePartials = {}) {
     const paid = [], pending = [];
     for (let n = 1; n <= 24; n++) {
       const amount = Number(inst[`inst_${n}_amount`] || 0);
       if (amount <= 0) continue;
-      if (inst[`inst_${n}_paid`]) paid.push({ no: n, amount, date: inst[`inst_${n}_date`] || null });
-      else                        pending.push({ no: n, amount, date: inst[`inst_${n}_date`] || null });
+      if (inst[`inst_${n}_paid`]) {
+        paid.push({ no: n, amount, date: inst[`inst_${n}_date`] || null });
+      } else {
+        const partialAmt = salePartials[n] || 0;
+        if (partialAmt > 0) {
+          paid.push({ no: n, amount: partialAmt, date: inst[`inst_${n}_date`] || null, partial: true });
+          const rem = parseFloat((amount - partialAmt).toFixed(2));
+          if (rem > 0) pending.push({ no: n, amount: rem, date: inst[`inst_${n}_date`] || null, partial: true });
+        } else {
+          pending.push({ no: n, amount, date: inst[`inst_${n}_date`] || null });
+        }
+      }
     }
     return { paid, pending };
   }
@@ -332,6 +357,17 @@ const instalmentsReport = async (req, res) => {
     }),
   ]);
 
+  const saleIds2 = sales.map(s => s.id);
+  const salePartialsList = saleIds2.length ? await prisma.installmentPartial.findMany({
+    where: { sale_id: { in: saleIds2 } },
+    select: { sale_id: true, installment_no: true, amount: true },
+  }) : [];
+  const salePartialMap = {};
+  for (const p of salePartialsList) {
+    if (!salePartialMap[p.sale_id]) salePartialMap[p.sale_id] = {};
+    salePartialMap[p.sale_id][p.installment_no] = (salePartialMap[p.sale_id][p.installment_no] || 0) + Number(p.amount);
+  }
+
   const purchaseRows = purchases
     .filter(p => p.purchaseInstallment)
     .map(p => {
@@ -353,7 +389,7 @@ const instalmentsReport = async (req, res) => {
   const saleRows = sales
     .filter(s => s.installment)
     .map(s => {
-      const { paid, pending } = pendingOf(s.installment);
+      const { paid, pending } = pendingOf(s.installment, salePartialMap[s.id] || {});
       return {
         id:            s.id,
         sale_code:     s.sale_code || `SAL-${String(s.id).padStart(4, '0')}`,
@@ -482,12 +518,24 @@ const balanceDueReport = async (req, res) => {
     orderBy: { created_at: 'asc' },
   });
 
+  const bdSaleIds = sales.map(s => s.id);
+  const bdPartials = bdSaleIds.length ? await prisma.installmentPartial.findMany({
+    where: { sale_id: { in: bdSaleIds } },
+    select: { sale_id: true, installment_no: true, amount: true },
+  }) : [];
+  const bdPartialMap = {};
+  for (const p of bdPartials) {
+    if (!bdPartialMap[p.sale_id]) bdPartialMap[p.sale_id] = {};
+    bdPartialMap[p.sale_id][p.installment_no] = (bdPartialMap[p.sale_id][p.installment_no] || 0) + Number(p.amount);
+  }
+
   const rows = sales.map(s => {
     let received = 0;
     if (s.booking_in_received && s.booking_amount) received += Number(s.booking_amount);
     if (s.advance_payment) received += Number(s.advance_payment);
 
     let pending = 0;
+    const sp = bdPartialMap[s.id] || {};
 
     if (s.installment) {
       for (let n = 1; n <= 24; n++) {
@@ -495,6 +543,9 @@ const balanceDueReport = async (req, res) => {
         if (!amount) continue;
         if (s.installment[`inst_${n}_paid`]) {
           received += amount;
+        } else if (sp[n]) {
+          received += sp[n];
+          pending  += parseFloat((amount - sp[n]).toFixed(2));
         } else {
           pending += amount;
         }

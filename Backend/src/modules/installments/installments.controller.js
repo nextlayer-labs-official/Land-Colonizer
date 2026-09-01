@@ -1,9 +1,15 @@
 const prisma = require('../../lib/prisma');
 
-function computeTotalPaid(inst) {
+function computeTotalPaid(inst, partialsByN = {}) {
   let sum = 0;
   for (let n = 1; n <= 24; n++) {
-    if (inst[`inst_${n}_paid`]) sum += Number(inst[`inst_${n}_amount`] || 0);
+    const amt = Number(inst[`inst_${n}_amount`] || 0);
+    if (!amt) continue;
+    if (inst[`inst_${n}_paid`]) {
+      sum += amt;
+    } else if (partialsByN[n]?.total > 0) {
+      sum += partialsByN[n].total;
+    }
   }
   return parseFloat(sum.toFixed(2));
 }
@@ -60,7 +66,7 @@ async function getInstallment(req, res) {
 
   res.json({
     installment: inst,
-    total_paid:  computeTotalPaid(inst),
+    total_paid:  computeTotalPaid(inst, partialsByN),
     net_amount:  instNetAmount(sale),
     customer:    sale?.customer || null,
     partials:    partialsByN,
@@ -84,21 +90,33 @@ async function updateInstallment(req, res) {
     create: { sale_id, ...data },
   });
 
-  const sale = await prisma.sale.findUnique({
-    where:  { id: sale_id },
-    select: {
-      balance_amount:     true,
-      booking_amount:     true,
-      booking_in_received: true,
-      customer: { select: { name: true, phone: true, customer_code: true } },
-    },
-  });
+  const [sale, updPartials] = await Promise.all([
+    prisma.sale.findUnique({
+      where:  { id: sale_id },
+      select: {
+        balance_amount:     true,
+        booking_amount:     true,
+        booking_in_received: true,
+        customer: { select: { name: true, phone: true, customer_code: true } },
+      },
+    }),
+    prisma.installmentPartial.findMany({ where: { sale_id }, orderBy: { date: 'asc' } }),
+  ]);
+
+  const updPartialsByN = {};
+  for (let n = 1; n <= 24; n++) {
+    const list  = updPartials.filter(p => p.installment_no === n);
+    const total = list.reduce((s, p) => s + Number(p.amount), 0);
+    const instAmt = Number(inst[`inst_${n}_amount`] || 0);
+    updPartialsByN[n] = { list, total, balance: Math.max(0, instAmt - total) };
+  }
 
   res.json({
     installment: inst,
-    total_paid:  computeTotalPaid(inst),
+    total_paid:  computeTotalPaid(inst, updPartialsByN),
     net_amount:  instNetAmount(sale),
     customer:    sale?.customer || null,
+    partials:    updPartialsByN,
   });
 }
 
