@@ -1,6 +1,7 @@
 import NextTopLoader from "nextjs-toploader";
 import { Lato, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import GlobalEffects from "./_components/GlobalEffects";
 
 const lato = Lato({
   subsets: ["latin"],
@@ -26,6 +27,7 @@ export default function RootLayout({ children }) {
     <html lang="en" className={`h-full antialiased ${lato.variable} ${jbMono.variable}`}>
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <NextTopLoader color="#875A7B" height={3} showSpinner={false} />
+        <GlobalEffects />
         {children}
       </body>
     </html>

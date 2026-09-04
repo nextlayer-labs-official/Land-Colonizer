@@ -1,10 +1,11 @@
 const { Router }   = require('express');
 const authenticate = require('../../middleware/authenticate');
-const { getProjects, getProjectById, createProject, updateProject, deleteProject, linkInventory, unlinkInventory } = require('./projects.controller');
+const { getProjects, getProjectById, createProject, updateProject, deleteProject, linkInventory, unlinkInventory, getSummary } = require('./projects.controller');
 
 const router = Router();
 router.use(authenticate);
 
+router.get('/summary', getSummary);
 router.get('/',    getProjects);
 router.get('/:id', getProjectById);
 router.post('/',   createProject);

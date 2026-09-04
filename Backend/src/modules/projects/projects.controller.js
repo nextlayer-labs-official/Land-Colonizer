@@ -138,4 +138,66 @@ async function unlinkInventory(req, res) {
   res.json(withComputed(p));
 }
 
-module.exports = { getProjects, getProjectById, createProject, updateProject, deleteProject, linkInventory, unlinkInventory };
+async function getSummary(req, res) {
+  // Fetch all active sales across all projects
+  const sales = await prisma.sale.findMany({
+    where: { status: 'ACTIVE', inventory: { project_id: { not: null } } },
+    select: {
+      id: true,
+      actual_price: true,
+      advance_payment: true,
+      booking_amount: true,
+      booking_in_received: true,
+      installment: {
+        select: Object.fromEntries(
+          [...Array(24)].flatMap((_, i) => [
+            [`inst_${i + 1}_amount`, true],
+            [`inst_${i + 1}_paid`,   true],
+          ])
+        ),
+      },
+    },
+  });
+
+  const saleIds = sales.map(s => s.id);
+  const partials = saleIds.length
+    ? await prisma.installmentPartial.findMany({
+        where:  { sale_id: { in: saleIds } },
+        select: { sale_id: true, installment_no: true, amount: true },
+      })
+    : [];
+  const partialMap = {};
+  for (const p of partials) {
+    if (!partialMap[p.sale_id]) partialMap[p.sale_id] = {};
+    partialMap[p.sale_id][p.installment_no] = (partialMap[p.sale_id][p.installment_no] || 0) + Number(p.amount);
+  }
+
+  let totalValue    = 0;
+  let totalReceived = 0;
+
+  for (const s of sales) {
+    const actual  = Number(s.actual_price    || 0);
+    const advance = Number(s.advance_payment || 0);
+    const booking = s.booking_in_received ? Number(s.booking_amount || 0) : 0;
+    let   instPaid = 0;
+    if (s.installment) {
+      const sp = partialMap[s.id] || {};
+      for (let n = 1; n <= 24; n++) {
+        const amt = Number(s.installment[`inst_${n}_amount`] || 0);
+        if (!amt) continue;
+        if (s.installment[`inst_${n}_paid`]) instPaid += amt;
+        else if (sp[n])                      instPaid += sp[n];
+      }
+    }
+    totalValue    += actual;
+    totalReceived += advance + booking + instPaid;
+  }
+
+  res.json({
+    total_value:    parseFloat(totalValue.toFixed(2)),
+    total_received: parseFloat(totalReceived.toFixed(2)),
+    total_balance:  parseFloat(Math.max(0, totalValue - totalReceived).toFixed(2)),
+  });
+}
+
+module.exports = { getProjects, getProjectById, createProject, updateProject, deleteProject, linkInventory, unlinkInventory, getSummary };

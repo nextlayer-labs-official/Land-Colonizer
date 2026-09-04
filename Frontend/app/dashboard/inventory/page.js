@@ -19,6 +19,7 @@ function buildRows(data) {
       Code:        r.inventory_code || '',
       Type:        r.type           || '',
       Purchase:    r.purchase?.purchase_code || '',
+      Project:     r.project?.name  || '',
       Location:    r.location       || '',
       'SL No':     r.sl_no          || '',
       'Plot No':   r.plot_no        || '',
@@ -96,10 +97,12 @@ export default function InventoryPage() {
   const [deleting,  setDeleting]  = useState(false);
   const [exporting, setExporting] = useState(false);
 
-  const [search,      setSearch]      = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [typeFilter,   setTypeFilter]   = useState('');
-  const [showFilter,   setShowFilter]   = useState(false);
+  const [search,         setSearch]         = useState('');
+  const [statusFilter,   setStatusFilter]   = useState('');
+  const [typeFilter,     setTypeFilter]     = useState('');
+  const [projectFilter,  setProjectFilter]  = useState('');
+  const [showFilter,     setShowFilter]     = useState(false);
+  const [projects,       setProjects]       = useState([]);
   const filterRef = useRef(null);
 
   const [limit, setLimit] = useState(15);
@@ -108,17 +111,22 @@ export default function InventoryPage() {
     setLoading(true);
     try {
       const q = new URLSearchParams({ page: p, limit });
-      if (search)       q.set('search',    search);
-      if (statusFilter) q.set('status',    statusFilter);
-      if (typeFilter)   q.set('type', typeFilter);
+      if (search)        q.set('search',     search);
+      if (statusFilter)  q.set('status',     statusFilter);
+      if (typeFilter)    q.set('type',       typeFilter);
+      if (projectFilter) q.set('project_id', projectFilter);
       const data = await apiGet(`/inventory?${q}`);
       setRows(data.inventory || []);
       setTotal(data.total    || 0);
       setPage(p);
     } finally { setLoading(false); }
-  }, [search, statusFilter, typeFilter, limit]);
+  }, [search, statusFilter, typeFilter, projectFilter, limit]);
 
-  useEffect(() => { load(1); }, [search, statusFilter, typeFilter, limit]);
+  useEffect(() => { load(1); }, [search, statusFilter, typeFilter, projectFilter, limit]);
+
+  useEffect(() => {
+    apiGet('/lookup/projects?limit=500').then(d => setProjects(d || [])).catch(() => {});
+  }, []);
 
   useEffect(() => {
     const h = (e) => { if (filterRef.current && !filterRef.current.contains(e.target)) setShowFilter(false); };
@@ -146,9 +154,10 @@ export default function InventoryPage() {
 
   const fetchExportData = async () => {
     const q = new URLSearchParams({ page: 1, limit: 10000 });
-    if (search)       q.set('search', search);
-    if (statusFilter) q.set('status', statusFilter);
-    if (typeFilter)   q.set('type',   typeFilter);
+    if (search)        q.set('search',     search);
+    if (statusFilter)  q.set('status',     statusFilter);
+    if (typeFilter)    q.set('type',       typeFilter);
+    if (projectFilter) q.set('project_id', projectFilter);
     const data = await apiGet(`/inventory?${q}`);
     return data.inventory || [];
   };
@@ -168,7 +177,7 @@ export default function InventoryPage() {
   const from = total === 0 ? 0 : (page - 1) * limit + 1;
   const to   = Math.min(page * limit, total);
 
-  const activeFilters = [statusFilter, typeFilter].filter(Boolean).length;
+  const activeFilters = [statusFilter, typeFilter, projectFilter].filter(Boolean).length;
 
   return (
     <div className="flex flex-col h-full bg-[#F4F5F7]">
@@ -187,7 +196,7 @@ export default function InventoryPage() {
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
           </button>
           {showFilter && (
-            <div className="absolute left-0 top-full mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-30 py-1">
+            <div className="absolute left-0 top-full mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-30 py-1 max-h-96 overflow-y-auto">
               <p className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</p>
               {[['', 'All'], ['AVAILABLE', 'Available'], ['RESERVED', 'Reserved'], ['SOLD', 'Sold'], ['REGISTERED', 'Registered'], ['ATTORNEY', 'Attorney'], ['FULL_FINAL', 'Full & Final']].map(([v, label]) => (
                 <button key={v} onClick={() => setStatusFilter(v)}
@@ -205,10 +214,24 @@ export default function InventoryPage() {
                   {typeFilter === v && <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
                 </button>
               ))}
+              <div className="border-t border-gray-100 my-1" />
+              <p className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Project</p>
+              <button onClick={() => setProjectFilter('')}
+                className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${!projectFilter ? 'text-[#875A7B] font-medium' : 'text-gray-700'}`}>
+                All Projects
+                {!projectFilter && <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
+              </button>
+              {projects.map(p => (
+                <button key={p.id} onClick={() => setProjectFilter(String(p.id))}
+                  className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${projectFilter === String(p.id) ? 'text-[#875A7B] font-medium' : 'text-gray-700'}`}>
+                  <span className="truncate pr-2">{p.name}</span>
+                  {projectFilter === String(p.id) && <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
+                </button>
+              ))}
               {activeFilters > 0 && (
                 <>
                   <div className="border-t border-gray-100 my-1" />
-                  <button onClick={() => { setStatusFilter(''); setTypeFilter(''); setShowFilter(false); }}
+                  <button onClick={() => { setStatusFilter(''); setTypeFilter(''); setProjectFilter(''); setShowFilter(false); }}
                     className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-50">Clear All Filters</button>
                 </>
               )}
@@ -229,6 +252,14 @@ export default function InventoryPage() {
           <span className="inline-flex items-center gap-1 bg-[#875A7B]/10 text-[#875A7B] text-xs font-medium px-2 py-1 rounded-full">
             Type: {typeFilter}
             <button onClick={() => setTypeFilter('')} className="hover:opacity-70">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </span>
+        )}
+        {projectFilter && (
+          <span className="inline-flex items-center gap-1 bg-[#875A7B]/10 text-[#875A7B] text-xs font-medium px-2 py-1 rounded-full">
+            Project: {projects.find(p => String(p.id) === projectFilter)?.name || projectFilter}
+            <button onClick={() => setProjectFilter('')} className="hover:opacity-70">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
           </span>
@@ -289,7 +320,7 @@ export default function InventoryPage() {
         <table className="w-full text-sm border-collapse">
           <thead className="sticky top-0 z-10 bg-white">
             <tr className="border-b border-gray-200 bg-white">
-              {['Unit', 'Purchase', 'SL No', 'Plot No', 'Location', 'Total Area', 'Rate', 'Status', ''].map(h => (
+              {['Unit', 'Purchase', 'Project', 'SL No', 'Plot No', 'Location', 'Total Area', 'Rate', 'Status', ''].map(h => (
                 <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
               ))}
             </tr>
@@ -298,7 +329,7 @@ export default function InventoryPage() {
             {loading ? (
               Array(7).fill(0).map((_, i) => (
                 <tr key={i} className="border-b border-gray-100">
-                  {Array(9).fill(0).map((__, j) => (
+                  {Array(10).fill(0).map((__, j) => (
                     <td key={j} className="px-3 py-3">
                       <div className="h-4 bg-gray-100 rounded animate-pulse" style={{ width: `${50 + Math.random() * 40}%` }} />
                     </td>
@@ -307,7 +338,7 @@ export default function InventoryPage() {
               ))
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-4 py-20 text-center">
+                <td colSpan={10} className="px-4 py-20 text-center">
                   <div className="flex flex-col items-center gap-3 text-gray-400">
                     <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -333,6 +364,13 @@ export default function InventoryPage() {
                   <td className="px-3 py-2.5 text-gray-600 max-w-[160px]">
                     <p className="truncate font-medium text-gray-800">{row.purchase?.purchase_code || `Purchase #${row.purchase_id}`}</p>
                     {row.purchase?.location && <p className="text-xs text-gray-400 truncate">{row.purchase.location}</p>}
+                  </td>
+                  <td className="px-3 py-2.5 max-w-[140px]">
+                    {row.project ? (
+                      <span className="truncate block text-xs font-medium text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded w-fit max-w-full">{row.project.name}</span>
+                    ) : (
+                      <span className="text-gray-300">—</span>
+                    )}
                   </td>
                   <td className="px-3 py-2.5 text-gray-500">{row.sl_no || '—'}</td>
                   <td className="px-3 py-2.5 font-medium text-gray-900">{row.plot_no || '—'}</td>

@@ -132,7 +132,7 @@ function buildStatusWhere(status) {
 }
 
 async function getInventory(req, res) {
-  const { page = 1, limit = 15, search = '', status = '', purchase_id = '', type = '' } = req.query;
+  const { page = 1, limit = 15, search = '', status = '', purchase_id = '', type = '', project_id = '' } = req.query;
   const skip = (Number(page) - 1) * Number(limit);
 
   const statusWhere = buildStatusWhere(status);
@@ -149,9 +149,10 @@ async function getInventory(req, res) {
           { purchase: { plot_no:  { contains: search } } },
         ],
       } : {},
-      type        ? { type }                             : {},
+      type        ? { type }                              : {},
       purchase_id ? { purchase_id: Number(purchase_id) } : {},
-      statusWhere ? statusWhere                          : {},
+      project_id  ? { project_id:  Number(project_id)  } : {},
+      statusWhere ? statusWhere                           : {},
     ],
   };
 

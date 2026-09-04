@@ -570,23 +570,29 @@ function BrokerReport() {
     const salesRows = [], purchaseRows = [];
     for (const b of result.brokers) {
       for (const s of b.sales) {
+        const sArea = Number(s.total_area || 0);
+        const sBrok = Number(s.brokerage  || 0);
         salesRows.push({
-          Broker:       b.name,
-          'Sale Code':  s.sale_code || `SL-${String(s.id).padStart(4,'0')}`,
-          Customer:     s.customer?.name || '',
-          Project:      s.project?.name || '',
-          'Plot No':    s.plot_no || '',
-          Area:         s.total_area ? `${s.total_area} ${s.area_unit}` : '',
-          Brokerage:    fmtNum(s.brokerage),
+          Broker:        b.name,
+          'Sale Code':   s.sale_code || `SL-${String(s.id).padStart(4,'0')}`,
+          Customer:      s.customer?.name || '',
+          Project:       s.project?.name || '',
+          'Plot No':     s.plot_no || '',
+          Area:          s.total_area ? `${s.total_area} ${s.area_unit}` : '',
+          'Per Sq. Y':   sArea > 0 ? parseFloat((sBrok / sArea).toFixed(2)) : '',
+          Brokerage:     fmtNum(s.brokerage),
         });
       }
       for (const p of b.purchases) {
+        const pArea = Number(p.purchased_area || 0);
+        const pBrok = Number(p.brokerage      || 0);
         purchaseRows.push({
           Broker:          b.name,
           'Purchase Code': p.purchase_code || `PUR-${String(p.id).padStart(4,'0')}`,
           'Plot No':       p.plot_no || '',
           Location:        p.location || '',
           Area:            p.purchased_area ? `${p.purchased_area} ${p.purchased_area_details || ''}` : '',
+          'Per Sq. Y':     pArea > 0 ? parseFloat((pBrok / pArea).toFixed(2)) : '',
           Brokerage:       fmtNum(p.brokerage),
         });
       }
@@ -666,19 +672,23 @@ function BrokerReport() {
                   <col style={{width:36}}/>
                   <col style={{width:160}}/>
                   <col style={{width:80}}/>
-                  <col style={{width:120}}/>
+                  <col style={{width:110}}/>
+                  <col style={{width:130}}/>
                 </colgroup>
                 <thead className="sticky top-0 z-10 bg-gray-50">
                   <tr className="border-b border-gray-200">
-                    {['','#','Broker','Sales','Sale Brokerage'].map(h => (
+                    {['','#','Broker','Sales','Per Sq. Y','Sale Brokerage'].map(h => (
                       <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {result.brokers.filter(b => b.sales_count > 0).length === 0 ? (
-                    <tr><td colSpan={5} className="py-10 text-center text-sm text-gray-400">No sale brokerage records found</td></tr>
-                  ) : result.brokers.filter(b => b.sales_count > 0).map((b, i) => (
+                    <tr><td colSpan={6} className="py-10 text-center text-sm text-gray-400">No sale brokerage records found</td></tr>
+                  ) : result.brokers.filter(b => b.sales_count > 0).map((b, i) => {
+                    const totalArea = b.sales.reduce((s, r) => s + Number(r.total_area || 0), 0);
+                    const brokerPerSqY = totalArea > 0 ? b.sales_brokerage / totalArea : null;
+                    return (
                     <>
                       <tr key={b.id} className="border-b border-gray-100 cursor-pointer hover:bg-gray-50"
                         onClick={() => toggle(b.id)}>
@@ -692,6 +702,7 @@ function BrokerReport() {
                         <td className="px-3 py-2.5">
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-violet-50 text-violet-700 ring-1 ring-violet-200">{b.sales_count}</span>
                         </td>
+                        <td className="px-3 py-2.5 text-gray-500 whitespace-nowrap">{brokerPerSqY != null ? `₹ ${fmtN(brokerPerSqY)}` : '—'}</td>
                         <td className="px-3 py-2.5 font-medium text-violet-700">₹ {fmt(b.sales_brokerage)}</td>
                       </tr>
                       {expanded[b.id] && (
@@ -700,25 +711,33 @@ function BrokerReport() {
                             <td/><td/>
                             <td className="px-3 py-1 text-[10px] font-bold text-violet-500 uppercase tracking-widest">Sale Code · Customer</td>
                             <td className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Project · Plot No · Area</td>
+                            <td className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Per Sq. Y</td>
                             <td className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Brokerage</td>
                           </tr>
-                          {b.sales.map(s => (
-                            <tr key={`s-${s.id}`} className="border-b border-gray-50 bg-violet-50/20 text-xs">
-                              <td/><td/>
-                              <td className="px-3 py-2">
-                                <span className="font-mono font-semibold text-violet-700">{s.sale_code || `SL-${String(s.id).padStart(4,'0')}`}</span>
-                                <span className="text-gray-500 ml-2">{s.customer?.name || '—'}</span>
-                              </td>
-                              <td className="px-3 py-2 text-gray-500">
-                                {s.project?.name || '—'} · {s.plot_no || '—'} · {s.total_area ? `${fmtN(s.total_area)} ${s.area_unit || ''}` : '—'}
-                              </td>
-                              <td className="px-3 py-2 font-semibold text-violet-700 whitespace-nowrap">₹ {fmt(s.brokerage)}</td>
-                            </tr>
-                          ))}
+                          {b.sales.map(s => {
+                            const area = Number(s.total_area || 0);
+                            const brok = Number(s.brokerage || 0);
+                            const perSqY = area > 0 ? brok / area : null;
+                            return (
+                              <tr key={`s-${s.id}`} className="border-b border-gray-50 bg-violet-50/20 text-xs">
+                                <td/><td/>
+                                <td className="px-3 py-2">
+                                  <span className="font-mono font-semibold text-violet-700">{s.sale_code || `SL-${String(s.id).padStart(4,'0')}`}</span>
+                                  <span className="text-gray-500 ml-2">{s.customer?.name || '—'}</span>
+                                </td>
+                                <td className="px-3 py-2 text-gray-500">
+                                  {s.project?.name || '—'} · {s.plot_no || '—'} · {s.total_area ? `${fmtN(s.total_area)} ${s.area_unit || ''}` : '—'}
+                                </td>
+                                <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{perSqY != null ? `₹ ${fmtN(perSqY)}` : '—'}</td>
+                                <td className="px-3 py-2 font-semibold text-violet-700 whitespace-nowrap">₹ {fmt(s.brokerage)}</td>
+                              </tr>
+                            );
+                          })}
                         </>
                       )}
                     </>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -733,19 +752,23 @@ function BrokerReport() {
                   <col style={{width:36}}/>
                   <col style={{width:160}}/>
                   <col style={{width:80}}/>
-                  <col style={{width:120}}/>
+                  <col style={{width:110}}/>
+                  <col style={{width:140}}/>
                 </colgroup>
                 <thead className="sticky top-0 z-10 bg-gray-50">
                   <tr className="border-b border-gray-200">
-                    {['','#','Broker','Purchases','Purchase Brokerage'].map(h => (
+                    {['','#','Broker','Purchases','Per Sq. Y','Purchase Brokerage'].map(h => (
                       <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {result.brokers.filter(b => b.purchases_count > 0).length === 0 ? (
-                    <tr><td colSpan={5} className="py-10 text-center text-sm text-gray-400">No purchase brokerage records found</td></tr>
-                  ) : result.brokers.filter(b => b.purchases_count > 0).map((b, i) => (
+                    <tr><td colSpan={6} className="py-10 text-center text-sm text-gray-400">No purchase brokerage records found</td></tr>
+                  ) : result.brokers.filter(b => b.purchases_count > 0).map((b, i) => {
+                    const totalArea = b.purchases.reduce((s, p) => s + Number(p.purchased_area || 0), 0);
+                    const brokerPerSqY = totalArea > 0 ? b.purchase_brokerage / totalArea : null;
+                    return (
                     <>
                       <tr key={b.id} className="border-b border-gray-100 cursor-pointer hover:bg-amber-50/20"
                         onClick={() => toggle(b.id)}>
@@ -759,6 +782,7 @@ function BrokerReport() {
                         <td className="px-3 py-2.5">
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 ring-1 ring-amber-200">{b.purchases_count}</span>
                         </td>
+                        <td className="px-3 py-2.5 text-gray-500 whitespace-nowrap">{brokerPerSqY != null ? `₹ ${fmtN(brokerPerSqY)}` : '—'}</td>
                         <td className="px-3 py-2.5 font-medium text-amber-700">₹ {fmt(b.purchase_brokerage)}</td>
                       </tr>
                       {expanded[b.id] && (
@@ -767,23 +791,31 @@ function BrokerReport() {
                             <td/><td/>
                             <td className="px-3 py-1 text-[10px] font-bold text-amber-600 uppercase tracking-widest">Purchase Code · Location</td>
                             <td className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Plot No · Area</td>
+                            <td className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Per Sq. Y</td>
                             <td className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Brokerage</td>
                           </tr>
-                          {b.purchases.map(p => (
-                            <tr key={`p-${p.id}`} className="border-b border-gray-50 bg-amber-50/20 text-xs">
-                              <td/><td/>
-                              <td className="px-3 py-2">
-                                <span className="font-mono font-semibold text-amber-700">{p.purchase_code || `PUR-${String(p.id).padStart(4,'0')}`}</span>
-                                <span className="text-gray-500 ml-2">{p.location || '—'}</span>
-                              </td>
-                              <td className="px-3 py-2 text-gray-500">{p.plot_no || '—'} · {p.purchased_area ? `${p.purchased_area} ${p.purchased_area_details || ''}` : '—'}</td>
-                              <td className="px-3 py-2 font-semibold text-amber-700 whitespace-nowrap">₹ {fmt(p.brokerage)}</td>
-                            </tr>
-                          ))}
+                          {b.purchases.map(p => {
+                            const area = Number(p.purchased_area || 0);
+                            const brok = Number(p.brokerage || 0);
+                            const perSqY = area > 0 ? brok / area : null;
+                            return (
+                              <tr key={`p-${p.id}`} className="border-b border-gray-50 bg-amber-50/20 text-xs">
+                                <td/><td/>
+                                <td className="px-3 py-2">
+                                  <span className="font-mono font-semibold text-amber-700">{p.purchase_code || `PUR-${String(p.id).padStart(4,'0')}`}</span>
+                                  <span className="text-gray-500 ml-2">{p.location || '—'}</span>
+                                </td>
+                                <td className="px-3 py-2 text-gray-500">{p.plot_no || '—'} · {p.purchased_area ? `${p.purchased_area} ${p.purchased_area_details || ''}` : '—'}</td>
+                                <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{perSqY != null ? `₹ ${fmtN(perSqY)}` : '—'}</td>
+                                <td className="px-3 py-2 font-semibold text-amber-700 whitespace-nowrap">₹ {fmt(p.brokerage)}</td>
+                              </tr>
+                            );
+                          })}
                         </>
                       )}
                     </>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -910,6 +942,24 @@ function InstalmentsReport() {
           {instTab === 'seller' && <div>
             <div className="flex items-center gap-3 mb-3 print:hidden">
               <span className="text-xs text-gray-400">Instalments we still owe the seller (from Purchase)</span>
+              <button
+                onClick={() => {
+                  const allExpanded = result.purchase_pending.every(r => expandP[r.id]);
+                  if (allExpanded) {
+                    setExpandP({});
+                  } else {
+                    const all = {};
+                    result.purchase_pending.forEach(r => { all[r.id] = true; });
+                    setExpandP(all);
+                  }
+                }}
+                className="ml-auto flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-orange-50 hover:border-orange-200 hover:text-orange-700 transition-colors"
+              >
+                {result.purchase_pending.every(r => expandP[r.id])
+                  ? <><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7"/></svg>Collapse All</>
+                  : <><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>Expand All</>
+                }
+              </button>
             </div>
             <div className="grid grid-cols-3 gap-3 mb-3 print:hidden">
               <SummaryCard label="Purchases with Pending" value={result.purchase_summary.count} />
@@ -971,6 +1021,24 @@ function InstalmentsReport() {
           {instTab === 'customer' && <div>
             <div className="flex items-center gap-3 mb-3 print:hidden">
               <span className="text-xs text-gray-400">Instalments customers still owe us (from Sale)</span>
+              <button
+                onClick={() => {
+                  const allExpanded = result.sale_pending.every(r => expandS[r.id]);
+                  if (allExpanded) {
+                    setExpandS({});
+                  } else {
+                    const all = {};
+                    result.sale_pending.forEach(r => { all[r.id] = true; });
+                    setExpandS(all);
+                  }
+                }}
+                className="ml-auto flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-colors"
+              >
+                {result.sale_pending.every(r => expandS[r.id])
+                  ? <><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7"/></svg>Collapse All</>
+                  : <><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>Expand All</>
+                }
+              </button>
             </div>
             <div className="grid grid-cols-3 gap-3 mb-3 print:hidden">
               <SummaryCard label="Sales with Pending" value={result.sale_summary.count} />

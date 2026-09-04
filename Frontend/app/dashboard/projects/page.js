@@ -8,6 +8,7 @@ import Pagination from '@/components/Pagination';
 
 const fmt    = (n) => Number(n || 0).toLocaleString('en-IN');
 const fmtCr  = (n) => { const v = Number(n || 0); return v > 0 ? `₹${v.toLocaleString('en-IN')}` : '—'; };
+const fmtINR = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
 
 const STATUS_COLOR = {
   OPEN:    'bg-emerald-50 text-emerald-700',
@@ -45,6 +46,7 @@ export default function ProjectsPage() {
   const [status,   setStatus]   = useState('');
   const [page,     setPage]     = useState(1);
   const [delId,    setDelId]    = useState(null);
+  const [summary,  setSummary]  = useState(null);
   const limit = 15;
 
   const load = useCallback(async (p = page) => {
@@ -61,6 +63,10 @@ export default function ProjectsPage() {
 
   useEffect(() => { load(page); }, [load]);
   useEffect(() => { load(1); }, [search, status]);
+
+  useEffect(() => {
+    apiGet('/projects/summary').then(setSummary).catch(() => {});
+  }, []);
 
   const handleDelete = async () => {
     if (!delId) return;
@@ -86,6 +92,51 @@ export default function ProjectsPage() {
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
           New Project
         </Link>
+      </div>
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {[
+          {
+            label: 'Total Projects Value',
+            value: summary ? fmtINR(summary.total_value) : '—',
+            icon: (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            ),
+            accent: '#875A7B',
+            bg: '#f9f5f8',
+          },
+          {
+            label: 'Total Amount Received',
+            value: summary ? fmtINR(summary.total_received) : '—',
+            icon: (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            ),
+            accent: '#059669',
+            bg: '#f0fdf4',
+          },
+          {
+            label: 'Total Balance Remaining',
+            value: summary ? fmtINR(summary.total_balance) : '—',
+            icon: (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
+            ),
+            accent: '#d97706',
+            bg: '#fffbeb',
+          },
+        ].map(({ label, value, icon, accent, bg }) => (
+          <div key={label} className="rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4 px-5 py-4" style={{ background: bg }}>
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: accent + '18', color: accent }}>
+              {icon}
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">{label}</p>
+              <p className="text-lg font-black mt-0.5 tabular-nums" style={{ color: accent }}>
+                {summary ? value : <span className="inline-block w-24 h-5 bg-gray-200 rounded animate-pulse"/>}
+              </p>
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Filters */}

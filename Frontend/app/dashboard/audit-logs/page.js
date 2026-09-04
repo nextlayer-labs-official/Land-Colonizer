@@ -214,15 +214,15 @@ function AuditLogsPageInner() {
   const [from,    setFrom]    = useState('');
   const [to,      setTo]      = useState('');
 
-  const limit = 20;
+  const [limit, setLimit] = useState(15);
   const canView = me?.is_system || can('AUDIT_VIEW');
 
-  const fetchLogs = useCallback(async (p = 1) => {
+  const fetchLogs = useCallback(async (p = 1, lim) => {
     setLoading(true);
     try {
       const params = new URLSearchParams({
         page:   p,
-        limit,
+        limit:  lim ?? limit,
         ...(search ? { search } : {}),
         ...(entity ? { entity } : {}),
         ...(action ? { action } : {}),
@@ -235,7 +235,7 @@ function AuditLogsPageInner() {
       setPage(p);
     } catch { setLogs([]); }
     finally { setLoading(false); }
-  }, [search, entity, action, from, to]);
+  }, [search, entity, action, from, to, limit]);
 
   useEffect(() => {
     if (!permLoading && canView) fetchLogs(1);
@@ -326,9 +326,17 @@ function AuditLogsPageInner() {
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
         {/* Pagination bar */}
         <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 bg-gray-50">
-          <span className="text-sm text-gray-500 tabular-nums">
-            {total === 0 ? '0' : `${from_n}–${to_n}`} of {total.toLocaleString()}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-500 tabular-nums">
+              {total === 0 ? '0' : `${from_n}–${to_n}`} of {total.toLocaleString()}
+            </span>
+            <select
+              value={limit}
+              onChange={e => { const n = Number(e.target.value); setLimit(n); fetchLogs(1, n); }}
+              className="h-7 px-2 text-xs border border-gray-200 rounded bg-white text-gray-600 focus:outline-none focus:border-[#875A7B]">
+              {[15, 25, 50, 75, 100].map(n => <option key={n} value={n}>{n} / page</option>)}
+            </select>
+          </div>
           <div className="flex items-center gap-1">
             <button onClick={() => fetchLogs(page - 1)} disabled={page === 1}
               className="p-1 rounded hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed text-gray-500 transition">

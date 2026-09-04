@@ -83,6 +83,7 @@ export default function SalesPage() {
   const [search,         setSearch]         = useState('');
   const [statusFilter,   setStatusFilter]   = useState('');
   const [projectFilter,  setProjectFilter]  = useState('');
+  const [typeFilter,     setTypeFilter]     = useState('');
   const [projects,       setProjects]       = useState([]);
   const [showFilter,     setShowFilter]     = useState(false);
   const [exportOpen,     setExportOpen]     = useState(false);
@@ -102,14 +103,15 @@ export default function SalesPage() {
       if (search)        q.set('search',     search);
       if (statusFilter)  q.set('status',     statusFilter);
       if (projectFilter) q.set('project_id', projectFilter);
+      if (typeFilter)    q.set('type',       typeFilter);
       const data = await apiGet(`/sales?${q}`);
       setRows(data.sales || []);
       setTotal(data.total || 0);
       setPage(p);
     } finally { setLoading(false); }
-  }, [search, statusFilter, projectFilter, showArchived, limit]);
+  }, [search, statusFilter, projectFilter, typeFilter, showArchived, limit]);
 
-  useEffect(() => { load(1); }, [search, statusFilter, projectFilter, showArchived, limit]);
+  useEffect(() => { load(1); }, [search, statusFilter, projectFilter, typeFilter, showArchived, limit]);
 
   useEffect(() => {
     const h = (e) => {
@@ -126,6 +128,7 @@ export default function SalesPage() {
     if (search)        q.set('search',     search);
     if (statusFilter)  q.set('status',     statusFilter);
     if (projectFilter) q.set('project_id', projectFilter);
+    if (typeFilter)    q.set('type',       typeFilter);
     const data  = await apiGet(`/sales?${q}`);
     const items = data.sales || [];
     const date  = new Date().toISOString().slice(0, 10);
@@ -196,7 +199,7 @@ export default function SalesPage() {
 
         {/* Archived toggle */}
         <button
-          onClick={() => { setShowArchived(v => !v); setSearch(''); setStatusFilter(''); setProjectFilter(''); }}
+          onClick={() => { setShowArchived(v => !v); setSearch(''); setStatusFilter(''); setProjectFilter(''); setTypeFilter(''); }}
           className={`flex items-center gap-1.5 h-8 px-3 text-sm border rounded transition-colors font-medium ${showArchived ? 'bg-amber-50 border-amber-200 text-amber-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12"/>
@@ -229,7 +232,7 @@ export default function SalesPage() {
         {/* Filter dropdown (only when not in archived view) */}
         {!showArchived && (
           <div className="relative" ref={filterRef}>
-            {(() => { const activeCount = (statusFilter ? 1 : 0) + (projectFilter ? 1 : 0); return (
+            {(() => { const activeCount = (statusFilter ? 1 : 0) + (projectFilter ? 1 : 0) + (typeFilter ? 1 : 0); return (
             <button onClick={() => setShowFilter(v => !v)}
               className={`flex items-center gap-1 text-sm h-8 px-3 rounded border transition-colors ${activeCount ? 'bg-[#875A7B]/10 border-[#875A7B]/30 text-[#875A7B] font-medium' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
               Filters {activeCount > 0 && `(${activeCount})`}
@@ -244,6 +247,15 @@ export default function SalesPage() {
                     className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${statusFilter === v ? 'text-[#875A7B] font-medium' : 'text-gray-700'}`}>
                     {label}
                     {statusFilter === v && <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
+                  </button>
+                ))}
+                <div className="border-t border-gray-100 my-1" />
+                <p className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Unit Type</p>
+                {[['', 'All Types'], ['PLOT', 'Plot'], ['SHOP', 'Shop'], ['LAND', 'Land'], ['FLAT', 'Flat'], ['PLOT_WIRE', 'Plot Wire'], ['SHOP_WIRE', 'Shop Wire']].map(([v, label]) => (
+                  <button key={v} onClick={() => { setTypeFilter(v); setShowFilter(false); }}
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${typeFilter === v ? 'text-[#875A7B] font-medium' : 'text-gray-700'}`}>
+                    {label}
+                    {typeFilter === v && <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
                   </button>
                 ))}
                 <div className="border-t border-gray-100 my-1" />
@@ -269,6 +281,14 @@ export default function SalesPage() {
           <span className="inline-flex items-center gap-1 bg-[#875A7B]/10 text-[#875A7B] text-xs font-medium px-2 py-1 rounded-full">
             {statusFilter}
             <button onClick={() => setStatusFilter('')} className="hover:opacity-70">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </span>
+        )}
+        {typeFilter && (
+          <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 text-xs font-medium px-2 py-1 rounded-full">
+            {TYPE_LABEL[typeFilter] || typeFilter}
+            <button onClick={() => setTypeFilter('')} className="hover:opacity-70">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
           </span>

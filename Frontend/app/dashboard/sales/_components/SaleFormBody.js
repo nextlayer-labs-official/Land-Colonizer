@@ -324,11 +324,6 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false, sho
         </div>
 
         <div>
-          <FieldLabel>Registration Area</FieldLabel>
-          <FInput type="number" value={form.registration_area} onChange={set('registration_area')} placeholder="0" readOnly={readOnly} />
-        </div>
-
-        <div>
           <FieldLabel>Discount (₹)</FieldLabel>
           <FInput type="number" value={form.discount} onChange={set('discount')} placeholder="0" readOnly={readOnly} />
         </div>
@@ -417,6 +412,11 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false, sho
         <div>
           <FieldLabel>Date of Registration</FieldLabel>
           <FInput type="date" value={form.date_of_registration?.split?.('T')?.[0] ?? form.date_of_registration ?? ''} onChange={set('date_of_registration')} readOnly={readOnly} />
+        </div>
+
+        <div>
+          <FieldLabel>Registration Area</FieldLabel>
+          <FInput type="number" value={form.registration_area} onChange={set('registration_area')} placeholder="0" readOnly={readOnly} />
         </div>
 
         <div>
