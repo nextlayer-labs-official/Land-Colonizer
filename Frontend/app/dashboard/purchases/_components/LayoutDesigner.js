@@ -197,12 +197,24 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   const [newLayoutNameInput,  setNewLayoutNameInput]  = useState('');
   const [unsavedAction,       setUnsavedAction]       = useState(null); // { type:'new'|'switch', id? }
   const [showUnsaved,         setShowUnsaved]         = useState(false);
-  const layoutDataRef  = useRef({});
-  const activeLayIdRef = useRef(null);
-  const layoutsRef     = useRef([]);
+  const layoutDataRef     = useRef({});
+  const activeLayIdRef    = useRef(null);
+  const layoutsRef        = useRef([]);
+  const layoutProjectsRef = useRef({});
   const [leftView,     setLeftView]     = useState('layouts'); // 'layouts' | { layoutId, layoutName }
   const filterPopupRef = useRef(null);
-  const [rightTab,         setRightTab]         = useState('controls');
+  const [rightTab,            setRightTab]            = useState('controls');
+  // Project picker
+  const [showProjectModal,    setShowProjectModal]    = useState(false);
+  const [allProjects,         setAllProjects]         = useState([]);
+  const [allProjectsLoading,  setAllProjectsLoading]  = useState(false);
+  const [projectSearch,       setProjectSearch]       = useState('');
+  const [layoutProjects,      setLayoutProjects]      = useState({}); // { [layoutId]: [{id,name,inventory,open}] }
+  // Layers panel
+  const [layerDragId,         setLayerDragId]         = useState(null);
+  // Layout rename / delete
+  const [renamingLayoutId,    setRenamingLayoutId]    = useState(null);
+  const [renameValue,         setRenameValue]         = useState('');
 
   useEffect(() => { itemsRef.current    = items;          }, [items]);
   useEffect(() => { snapRef.current     = snapG;          }, [snapG]);
@@ -211,7 +223,8 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   useEffect(() => { drawPrevRef.current = drawPreview;    }, [drawPreview]);
   useEffect(() => { layoutDataRef.current  = layoutData;  }, [layoutData]);
   useEffect(() => { activeLayIdRef.current = activeLayoutId; }, [activeLayoutId]);
-  useEffect(() => { layoutsRef.current     = layouts;     }, [layouts]);
+  useEffect(() => { layoutsRef.current        = layouts;        }, [layouts]);
+  useEffect(() => { layoutProjectsRef.current = layoutProjects; }, [layoutProjects]);
 
   const applyZoom = useCallback((newZ, newPx, newPy) => {
     zoomRef.current = newZ; panRef.current = { x: newPx, y: newPy };
@@ -236,7 +249,28 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
       setItems(activeLay?.items || []);
       setCanvasW(activeLay?.canvasW || CANVAS_W);
       setCanvasH(activeLay?.canvasH || CANVAS_H);
-      setSavedJson(JSON.stringify({ layouts: lays.map(l => ({ id: l.id, name: l.name, items: l.items || [], canvasW: l.canvasW || CANVAS_W, canvasH: l.canvasH || CANVAS_H })), activeId }));
+      setSavedJson(JSON.stringify({ layouts: lays.map(l => ({ id: l.id, name: l.name, items: l.items || [], canvasW: l.canvasW || CANVAS_W, canvasH: l.canvasH || CANVAS_H, projects: (l.projects || []).map(p => ({ id: p.id, name: p.name })) })), activeId }));
+      // Restore project associations and re-fetch their inventory
+      const restoredProjects = {};
+      lays.forEach(l => {
+        if (Array.isArray(l.projects) && l.projects.length > 0)
+          restoredProjects[l.id] = l.projects.map(p => ({ id: p.id, name: p.name, inventory: [], open: true }));
+      });
+      if (Object.keys(restoredProjects).length > 0) {
+        setLayoutProjects(restoredProjects);
+        Object.entries(restoredProjects).forEach(([layoutId, projs]) => {
+          projs.forEach(async p => {
+            try {
+              const data = await apiGet(`/inventory?project_id=${p.id}&limit=500`);
+              const inv = Array.isArray(data) ? data : (data?.inventory || data?.data || []);
+              setLayoutProjects(prev => ({
+                ...prev,
+                [layoutId]: (prev[layoutId] || []).map(lp => lp.id === p.id ? { ...lp, inventory: inv } : lp),
+              }));
+            } catch {}
+          });
+        });
+      }
     } else {
       // Old single-layout or empty
       const firstId = mkLayId();
@@ -350,7 +384,10 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   const locked    = layout?.locked || false;
   const placedIds = new Set(items.filter(i => i.type === 'plot').map(i => i.inventory_id));
   const unplaced  = inventory.filter(u => !placedIds.has(u.id));
-  const unitFor   = id => inventory.find(u => u.id === id);
+  // Build a flat lookup that also covers units fetched via the project sidebar
+  const projectUnitMap = {};
+  Object.values(layoutProjects).forEach(projs => projs.forEach(proj => proj.inventory.forEach(u => { projectUnitMap[u.id] = u; })));
+  const unitFor   = id => inventory.find(u => u.id === id) || projectUnitMap[id];
   const selItem   = selected ? items.find(i => i.id === selected) : null;
 
   // Convert screen coords → canvas coords
@@ -382,7 +419,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
     if (rotEl) {
       const id   = rotEl.dataset.rotate;
       const item = itemsRef.current.find(i => i.id === id);
-      if (!item) return;
+      if (!item || item.item_locked) return;
       const rect2 = el.getBoundingClientRect();
       const cx = (item.x + item.w / 2) * zoomRef.current + panRef.current.x + rect2.left;
       const cy = (item.y + item.h / 2) * zoomRef.current + panRef.current.y + rect2.top;
@@ -397,7 +434,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
     if (cornerEl) {
       const corner = cornerEl.dataset.corner, id = cornerEl.dataset.id;
       const item = itemsRef.current.find(i => i.id === id);
-      if (!item) return;
+      if (!item || item.item_locked) return;
       interactRef.current = { type: 'resize', id, corner, sx: pos.x, sy: pos.y, ox: item.x, oy: item.y, ow: item.w, oh: item.h };
       el.setPointerCapture(e.pointerId);
       e.preventDefault(); e.stopPropagation(); return;
@@ -408,6 +445,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
       const id = itemEl.dataset.item, item = itemsRef.current.find(i => i.id === id);
       if (!item || toolRef.current !== 'select') return;
       setSelected(id); setEditLabel(null);
+      if (item.item_locked) { el.setPointerCapture(e.pointerId); return; } // select only, no drag
       interactRef.current = { type: 'drag', id, ox: pos.x - item.x, oy: pos.y - item.y };
       el.setPointerCapture(e.pointerId); return;
     }
@@ -500,9 +538,13 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   const buildMultiPayload = (activeId, activeItems, activeCW, activeCH) => {
     const lays = layoutsRef.current;
     const ld   = layoutDataRef.current;
-    const allLays = lays.map(l => l.id === activeId
-      ? { id: l.id, name: l.name, items: activeItems, canvasW: activeCW, canvasH: activeCH }
-      : { id: l.id, name: l.name, ...(ld[l.id] || { items: [], canvasW: CANVAS_W, canvasH: CANVAS_H }) });
+    const lp   = layoutProjectsRef.current;
+    const allLays = lays.map(l => {
+      const projects = (lp[l.id] || []).map(({ id, name }) => ({ id, name }));
+      return l.id === activeId
+        ? { id: l.id, name: l.name, items: activeItems, canvasW: activeCW, canvasH: activeCH, projects }
+        : { id: l.id, name: l.name, ...(ld[l.id] || { items: [], canvasW: CANVAS_W, canvasH: CANVAS_H }), projects };
+    });
     return { __multi: true, layouts: allLays, activeId };
   };
 
@@ -627,6 +669,118 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
     applyZoom(newZ, cx - ratio * (cx - panRef.current.x), cy - ratio * (cy - panRef.current.y));
   }, [applyZoom]);
 
+  // ── Layout selection state ───────────────────────────────────────────────────
+  const isLayoutSelected = typeof leftView === 'object' && leftView !== null;
+  const currentLayoutId  = isLayoutSelected ? leftView.layoutId : null;
+
+  // ── Project modal handlers ───────────────────────────────────────────────────
+  const handleAddProject = async () => {
+    if (!isLayoutSelected) return;
+    setProjectSearch('');
+    setShowProjectModal(true);
+    if (allProjects.length === 0 && !allProjectsLoading) {
+      setAllProjectsLoading(true);
+      try {
+        const d = await apiGet('/lookup/projects?limit=500');
+        setAllProjects(Array.isArray(d) ? d : (d?.data || []));
+      } catch {} finally { setAllProjectsLoading(false); }
+    }
+  };
+
+  const handleSelectProject = async (project) => {
+    if (!currentLayoutId) return;
+    const existing = layoutProjects[currentLayoutId] || [];
+    if (existing.find(p => p.id === project.id)) { setShowProjectModal(false); return; }
+    setShowProjectModal(false);
+    try {
+      const data = await apiGet(`/inventory?project_id=${project.id}&limit=500`);
+      const inv = Array.isArray(data) ? data : (data?.inventory || data?.data || []);
+      setLayoutProjects(prev => ({
+        ...prev,
+        [currentLayoutId]: [...(prev[currentLayoutId] || []), { id: project.id, name: project.name, inventory: inv, open: true }],
+      }));
+    } catch {}
+  };
+
+  const toggleProjectOpen = (projectId) => {
+    if (!currentLayoutId) return;
+    setLayoutProjects(prev => ({
+      ...prev,
+      [currentLayoutId]: (prev[currentLayoutId] || []).map(p =>
+        p.id === projectId ? { ...p, open: !p.open } : p
+      ),
+    }));
+  };
+
+  const handleRemoveProject = (projectId) => {
+    if (!currentLayoutId) return;
+    setLayoutProjects(prev => ({
+      ...prev,
+      [currentLayoutId]: (prev[currentLayoutId] || []).filter(p => p.id !== projectId),
+    }));
+  };
+
+  const toggleItemVisibility = (id) => {
+    setItems(prev => prev.map(i => i.id === id ? { ...i, item_hidden: !i.item_hidden } : i));
+  };
+
+  const handleLayerReorder = (targetId) => {
+    if (!layerDragId || layerDragId === targetId) { setLayerDragId(null); return; }
+    setItems(prev => {
+      const from = prev.findIndex(i => i.id === layerDragId);
+      const to   = prev.findIndex(i => i.id === targetId);
+      if (from < 0 || to < 0) return prev;
+      const next = [...prev];
+      const [item] = next.splice(from, 1);
+      next.splice(to, 0, item);
+      return next;
+    });
+    setLayerDragId(null);
+  };
+
+  const handleStartRename = (layoutId, currentName) => {
+    setRenamingLayoutId(layoutId);
+    setRenameValue(currentName);
+  };
+
+  const handleConfirmRename = () => {
+    if (!renamingLayoutId) return;
+    const trimmed = renameValue.trim();
+    if (trimmed) {
+      setLayouts(prev => prev.map(l => l.id === renamingLayoutId ? { ...l, name: trimmed } : l));
+      if (typeof leftView === 'object' && leftView?.layoutId === renamingLayoutId) {
+        setLeftView(prev => ({ ...prev, layoutName: trimmed }));
+      }
+    }
+    setRenamingLayoutId(null);
+  };
+
+  const handleDeleteLayout = (layoutId) => {
+    if (layouts.length <= 1) return;
+    const remaining = layouts.filter(l => l.id !== layoutId);
+    setLayouts(remaining);
+    setLayoutData(prev => {
+      const next = { ...prev };
+      delete next[layoutId];
+      return next;
+    });
+    setLayoutProjects(prev => {
+      const next = { ...prev };
+      delete next[layoutId];
+      return next;
+    });
+    if (activeLayoutId === layoutId) {
+      const next = remaining[0];
+      const nextData = layoutDataRef.current[next.id] || { items: [], canvasW: CANVAS_W, canvasH: CANVAS_H };
+      setActiveLayoutId(next.id);
+      setItems(nextData.items);
+      setCanvasW(nextData.canvasW);
+      setCanvasH(nextData.canvasH);
+      setSelected(null); setStartPin(null); setEndPin(null);
+      setTimeout(fitScreen, 60);
+    }
+  };
+
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', background: '#f4f5f7', color: '#9ca3af', fontSize: 13 }}>
       Loading layout…
@@ -666,9 +820,9 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
       <div style={{ height: 52, background: '#fff', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: 6, padding: '0 12px', flexShrink: 0, zIndex: 20, overflowX: 'auto', overflowY: 'hidden' }}>
 
         {/* Settings for Config */}
-        <button onClick={() => setShowConfig(true)} title="Settings for Config"
-          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, padding: '5px 12px', border: 'none', borderRadius: 7, background: 'transparent', cursor: 'pointer', flexShrink: 0, transition: 'background 0.12s' }}
-          onMouseEnter={e => e.currentTarget.style.background='#f3f4f6'} onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+        <button onClick={() => setShowConfig(true)} title={isLayoutSelected ? 'Settings for Config' : 'Select a layout first'}
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, padding: '5px 12px', border: 'none', borderRadius: 7, background: 'transparent', cursor: isLayoutSelected ? 'pointer' : 'not-allowed', flexShrink: 0, transition: 'background 0.12s', opacity: isLayoutSelected ? 1 : 0.35, pointerEvents: isLayoutSelected ? 'auto' : 'none' }}
+          onMouseEnter={e => { if (isLayoutSelected) e.currentTarget.style.background='#f3f4f6'; }} onMouseLeave={e => e.currentTarget.style.background='transparent'}>
           <svg width="18" height="18" fill="none" stroke="#6b7280" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3" strokeWidth={1.8}/></svg>
           <span style={{ fontSize: 9, color: '#6b7280', fontWeight: 600, whiteSpace: 'nowrap', letterSpacing: '0.02em' }}>Settings</span>
         </button>
@@ -684,9 +838,9 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
         </button>
 
         {/* Add Project */}
-        <button onClick={() => alert('Select a project to load inventory — coming soon.')} title="Add Project"
-          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, padding: '5px 12px', border: 'none', borderRadius: 7, background: 'transparent', cursor: 'pointer', flexShrink: 0, transition: 'background 0.12s' }}
-          onMouseEnter={e => e.currentTarget.style.background='#eff6ff'} onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+        <button onClick={handleAddProject} title={isLayoutSelected ? 'Add Project' : 'Select a layout first'}
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, padding: '5px 12px', border: 'none', borderRadius: 7, background: 'transparent', cursor: isLayoutSelected ? 'pointer' : 'not-allowed', flexShrink: 0, transition: 'background 0.12s', opacity: isLayoutSelected ? 1 : 0.35, pointerEvents: isLayoutSelected ? 'auto' : 'none' }}
+          onMouseEnter={e => { if (isLayoutSelected) e.currentTarget.style.background='#eff6ff'; }} onMouseLeave={e => e.currentTarget.style.background='transparent'}>
           <svg width="18" height="18" fill="none" stroke="#2563eb" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/><rect x="3" y="3" width="18" height="18" rx="3" strokeWidth={1.5}/></svg>
           <span style={{ fontSize: 9, color: '#2563eb', fontWeight: 600, whiteSpace: 'nowrap', letterSpacing: '0.02em' }}>Add Project</span>
         </button>
@@ -762,26 +916,70 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
               <div style={{ flex: 1, overflowY: 'auto', padding: 8, display: 'flex', flexDirection: 'column', gap: 3, minHeight: 0 }}>
                 {layouts.map((l, idx) => {
                   const isActive = l.id === activeLayoutId;
+                  const isRenaming = renamingLayoutId === l.id;
+                  // Check if this layout has any placed inventory units
+                  const layoutItems = l.id === activeLayoutId
+                    ? items
+                    : (layoutData[l.id]?.items || []);
+                  const hasPlacedUnits = layoutItems.some(i => i.type === 'plot');
+                  const canDelete = layouts.length > 1 && !hasPlacedUnits;
                   return (
-                    <button key={l.id}
-                      onClick={() => setLeftView({ layoutId: l.id, layoutName: l.name })}
-                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 8,
+                    <div key={l.id}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 10px', borderRadius: 8,
                         background: isActive ? `${PRI}10` : 'transparent',
                         border: `1.5px solid ${isActive ? PRI + '40' : '#f3f4f6'}`,
-                        cursor: 'pointer', textAlign: 'left', transition: 'all 0.12s', width: '100%' }}>
-                      {/* Layout icon */}
-                      <div style={{ width: 30, height: 30, borderRadius: 6, background: isActive ? PRI : '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        transition: 'all 0.12s', width: '100%', boxSizing: 'border-box' }}>
+                      {/* Layout icon — click to drill into layout */}
+                      <div onClick={() => { if (!isRenaming) { handleSwitchLayout(l.id); setLeftView({ layoutId: l.id, layoutName: l.name }); } }}
+                        style={{ width: 30, height: 30, borderRadius: 6, background: isActive ? PRI : '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}>
                         <svg width="14" height="14" fill="none" stroke={isActive ? '#fff' : '#9ca3af'} viewBox="0 0 24 24" strokeWidth={2}>
                           <rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/>
                           <rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/>
                         </svg>
                       </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12, fontWeight: isActive ? 700 : 500, color: isActive ? PRI : '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name}</div>
+                      {/* Name / rename input */}
+                      <div onClick={() => { if (!isRenaming) { handleSwitchLayout(l.id); setLeftView({ layoutId: l.id, layoutName: l.name }); } }}
+                        style={{ flex: 1, minWidth: 0, cursor: isRenaming ? 'default' : 'pointer' }}>
+                        {isRenaming ? (
+                          <input
+                            value={renameValue}
+                            onChange={e => setRenameValue(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') handleConfirmRename(); if (e.key === 'Escape') setRenamingLayoutId(null); }}
+                            onBlur={handleConfirmRename}
+                            onClick={e => e.stopPropagation()}
+                            autoFocus
+                            style={{ width: '100%', fontSize: 12, fontWeight: 700, color: PRI, border: `1px solid ${PRI}50`, borderRadius: 4, padding: '2px 5px', outline: 'none', background: '#fff', boxSizing: 'border-box' }}
+                          />
+                        ) : (
+                          <div style={{ fontSize: 12, fontWeight: isActive ? 700 : 500, color: isActive ? PRI : '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name}</div>
+                        )}
                         <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 1 }}>Layout {idx + 1}</div>
                       </div>
-                      <svg width="12" height="12" fill="none" stroke="#d1d5db" viewBox="0 0 24 24" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 18l6-6-6-6"/></svg>
-                    </button>
+                      {/* Rename button */}
+                      <button
+                        onClick={e => { e.stopPropagation(); isRenaming ? handleConfirmRename() : handleStartRename(l.id, l.name); }}
+                        title={isRenaming ? 'Save name' : 'Rename layout'}
+                        style={{ flexShrink: 0, width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', borderRadius: 4, background: isRenaming ? `${PRI}15` : 'transparent', cursor: 'pointer', padding: 0, transition: 'background 0.12s' }}
+                        onMouseEnter={e => { if (!isRenaming) e.currentTarget.style.background = '#f3f4f6'; }}
+                        onMouseLeave={e => { if (!isRenaming) e.currentTarget.style.background = 'transparent'; }}>
+                        {isRenaming ? (
+                          <svg width="11" height="11" fill="none" stroke={PRI} viewBox="0 0 24 24" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+                        ) : (
+                          <svg width="11" height="11" fill="none" stroke="#9ca3af" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                        )}
+                      </button>
+                      {/* Delete button */}
+                      <button
+                        onClick={e => { e.stopPropagation(); if (canDelete) handleDeleteLayout(l.id); }}
+                        title={layouts.length <= 1 ? 'Cannot delete the only layout' : hasPlacedUnits ? 'Remove all placed units from canvas first' : 'Delete layout'}
+                        style={{ flexShrink: 0, width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', borderRadius: 4, background: 'transparent', cursor: canDelete ? 'pointer' : 'not-allowed', padding: 0, opacity: canDelete ? 1 : 0.3, transition: 'all 0.12s' }}
+                        onMouseEnter={e => { if (canDelete) e.currentTarget.style.background = '#fee2e2'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
+                        <svg width="11" height="11" fill="none" stroke={canDelete ? '#ef4444' : '#9ca3af'} viewBox="0 0 24 24" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                      </button>
+                    </div>
                   );
                 })}
               </div>
@@ -798,18 +996,87 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                 <div style={{ fontSize: 10, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.07em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{leftView?.layoutName}</div>
                 <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>Projects</div>
               </div>
-              {/* Empty projects state */}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px 16px', gap: 12 }}>
-                <div style={{ width: 48, height: 48, borderRadius: 12, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <svg width="22" height="22" fill="none" stroke="#d1d5db" viewBox="0 0 24 24" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"/>
-                  </svg>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: '#9ca3af', marginBottom: 4 }}>No projects yet</div>
-                  <div style={{ fontSize: 11, color: '#d1d5db', lineHeight: 1.5 }}>Projects linked to<br/>this layout will appear here</div>
-                </div>
-              </div>
+              {/* Projects list */}
+              {(() => {
+                const currProjects = currentLayoutId ? (layoutProjects[currentLayoutId] || []) : [];
+                if (currProjects.length === 0) {
+                  return (
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px 16px', gap: 12 }}>
+                      <div style={{ width: 48, height: 48, borderRadius: 12, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <svg width="22" height="22" fill="none" stroke="#d1d5db" viewBox="0 0 24 24" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"/>
+                        </svg>
+                      </div>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: '#9ca3af', marginBottom: 4 }}>No projects yet</div>
+                        <div style={{ fontSize: 11, color: '#d1d5db', lineHeight: 1.5 }}>Click <b style={{ color: '#9ca3af' }}>Add Project</b> in the<br/>toolbar to link a project</div>
+                      </div>
+                    </div>
+                  );
+                }
+                return (
+                  <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+                    {currProjects.map(proj => (
+                      <div key={proj.id}>
+                        {/* Project header */}
+                        {(() => {
+                          const hasPlaced = proj.inventory.some(u => placedIds.has(u.id));
+                          return (
+                            <div onClick={() => toggleProjectOpen(proj.id)}
+                              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', background: '#f9fafb', borderBottom: '1px solid #f3f4f6', cursor: 'pointer', userSelect: 'none' }}>
+                              <svg width="12" height="12" fill="none" stroke="#9ca3af" viewBox="0 0 24 24" strokeWidth={2.5}
+                                style={{ transition: 'transform 0.15s', transform: proj.open ? 'rotate(90deg)' : 'rotate(0deg)', flexShrink: 0 }}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 18l6-6-6-6"/>
+                              </svg>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: '#374151', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{proj.name}</span>
+                              <span style={{ fontSize: 10, color: '#9ca3af', flexShrink: 0, background: '#e5e7eb', borderRadius: 8, padding: '1px 5px', marginRight: 2 }}>{proj.inventory.length}</span>
+                              <button
+                                onClick={e => { e.stopPropagation(); if (!hasPlaced) handleRemoveProject(proj.id); }}
+                                title={hasPlaced ? 'Remove placed units from canvas first' : 'Remove project from layout'}
+                                style={{ flexShrink: 0, width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', borderRadius: 4, background: 'transparent', cursor: hasPlaced ? 'not-allowed' : 'pointer', opacity: hasPlaced ? 0.3 : 1, padding: 0, transition: 'all 0.12s' }}
+                                onMouseEnter={e => { if (!hasPlaced) e.currentTarget.style.background = '#fee2e2'; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
+                                <svg width="11" height="11" fill="none" stroke={hasPlaced ? '#9ca3af' : '#ef4444'} viewBox="0 0 24 24" strokeWidth={2.5}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                              </button>
+                            </div>
+                          );
+                        })()}
+                        {/* Inventory items */}
+                        {proj.open && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '5px 6px', background: '#fff' }}>
+                            {proj.inventory.length === 0 && (
+                              <div style={{ padding: '10px 8px', fontSize: 10, color: '#d1d5db', textAlign: 'center' }}>No inventory in this project</div>
+                            )}
+                            {proj.inventory.map(unit => {
+                              const isPlaced = placedIds.has(unit.id);
+                              const sc = SC[unit.status] || DC;
+                              return (
+                                <div key={unit.id}
+                                  draggable={!isPlaced && canEdit && !locked}
+                                  onDragStart={e => onSidebarDragStart(e, unit.id)}
+                                  title={isPlaced ? 'Already placed on canvas' : `${unit.plot_no || unit.sl_no || ''} — drag to canvas`}
+                                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', borderRadius: 5, background: isPlaced ? '#f9fafb' : sc.bg, border: `1px solid ${isPlaced ? '#f3f4f6' : sc.bd + '60'}`, cursor: isPlaced ? 'default' : canEdit && !locked ? 'grab' : 'default', opacity: isPlaced ? 0.45 : 1, transition: 'opacity 0.12s' }}>
+                                  <div style={{ width: 7, height: 7, borderRadius: '50%', background: sc.bd, flexShrink: 0 }}/>
+                                  <span style={{ fontSize: 11, fontWeight: 600, color: isPlaced ? '#9ca3af' : sc.tx, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {unit.plot_no || unit.sl_no || `#${unit.id}`}
+                                  </span>
+                                  {isPlaced && (
+                                    <svg width="10" height="10" fill="none" stroke="#9ca3af" viewBox="0 0 24 24" strokeWidth={2.5} style={{ flexShrink: 0 }}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/>
+                                    </svg>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </>
           )}
 
@@ -833,6 +1100,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
           }}>
 
             {items.map(item => {
+              if (item.item_hidden) return null;
               const isSel   = selected === item.id;
               const rot = item.rotation || 0;
               const basePos = { position: 'absolute', left: item.x, top: item.y, width: item.w, height: item.h, transform: rot ? `rotate(${rot}deg)` : undefined, transformOrigin: 'center center' };
@@ -847,13 +1115,14 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                 );
                 return (
                   <div key={item.id} data-item={item.id}
-                    style={{ ...basePos, touchAction: 'none', cursor: !locked && canEdit ? 'move' : 'default' }}>
+                    style={{ ...basePos, touchAction: 'none', cursor: !locked && canEdit && !item.item_locked ? 'move' : 'default' }}>
                     <svg width={item.w} height={item.h} style={{ overflow: 'visible', display: 'block' }}>
                       <PlotContent item={item} unit={unit} isSel={isSel} hideFlags={hideFlags} viewMode={viewMode} isHighlighted={isHighlighted}/>
                     </svg>
                     {item.id === startPin && <div style={{ position: 'absolute', top: 2, left: 2, background: '#059669', color: 'white', fontSize: 7, fontWeight: 900, padding: '1px 4px', borderRadius: 3, pointerEvents: 'none', lineHeight: 1.4 }}>START</div>}
                     {item.id === endPin   && <div style={{ position: 'absolute', top: 2, right: 2, background: '#ea580c', color: 'white', fontSize: 7, fontWeight: 900, padding: '1px 4px', borderRadius: 3, pointerEvents: 'none', lineHeight: 1.4 }}>END</div>}
-                    {isSel && !locked && canEdit && <ResizeHandles id={item.id}/>}
+                    {item.item_locked && !hideFlags.lockSymbol && <div style={{ position: 'absolute', bottom: 3, right: 4, fontSize: 9, lineHeight: 1, pointerEvents: 'none', opacity: 0.75 }}>🔒</div>}
+                    {isSel && !locked && canEdit && !item.item_locked && <ResizeHandles id={item.id}/>}
                   </div>
                 );
               }
@@ -931,27 +1200,32 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
 
               const HBar = ({ x1, x2, barY, refY, color, label }) => {
                 const mx = (x1 + x2) / 2, tw = label.length * 5.5 + 14;
+                const below = barY > refY;
                 return (<g>
-                  <line x1={x1} y1={barY + 7} x2={x1} y2={refY} stroke={color} strokeWidth="0.7" strokeDasharray="3 2" opacity="0.45"/>
-                  <line x1={x2} y1={barY + 7} x2={x2} y2={refY} stroke={color} strokeWidth="0.7" strokeDasharray="3 2" opacity="0.45"/>
+                  <line x1={x1} y1={below ? refY : barY+7} x2={x1} y2={below ? barY-7 : refY} stroke={color} strokeWidth="0.7" strokeDasharray="3 2" opacity="0.45"/>
+                  <line x1={x2} y1={below ? refY : barY+7} x2={x2} y2={below ? barY-7 : refY} stroke={color} strokeWidth="0.7" strokeDasharray="3 2" opacity="0.45"/>
                   <line x1={x1} y1={barY} x2={x2} y2={barY} stroke={color} strokeWidth="1.4"/>
                   <line x1={x1} y1={barY-6} x2={x1} y2={barY+6} stroke={color} strokeWidth="1.4"/>
                   <line x1={x2} y1={barY-6} x2={x2} y2={barY+6} stroke={color} strokeWidth="1.4"/>
-                  <rect x={mx-tw/2} y={barY-15} width={tw} height={14} rx="3" fill={color}/>
-                  <text x={mx} y={barY-5} textAnchor="middle" fontSize="9" fontWeight="700" fill="white" fontFamily="sans-serif">{label}</text>
+                  <rect x={mx-tw/2} y={below ? barY+1 : barY-15} width={tw} height={14} rx="3" fill={color}/>
+                  <text x={mx} y={below ? barY+11 : barY-5} textAnchor="middle" fontSize="9" fontWeight="700" fill="white" fontFamily="sans-serif">{label}</text>
                 </g>);
               };
               const VBar = ({ y1, y2, barX, refX, color, label }) => {
                 const my = (y1 + y2) / 2, tw = label.length * 5.5 + 14;
+                const onLeft = barX < refX;
+                const d1x = onLeft ? barX + 7 : refX, d2x = onLeft ? refX : barX - 7;
+                const rot = onLeft ? -90 : 90;
+                const lblY = my - 5;
                 return (<g>
-                  <line x1={barX+7} y1={y1} x2={refX} y2={y1} stroke={color} strokeWidth="0.7" strokeDasharray="3 2" opacity="0.45"/>
-                  <line x1={barX+7} y1={y2} x2={refX} y2={y2} stroke={color} strokeWidth="0.7" strokeDasharray="3 2" opacity="0.45"/>
+                  <line x1={d1x} y1={y1} x2={d2x} y2={y1} stroke={color} strokeWidth="0.7" strokeDasharray="3 2" opacity="0.45"/>
+                  <line x1={d1x} y1={y2} x2={d2x} y2={y2} stroke={color} strokeWidth="0.7" strokeDasharray="3 2" opacity="0.45"/>
                   <line x1={barX} y1={y1} x2={barX} y2={y2} stroke={color} strokeWidth="1.4"/>
                   <line x1={barX-6} y1={y1} x2={barX+6} y2={y1} stroke={color} strokeWidth="1.4"/>
                   <line x1={barX-6} y1={y2} x2={barX+6} y2={y2} stroke={color} strokeWidth="1.4"/>
-                  <g transform={`rotate(-90,${barX},${my})`}>
+                  <g transform={`rotate(${rot},${barX},${my})`}>
                     <rect x={barX-tw/2} y={my-15} width={tw} height={14} rx="3" fill={color}/>
-                    <text x={barX} y={my-5} textAnchor="middle" fontSize="9" fontWeight="700" fill="white" fontFamily="sans-serif">{label}</text>
+                    <text x={barX} y={lblY} textAnchor="middle" fontSize="9" fontWeight="700" fill="white" fontFamily="sans-serif">{label}</text>
                   </g>
                 </g>);
               };
@@ -959,6 +1233,10 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
               const rowPlots = items.filter(i => i.type === 'plot' && Math.abs((i.y + i.h / 2) - selCY) < Math.max(sel.h * 0.6, 30)).sort((a, b) => a.x - b.x);
               const colPlots = items.filter(i => i.type === 'plot' && Math.abs((i.x + i.w / 2) - selCX) < Math.max(sel.w * 0.6, 30)).sort((a, b) => a.y - b.y);
               const isVert = colPlots.length > rowPlots.length;
+              const hasRowBelow = items.some(i => i.type === 'plot' && (i.y + i.h / 2) > selCY + 30);
+              const barBelow = !hasRowBelow;
+              const hasColToRight = items.some(i => i.type === 'plot' && (i.x + i.w / 2) > selCX + 30);
+              const barLeft = hasColToRight;
               const sp = startPin ? items.find(i => i.id === startPin) : null;
               const ep = endPin   ? items.find(i => i.id === endPin)   : null;
 
@@ -968,7 +1246,8 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                   if (si < 0 || ei < 0 || xi < 0) return null;
                   const [l, r] = si < ei ? [si, ei] : [ei, si];
                   if (xi <= l || xi >= r) return null;
-                  const refY = Math.min(...rowPlots.map(i => i.y)), barY = Math.max(18, refY - 26);
+                  const refY = barBelow ? sel.y + sel.h : sel.y;
+                  const barY = barBelow ? refY + 26 : refY - 26;
                   const dL = rowPlots.slice(l, xi).reduce((s, p) => s + hDimVal(p), 0);
                   const dR = rowPlots.slice(xi + 1, r + 1).reduce((s, p) => s + hDimVal(p), 0);
                   if (!dL && !dR) return null;
@@ -983,7 +1262,8 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                   if (si < 0 || ei < 0 || xi < 0) return null;
                   const [t, b] = si < ei ? [si, ei] : [ei, si];
                   if (xi <= t || xi >= b) return null;
-                  const refX = Math.min(...colPlots.map(i => i.x)), barX = Math.max(18, refX - 26);
+                  const refX = barLeft ? sel.x : sel.x + sel.w;
+                  const barX = barLeft ? refX - 26 : refX + 26;
                   const dA = colPlots.slice(t, xi).reduce((s, p) => s + vDimVal(p), 0);
                   const dB = colPlots.slice(xi + 1, b + 1).reduce((s, p) => s + vDimVal(p), 0);
                   if (!dA && !dB) return null;
@@ -1001,18 +1281,20 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                 if (xi <= 0) return null;
                 const cum = rowPlots.slice(0, xi).reduce((s, p) => s + hDimVal(p), 0);
                 if (!cum) return null;
-                const refY = Math.min(...rowPlots.map(i => i.y));
+                const refY = barBelow ? sel.y + sel.h : sel.y;
+                const barY = barBelow ? refY + 26 : refY - 26;
                 return (<svg key="cd" style={{ position: 'absolute', top: 0, left: 0, width: canvasW, height: canvasH, pointerEvents: 'none', overflow: 'visible' }}>
-                  <HBar x1={rowPlots[0].x} x2={sel.x} barY={Math.max(18, refY - 26)} refY={refY} color={PRI} label={fmt(cum)}/>
+                  <HBar x1={rowPlots[0].x} x2={sel.x} barY={barY} refY={refY} color={PRI} label={fmt(cum)}/>
                 </svg>);
               } else {
                 const xi = colPlots.findIndex(i => i.id === selected);
                 if (xi <= 0) return null;
                 const cum = colPlots.slice(0, xi).reduce((s, p) => s + vDimVal(p), 0);
                 if (!cum) return null;
-                const refX = Math.min(...colPlots.map(i => i.x));
+                const refX = barLeft ? sel.x : sel.x + sel.w;
+                const barX = barLeft ? refX - 26 : refX + 26;
                 return (<svg key="cd" style={{ position: 'absolute', top: 0, left: 0, width: canvasW, height: canvasH, pointerEvents: 'none', overflow: 'visible' }}>
-                  <VBar y1={colPlots[0].y} y2={sel.y} barX={Math.max(18, refX - 26)} refX={refX} color={PRI} label={fmt(cum)}/>
+                  <VBar y1={colPlots[0].y} y2={sel.y} barX={barX} refX={refX} color={PRI} label={fmt(cum)}/>
                 </svg>);
               }
             })()}
@@ -1031,17 +1313,26 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                 <PLabel>{{ plot: 'Plot', road: 'Road', open: 'Garden', text: 'Text', dotted: 'Dotted Line' }[selItem.type] || selItem.type}</PLabel>
               </div>
               <div style={{ flex: 1, overflowY: 'auto', padding: 12, minHeight: 0 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+                {/* Individual item lock toggle */}
+                {selItem.type === 'plot' && canEdit && !locked && (
+                  <button
+                    onClick={() => setItems(prev => prev.map(i => i.id === selected ? { ...i, item_locked: !i.item_locked } : i))}
+                    style={{ width: '100%', height: 30, marginBottom: 10, border: `1px solid ${selItem.item_locked ? '#f59e0b' : '#e5e7eb'}`, borderRadius: 6, background: selItem.item_locked ? '#fef3c7' : '#f9fafb', color: selItem.item_locked ? '#b45309' : '#6b7280', fontSize: 12, cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                    <span>{selItem.item_locked ? '🔒' : '🔓'}</span>
+                    <span>{selItem.item_locked ? 'Locked — click to unlock' : 'Lock Position'}</span>
+                  </button>
+                )}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12, opacity: selItem.item_locked ? 0.45 : 1 }}>
                   {[['X','x'],['Y','y'],['W','w'],['H','h']].map(([lbl, key]) => (
                     <div key={key}>
                       <PLabel>{lbl}</PLabel>
-                      <input type="number" step={snapG} value={selItem[key]}
-                        onChange={e => { if (!locked && canEdit) setItems(prev => prev.map(i => i.id === selected ? { ...i, [key]: Number(e.target.value) } : i)); }}
-                        style={inp}/>
+                      <input type="number" step={snapG} value={selItem[key]} readOnly={!!(selItem.item_locked)}
+                        onChange={e => { if (!locked && canEdit && !selItem.item_locked) setItems(prev => prev.map(i => i.id === selected ? { ...i, [key]: Number(e.target.value) } : i)); }}
+                        style={{ ...inp, cursor: selItem.item_locked ? 'not-allowed' : undefined }}/>
                     </div>
                   ))}
                 </div>
-                {selItem.type !== 'plot' && !locked && canEdit && (
+                {selItem.type !== 'plot' && !locked && canEdit && !selItem.item_locked && (
                   <div style={{ marginBottom: 12 }}>
                     <PLabel>Rotation (°)</PLabel>
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -1057,7 +1348,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                     </div>
                   </div>
                 )}
-                {selItem.type === 'plot' && !locked && canEdit && (
+                {selItem.type === 'plot' && !locked && canEdit && !selItem.item_locked && (
                   <>
                     <button onClick={() => rotateItem(selected)}
                       style={{ width: '100%', height: 30, background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6, color: '#374151', fontSize: 12, cursor: 'pointer', marginBottom: 8, fontWeight: 500 }}>
@@ -1083,7 +1374,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                       style={inp}/>
                   </div>
                 )}
-                {!locked && canEdit && (
+                {!locked && canEdit && !selItem.item_locked && (
                   <button onClick={() => { setItems(p => p.filter(i => i.id !== selected)); setSelected(null); }}
                     style={{ width: '100%', height: 30, background: '#fff5f5', border: '1px solid #fecaca', borderRadius: 6, color: '#dc2626', fontSize: 12, cursor: 'pointer', marginTop: 4, fontWeight: 500 }}>
                     Remove Item
@@ -1101,12 +1392,18 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
             <>
               {/* Tab bar */}
               <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb', flexShrink: 0 }}>
-                {[['controls','Controls'],['filter','Filter'],['elements','Elements']].map(([tab, label]) => {
+                {[['controls','Controls'],['filter','Filter'],['elements','Elements'],['layers','Layers']].map(([tab, label]) => {
                   const isActive = rightTab === tab;
-                  const badge = tab === 'filter' ? Object.values(hideFlags).filter(Boolean).length : 0;
+                  const hiddenCount = items.filter(i => i.item_hidden).length;
+                  const badge = tab === 'filter' ? Object.values(hideFlags).filter(Boolean).length
+                    : tab === 'layers' ? hiddenCount
+                    : 0;
+                  const needsLayout = tab === 'filter' || tab === 'elements' || tab === 'layers';
+                  const tabDisabled = needsLayout && !isLayoutSelected;
                   return (
-                    <button key={tab} onClick={() => setRightTab(tab)}
-                      style={{ flex: 1, height: 34, border: 'none', borderBottom: isActive ? `2px solid ${PRI}` : '2px solid transparent', background: 'transparent', color: isActive ? PRI : '#9ca3af', fontSize: 10, fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em', transition: 'color 0.12s', position: 'relative' }}>
+                    <button key={tab} onClick={() => { if (!tabDisabled) setRightTab(tab); }}
+                      title={tabDisabled ? 'Select a layout first' : ''}
+                      style={{ flex: 1, height: 34, border: 'none', borderBottom: isActive ? `2px solid ${PRI}` : '2px solid transparent', background: 'transparent', color: isActive ? PRI : '#9ca3af', fontSize: 10, fontWeight: 700, cursor: tabDisabled ? 'not-allowed' : 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em', transition: 'color 0.12s', position: 'relative', opacity: tabDisabled ? 0.35 : 1 }}>
                       {label}
                       {badge > 0 && <span style={{ position: 'absolute', top: 5, right: 6, background: PRI, color: '#fff', borderRadius: 8, fontSize: 9, fontWeight: 700, padding: '1px 5px', lineHeight: 1.4 }}>{badge}</span>}
                     </button>
@@ -1148,6 +1445,29 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                     style={{ marginTop: 14, width: '100%', height: 30, border: '1px solid #e5e7eb', borderRadius: 6, background: '#f9fafb', color: '#6b7280', fontSize: 11, cursor: 'pointer', fontWeight: 500 }}>
                     Reset All
                   </button>
+                  {/* Individual plot locks */}
+                  {canEdit && !locked && (() => {
+                    const plotItems   = items.filter(i => i.type === 'plot');
+                    const lockedCount = plotItems.filter(i => i.item_locked).length;
+                    return (
+                      <div style={{ marginTop: 18 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>Individual Locks</div>
+                        <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 10 }}>
+                          <span style={{ fontWeight: 700, color: lockedCount > 0 ? '#b45309' : '#9ca3af' }}>{lockedCount}</span> of {plotItems.length} plots locked
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                          <button onClick={() => setItems(prev => prev.map(i => i.type === 'plot' ? { ...i, item_locked: true } : i))}
+                            style={{ height: 30, border: '1px solid #f59e0b', borderRadius: 6, background: '#fef3c7', color: '#b45309', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
+                            🔒 Lock All
+                          </button>
+                          <button onClick={() => setItems(prev => prev.map(i => i.type === 'plot' ? { ...i, item_locked: false } : i))}
+                            style={{ height: 30, border: '1px solid #e5e7eb', borderRadius: 6, background: '#f9fafb', color: '#6b7280', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
+                            🔓 Unlock All
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
@@ -1177,6 +1497,94 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                   <p style={{ marginTop: 8, fontSize: 10, color: '#d1d5db', textAlign: 'center', lineHeight: 1.5 }}>Selects type then places it at canvas centre</p>
                 </div>
               )}
+
+              {/* Layers tab */}
+              {rightTab === 'layers' && (
+                <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+                  {/* Header */}
+                  <div style={{ padding: '8px 10px 6px', borderBottom: '1px solid #f3f4f6', background: '#f9fafb', flexShrink: 0 }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                      {items.length} element{items.length !== 1 ? 's' : ''} — drag to reorder
+                    </div>
+                  </div>
+                  {items.length === 0 && (
+                    <div style={{ padding: '28px 16px', textAlign: 'center', fontSize: 12, color: '#d1d5db' }}>No elements on canvas</div>
+                  )}
+                  {/* Layers list — reversed so topmost is at top */}
+                  {[...items].reverse().map((item) => {
+                    const isSel = selected === item.id;
+                    const unit  = item.type === 'plot' ? unitFor(item.inventory_id) : null;
+                    const sc    = unit ? (SC[unit.status] || DC) : DC;
+                    const name  = item.type === 'plot'   ? (unit ? (unit.plot_no || unit.sl_no || `#${unit.id}`) : `Plot`)
+                                : item.type === 'road'   ? (item.label || 'Road')
+                                : item.type === 'open'   ? (item.label || 'Garden')
+                                : item.type === 'text'   ? (item.label || 'Text')
+                                : item.type === 'dotted' ? 'Dotted Line'
+                                : item.type;
+                    const isDragging = layerDragId === item.id;
+                    return (
+                      <div key={item.id}
+                        draggable
+                        onDragStart={e => { e.stopPropagation(); setLayerDragId(item.id); }}
+                        onDragOver={e => e.preventDefault()}
+                        onDrop={e => { e.stopPropagation(); handleLayerReorder(item.id); }}
+                        onDragEnd={() => setLayerDragId(null)}
+                        onClick={() => { setSelected(item.id === selected ? null : item.id); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', borderBottom: '1px solid #f3f4f6', background: isSel ? `${PRI}0d` : isDragging ? '#f3f4f6' : 'transparent', cursor: 'pointer', opacity: item.item_hidden ? 0.4 : 1, transition: 'background 0.1s', userSelect: 'none' }}>
+                        {/* Drag grip */}
+                        <svg width="10" height="14" viewBox="0 0 10 14" fill="#d1d5db" style={{ flexShrink: 0, cursor: 'grab' }}>
+                          <circle cx="3" cy="3"  r="1.3"/><circle cx="7" cy="3"  r="1.3"/>
+                          <circle cx="3" cy="7"  r="1.3"/><circle cx="7" cy="7"  r="1.3"/>
+                          <circle cx="3" cy="11" r="1.3"/><circle cx="7" cy="11" r="1.3"/>
+                        </svg>
+                        {/* Type dot / icon */}
+                        {item.type === 'plot' ? (
+                          <div style={{ width: 10, height: 10, borderRadius: 2, background: sc.bd, flexShrink: 0, border: `1px solid ${sc.bd}` }}/>
+                        ) : item.type === 'road' ? (
+                          <div style={{ width: 10, height: 5, borderRadius: 1, background: '#7dd3fc', flexShrink: 0 }}/>
+                        ) : item.type === 'open' ? (
+                          <div style={{ width: 10, height: 10, borderRadius: 2, background: '#4ade80', flexShrink: 0 }}/>
+                        ) : item.type === 'dotted' ? (
+                          <div style={{ width: 10, height: 2, background: 'repeating-linear-gradient(90deg,#9ca3af 0,#9ca3af 3px,transparent 3px,transparent 6px)', flexShrink: 0 }}/>
+                        ) : (
+                          <span style={{ fontSize: 9, fontWeight: 900, color: '#9ca3af', flexShrink: 0, width: 10, textAlign: 'center' }}>T</span>
+                        )}
+                        {/* Name */}
+                        <span style={{ flex: 1, fontSize: 11, fontWeight: isSel ? 700 : 400, color: isSel ? PRI : '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+                        {/* Lock toggle */}
+                        <button
+                          onClick={e => { e.stopPropagation(); setItems(prev => prev.map(i => i.id === item.id ? { ...i, item_locked: !i.item_locked } : i)); }}
+                          title={item.item_locked ? 'Unlock' : 'Lock position'}
+                          style={{ flexShrink: 0, width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, borderRadius: 3, opacity: item.item_locked ? 1 : 0.3 }}
+                          onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.background = '#f3f4f6'; }}
+                          onMouseLeave={e => { e.currentTarget.style.opacity = item.item_locked ? '1' : '0.3'; e.currentTarget.style.background = 'transparent'; }}>
+                          <svg width="10" height="10" fill="none" stroke={item.item_locked ? '#b45309' : '#9ca3af'} viewBox="0 0 24 24" strokeWidth={2}>
+                            <rect x="5" y="11" width="14" height="10" rx="2"/><path strokeLinecap="round" d="M8 11V7a4 4 0 018 0v4"/>
+                          </svg>
+                        </button>
+                        {/* Visibility toggle */}
+                        <button
+                          onClick={e => { e.stopPropagation(); toggleItemVisibility(item.id); }}
+                          title={item.item_hidden ? 'Show' : 'Hide'}
+                          style={{ flexShrink: 0, width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, borderRadius: 3, opacity: item.item_hidden ? 0.35 : 0.6 }}
+                          onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.background = '#f3f4f6'; }}
+                          onMouseLeave={e => { e.currentTarget.style.opacity = item.item_hidden ? '0.35' : '0.6'; e.currentTarget.style.background = 'transparent'; }}>
+                          {item.item_hidden ? (
+                            <svg width="11" height="11" fill="none" stroke="#9ca3af" viewBox="0 0 24 24" strokeWidth={2}>
+                              <path strokeLinecap="round" d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/>
+                              <line x1="1" y1="1" x2="23" y2="23" strokeWidth={2}/>
+                            </svg>
+                          ) : (
+                            <svg width="11" height="11" fill="none" stroke="#6b7280" viewBox="0 0 24 24" strokeWidth={2}>
+                              <path strokeLinecap="round" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -1188,6 +1596,9 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
         <span>{items.filter(i => i.type === 'road').length} roads</span>
         <span>{items.filter(i => i.type === 'open').length} gardens</span>
         <span>{unplaced.length} unplaced</span>
+        {items.some(i => i.type === 'plot' && i.item_locked) && (
+          <span style={{ color: '#b45309' }}>🔒 {items.filter(i => i.type === 'plot' && i.item_locked).length} locked</span>
+        )}
         <div style={{ width: 1, height: 12, background: '#e5e7eb', flexShrink: 0 }}/>
         {Object.values(SC).map(c => (
           <div key={c.lb} style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
@@ -1287,6 +1698,59 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
               <button onClick={() => setShowConfig(false)} style={{ height: 36, padding: '0 20px', fontSize: 13, fontWeight: 600, background: PRI, border: 'none', borderRadius: 8, color: 'white', cursor: 'pointer' }}>Done</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Project modal */}
+      {showProjectModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)' }} onClick={() => setShowProjectModal(false)}/>
+          <div style={{ position: 'relative', background: '#fff', borderRadius: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.2)', padding: 24, width: '100%', maxWidth: 420, maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}
+            onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: 15, fontWeight: 800, color: '#111827', margin: '0 0 4px' }}>Add Project</h3>
+            <p style={{ fontSize: 12, color: '#9ca3af', margin: '0 0 16px' }}>Select a project to link its inventory to this layout</p>
+            {/* Search */}
+            <div style={{ position: 'relative', marginBottom: 12 }}>
+              <svg width="14" height="14" fill="none" stroke="#9ca3af" viewBox="0 0 24 24" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+                <circle cx="11" cy="11" r="8" strokeWidth="2"/><path strokeLinecap="round" strokeWidth="2" d="m21 21-4.35-4.35"/>
+              </svg>
+              <input placeholder="Search projects…" value={projectSearch} onChange={e => setProjectSearch(e.target.value)}
+                style={{ width: '100%', height: 36, padding: '0 12px 0 32px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                autoFocus/>
+            </div>
+            {/* Project list */}
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4, minHeight: 0 }}>
+              {allProjectsLoading ? (
+                <div style={{ padding: '28px', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>Loading projects…</div>
+              ) : (() => {
+                const search = projectSearch.trim().toLowerCase();
+                const filtered = allProjects.filter(p => !search || (p.name || '').toLowerCase().includes(search));
+                if (filtered.length === 0) return (
+                  <div style={{ padding: '28px', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>No projects found</div>
+                );
+                return filtered.map(p => {
+                  const already = (layoutProjects[currentLayoutId] || []).some(lp => lp.id === p.id);
+                  return (
+                    <button key={p.id} onClick={() => !already && handleSelectProject(p)} disabled={already}
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: `1px solid ${already ? '#f3f4f6' : '#e5e7eb'}`, borderRadius: 9, background: already ? '#fafafa' : '#fff', cursor: already ? 'default' : 'pointer', textAlign: 'left', transition: 'all 0.1s', opacity: already ? 0.6 : 1 }}>
+                      <div style={{ width: 34, height: 34, borderRadius: 9, background: already ? '#e5e7eb' : PRI, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 14, flexShrink: 0 }}>
+                        {(p.name || '?')[0].toUpperCase()}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                        {p.location && <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.location}</div>}
+                      </div>
+                      {already && <span style={{ fontSize: 10, color: '#059669', fontWeight: 700, background: '#d1fae5', borderRadius: 6, padding: '2px 7px', flexShrink: 0 }}>Added</span>}
+                    </button>
+                  );
+                });
+              })()}
+            </div>
+            <button onClick={() => setShowProjectModal(false)}
+              style={{ marginTop: 16, height: 36, border: '1px solid #e5e7eb', borderRadius: 8, background: '#f9fafb', color: '#6b7280', fontSize: 13, cursor: 'pointer', fontWeight: 500 }}>
+              Cancel
+            </button>
           </div>
         </div>
       )}
