@@ -1400,8 +1400,8 @@ function BalanceDueReport() {
   );
 }
 
-// ── Additional Costs Report ───────────────────────────────────────────────────
-function AdditionalCostsReport() {
+// ── Extra Income Statement — sub-tab: Additional Costs ────────────────────────
+function AdditionalCostsTab() {
   const [filters,  setFilters]  = useState({ project_id: '' });
   const [result,   setResult]   = useState(null);
   const [loading,  setLoading]  = useState(false);
@@ -1571,6 +1571,232 @@ function AdditionalCostsReport() {
   );
 }
 
+// ── Extra Income Statement — sub-tab: Customer Booking Income ─────────────────
+function BookingIncomeTab() {
+  const [filters,  setFilters]  = useState({ project_id: '', date_from: '', date_to: '' });
+  const [result,   setResult]   = useState(null);
+  const [loading,  setLoading]  = useState(false);
+  const [projects, setProjects] = useState([]);
+
+  useEffect(() => {
+    apiGet('/lookup/projects?limit=500').then(d => setProjects(d || [])).catch(() => {});
+  }, []);
+
+  const run = async () => {
+    setLoading(true);
+    try {
+      const q = new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([,v]) => v)));
+      setResult(await apiGet(`/reports/booking-income?${q}`));
+    } finally { setLoading(false); }
+  };
+
+  const doExcel = async () => {
+    if (!result) return;
+    const rows = result.rows.map((r, i) => ({
+      '#':               i + 1,
+      'Sale Code':       r.sale_code,
+      'Customer':        r.customer?.name || '',
+      'Project':         r.project?.name  || '',
+      'Plot No':         r.plot_no        || '',
+      'Sale Date':       r.sale_date ? fmtDate(r.sale_date) : '',
+      'Booking Amount':  fmtNum(r.booking_amount),
+      'Advance Payment': fmtNum(r.advance_payment),
+      'Total Received':  fmtNum(r.total_received),
+      'Actual Price':    fmtNum(r.actual_price),
+    }));
+    await exportXlsx([{ name: 'Booking Income', rows }], `booking_income_${new Date().toISOString().slice(0,10)}.xlsx`);
+  };
+
+  return (
+    <div>
+      <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4 print:hidden">
+        <FilterRow>
+          <Field label="Project">
+            <select value={filters.project_id} onChange={e => setFilters(f => ({ ...f, project_id: e.target.value }))} className={selectCls} style={{ minWidth: 160 }}>
+              <option value="">All Projects</option>
+              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </Field>
+          <Field label="From"><input type="date" value={filters.date_from} onChange={e => setFilters(f => ({ ...f, date_from: e.target.value }))} className={inputCls} /></Field>
+          <Field label="To">  <input type="date" value={filters.date_to}   onChange={e => setFilters(f => ({ ...f, date_to:   e.target.value }))} className={inputCls} /></Field>
+          <RunBtn onClick={run} loading={loading} />
+          {result && <><PrintBtn /><ExcelBtn onClick={doExcel} /></>}
+        </FilterRow>
+      </div>
+
+      {result && (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            <SummaryCard label="Sales"           value={result.summary.count} />
+            <SummaryCard label="Total Booking"   value={'₹ ' + fmt(result.summary.total_booking)} />
+            <SummaryCard label="Total Advance"   value={'₹ ' + fmt(result.summary.total_advance)} />
+            <SummaryCard label="Total Received"  value={'₹ ' + fmt(result.summary.total_received)} />
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-lg overflow-auto max-h-[65vh]">
+            <table className="w-full text-sm border-collapse">
+              <thead className="sticky top-0 z-10 bg-gray-50">
+                <tr className="border-b border-gray-200">
+                  {['#','Sale Code','Customer','Project','Plot','Sale Date','Booking Amount','Advance Payment','Total Received','Actual Price'].map(h => (
+                    <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {result.rows.length === 0 ? (
+                  <tr><td colSpan={10} className="py-10 text-center text-sm text-gray-400">No booking income records found</td></tr>
+                ) : result.rows.map((r, i) => (
+                  <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      <span className="font-mono text-xs font-semibold text-[#875A7B] bg-[#875A7B]/8 px-1.5 py-0.5 rounded">{r.sale_code}</span>
+                    </td>
+                    <td className="px-3 py-2.5 font-medium text-gray-800 whitespace-nowrap">{r.customer?.name || '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{r.project?.name || '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{r.plot_no || '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-500 whitespace-nowrap">{r.sale_date ? fmtDate(r.sale_date) : '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap">{r.booking_amount ? '₹ ' + fmt(r.booking_amount) : '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap">{r.advance_payment ? '₹ ' + fmt(r.advance_payment) : '—'}</td>
+                    <td className="px-3 py-2.5 font-semibold text-emerald-700 whitespace-nowrap">₹ {fmt(r.total_received)}</td>
+                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{r.actual_price ? '₹ ' + fmt(r.actual_price) : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── Extra Income Statement — sub-tab: Other Financials ────────────────────────
+function OtherFinancialsTab() {
+  const [filters,  setFilters]  = useState({ project_id: '' });
+  const [result,   setResult]   = useState(null);
+  const [loading,  setLoading]  = useState(false);
+  const [projects, setProjects] = useState([]);
+
+  useEffect(() => {
+    apiGet('/lookup/projects?limit=500').then(d => setProjects(d || [])).catch(() => {});
+  }, []);
+
+  const run = async () => {
+    setLoading(true);
+    try {
+      const q = new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([,v]) => v)));
+      setResult(await apiGet(`/reports/other-financials?${q}`));
+    } finally { setLoading(false); }
+  };
+
+  const doExcel = async () => {
+    if (!result) return;
+    const rows = result.rows.map((r, i) => ({
+      '#':             i + 1,
+      'Sale Code':     r.sale_code,
+      'Customer':      r.customer?.name || '',
+      'Project':       r.project?.name  || '',
+      'Plot No':       r.plot_no        || '',
+      'Actual Price':  fmtNum(r.actual_price),
+      'Extra Income':  fmtNum(r.extra_income),
+      'Discount':      fmtNum(r.discount),
+      'Brokerage':     fmtNum(r.brokerage),
+      'Incentive':     fmtNum(r.incentive),
+      'Net Amount':    fmtNum(r.net_amount),
+    }));
+    await exportXlsx([{ name: 'Other Financials', rows }], `other_financials_${new Date().toISOString().slice(0,10)}.xlsx`);
+  };
+
+  return (
+    <div>
+      <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4 print:hidden">
+        <FilterRow>
+          <Field label="Project">
+            <select value={filters.project_id} onChange={e => setFilters(f => ({ ...f, project_id: e.target.value }))} className={selectCls} style={{ minWidth: 160 }}>
+              <option value="">All Projects</option>
+              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </Field>
+          <RunBtn onClick={run} loading={loading} />
+          {result && <><PrintBtn /><ExcelBtn onClick={doExcel} /></>}
+        </FilterRow>
+      </div>
+
+      {result && (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
+            <SummaryCard label="Records"       value={result.summary.count} />
+            <SummaryCard label="Extra Income"  value={'₹ ' + fmt(result.summary.total_extra_income)} />
+            <SummaryCard label="Discount"      value={'₹ ' + fmt(result.summary.total_discount)} />
+            <SummaryCard label="Brokerage"     value={'₹ ' + fmt(result.summary.total_brokerage)} />
+            <SummaryCard label="Incentive"     value={'₹ ' + fmt(result.summary.total_incentive)} />
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-lg overflow-auto max-h-[65vh]">
+            <table className="w-full text-sm border-collapse">
+              <thead className="sticky top-0 z-10 bg-gray-50">
+                <tr className="border-b border-gray-200">
+                  {['#','Sale Code','Customer','Project','Plot','Actual Price','Extra Income','Discount','Brokerage','Incentive','Net Amount'].map(h => (
+                    <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {result.rows.length === 0 ? (
+                  <tr><td colSpan={11} className="py-10 text-center text-sm text-gray-400">No other financial records found</td></tr>
+                ) : result.rows.map((r, i) => (
+                  <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      <span className="font-mono text-xs font-semibold text-[#875A7B] bg-[#875A7B]/8 px-1.5 py-0.5 rounded">{r.sale_code}</span>
+                    </td>
+                    <td className="px-3 py-2.5 font-medium text-gray-800 whitespace-nowrap">{r.customer?.name || '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{r.project?.name || '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{r.plot_no || '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap">{r.actual_price ? '₹ ' + fmt(r.actual_price) : '—'}</td>
+                    <td className="px-3 py-2.5 text-emerald-700 font-medium whitespace-nowrap">{r.extra_income ? '₹ ' + fmt(r.extra_income) : '—'}</td>
+                    <td className="px-3 py-2.5 text-red-600 whitespace-nowrap">{r.discount   ? '₹ ' + fmt(r.discount)   : '—'}</td>
+                    <td className="px-3 py-2.5 text-orange-600 whitespace-nowrap">{r.brokerage ? '₹ ' + fmt(r.brokerage) : '—'}</td>
+                    <td className="px-3 py-2.5 text-blue-600 whitespace-nowrap">{r.incentive  ? '₹ ' + fmt(r.incentive)  : '—'}</td>
+                    <td className="px-3 py-2.5 font-semibold text-gray-800 whitespace-nowrap">{r.net_amount ? '₹ ' + fmt(r.net_amount) : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── Extra Income Statement — wrapper with inner sub-tabs ──────────────────────
+const INNER_TABS = [
+  { id: 'additional-costs', label: 'Additional Costs' },
+  { id: 'booking-income',   label: 'Customer Booking Income' },
+  { id: 'other-financials', label: 'Other Financials' },
+];
+
+function ExtraIncomeStatement() {
+  const [innerTab, setInnerTab] = useState('additional-costs');
+  return (
+    <div>
+      <div className="flex gap-1 mb-4 bg-white border border-gray-200 rounded-lg p-1 w-fit print:hidden">
+        {INNER_TABS.map(t => (
+          <button key={t.id} onClick={() => setInnerTab(t.id)}
+            className={`px-4 py-1.5 text-sm font-medium rounded-md transition whitespace-nowrap ${innerTab === t.id ? 'text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+            style={innerTab === t.id ? { backgroundColor: '#875A7B' } : {}}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {innerTab === 'additional-costs' && <AdditionalCostsTab />}
+      {innerTab === 'booking-income'   && <BookingIncomeTab />}
+      {innerTab === 'other-financials' && <OtherFinancialsTab />}
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 const TABS = [
   { id: 'sales',        label: 'Sales Report' },
@@ -1580,7 +1806,7 @@ const TABS = [
   { id: 'instalments',  label: 'Instalments Report' },
   { id: 'balance-due',  label: 'Balance Due Report' },
   { id: 'availability',      label: 'Availability Report' },
-  { id: 'additional-costs', label: 'Additional Costs' },
+  { id: 'extra-income', label: 'Extra Income Statement' },
 ];
 
 export default function ReportsPage() {
@@ -1615,7 +1841,7 @@ export default function ReportsPage() {
         {tab === 'instalments'  && <InstalmentsReport />}
         {tab === 'balance-due'  && <BalanceDueReport />}
         {tab === 'availability'      && <AvailabilityReport />}
-        {tab === 'additional-costs'  && <AdditionalCostsReport />}
+        {tab === 'extra-income'       && <ExtraIncomeStatement />}
       </div>
 
       <style>{`

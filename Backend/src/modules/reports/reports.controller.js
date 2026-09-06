@@ -666,4 +666,118 @@ const additionalCostsReport = async (req, res) => {
   });
 };
 
-module.exports = { salesReport, inventoryReport, purchaseReport, brokerReport, instalmentsReport, availabilityReport, balanceDueReport, additionalCostsReport };
+// ── Customer Booking Income Report ────────────────────────────────────────────
+const bookingIncomeReport = async (req, res) => {
+  const { project_id, date_from, date_to } = req.query;
+
+  const where = { archived: false };
+  if (project_id) where.inventory = { project_id: parseInt(project_id) };
+  if (date_from || date_to) {
+    where.sale_date = {};
+    if (date_from) where.sale_date.gte = new Date(date_from);
+    if (date_to)   where.sale_date.lte = new Date(date_to + 'T23:59:59.999');
+  }
+
+  const sales = await prisma.sale.findMany({
+    where,
+    select: {
+      id: true, sale_code: true, sale_date: true,
+      booking_amount: true, booking_in_received: true, booking_details: true,
+      advance_payment: true, advance_payment_date: true, advance_payment_details: true,
+      actual_price: true,
+      customer:  { select: { id: true, name: true, phone: true } },
+      inventory: { select: { plot_no: true, sl_no: true, project: { select: { id: true, name: true } } } },
+    },
+    orderBy: { created_at: 'desc' },
+  });
+
+  const rows = sales
+    .map(s => {
+      const booking = s.booking_in_received ? Number(s.booking_amount || 0) : 0;
+      const advance = Number(s.advance_payment || 0);
+      return {
+        id:                    s.id,
+        sale_code:             s.sale_code || `SAL-${String(s.id).padStart(4, '0')}`,
+        sale_date:             s.sale_date,
+        customer:              s.customer  || null,
+        project:               s.inventory?.project || null,
+        plot_no:               s.inventory?.plot_no || s.inventory?.sl_no || null,
+        booking_amount:        booking,
+        booking_received:      s.booking_in_received || false,
+        booking_details:       s.booking_details || null,
+        advance_payment:       advance,
+        advance_payment_date:  s.advance_payment_date,
+        advance_payment_details: s.advance_payment_details || null,
+        actual_price:          Number(s.actual_price || 0),
+        total_received:        parseFloat((booking + advance).toFixed(2)),
+      };
+    })
+    .filter(r => r.total_received > 0);
+
+  res.json({
+    rows,
+    summary: {
+      count:          rows.length,
+      total_booking:  parseFloat(rows.reduce((s, r) => s + r.booking_amount,  0).toFixed(2)),
+      total_advance:  parseFloat(rows.reduce((s, r) => s + r.advance_payment, 0).toFixed(2)),
+      total_received: parseFloat(rows.reduce((s, r) => s + r.total_received,  0).toFixed(2)),
+    },
+  });
+};
+
+// ── Other Financials Report ───────────────────────────────────────────────────
+const otherFinancialsReport = async (req, res) => {
+  const { project_id } = req.query;
+
+  const where = { archived: false };
+  if (project_id) where.inventory = { project_id: parseInt(project_id) };
+
+  const sales = await prisma.sale.findMany({
+    where,
+    select: {
+      id: true, sale_code: true,
+      extra_income: true, extra_income_details: true,
+      discount: true, discount_details: true,
+      brokerage: true, brokerage_details: true,
+      incentive: true, incentive_details: true,
+      net_amount: true, actual_price: true,
+      customer:  { select: { id: true, name: true } },
+      inventory: { select: { plot_no: true, sl_no: true, project: { select: { id: true, name: true } } } },
+    },
+    orderBy: { created_at: 'desc' },
+  });
+
+  const rows = sales
+    .map(s => ({
+      id:                    s.id,
+      sale_code:             s.sale_code || `SAL-${String(s.id).padStart(4, '0')}`,
+      customer:              s.customer  || null,
+      project:               s.inventory?.project || null,
+      plot_no:               s.inventory?.plot_no || s.inventory?.sl_no || null,
+      actual_price:          Number(s.actual_price  || 0),
+      extra_income:          Number(s.extra_income  || 0),
+      extra_income_details:  s.extra_income_details || null,
+      discount:              Number(s.discount       || 0),
+      discount_details:      s.discount_details      || null,
+      brokerage:             Number(s.brokerage      || 0),
+      brokerage_details:     s.brokerage_details     || null,
+      incentive:             Number(s.incentive      || 0),
+      incentive_details:     s.incentive_details     || null,
+      net_amount:            Number(s.net_amount     || 0),
+    }))
+    .filter(r => r.extra_income > 0 || r.discount > 0 || r.brokerage > 0 || r.incentive > 0);
+
+  res.json({
+    rows,
+    summary: {
+      count:               rows.length,
+      total_extra_income:  parseFloat(rows.reduce((s, r) => s + r.extra_income, 0).toFixed(2)),
+      total_discount:      parseFloat(rows.reduce((s, r) => s + r.discount,     0).toFixed(2)),
+      total_brokerage:     parseFloat(rows.reduce((s, r) => s + r.brokerage,    0).toFixed(2)),
+      total_incentive:     parseFloat(rows.reduce((s, r) => s + r.incentive,    0).toFixed(2)),
+      total_net_amount:    parseFloat(rows.reduce((s, r) => s + r.net_amount,   0).toFixed(2)),
+    },
+  });
+};
+
+module.exports = { salesReport, inventoryReport, purchaseReport, brokerReport, instalmentsReport, availabilityReport, balanceDueReport, additionalCostsReport, bookingIncomeReport, otherFinancialsReport };
