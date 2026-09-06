@@ -1695,9 +1695,8 @@ function BookingIncomeTab() {
 }
 
 // ── Extra Income Statement — sub-tab: Other Financials ────────────────────────
-function OtherFinancialsTab() {
-  const [saleFilters, setSaleFilters] = useState({ project_id: '' });
-  const [purFilters,  setPurFilters]  = useState({ plot_no: '' });
+function OtherFinancialsSalesTab() {
+  const [filters,  setFilters]  = useState({ project_id: '' });
   const [result,   setResult]   = useState(null);
   const [loading,  setLoading]  = useState(false);
   const [projects, setProjects] = useState([]);
@@ -1709,151 +1708,178 @@ function OtherFinancialsTab() {
   const run = async () => {
     setLoading(true);
     try {
-      const params = { ...saleFilters, ...purFilters };
-      const q = new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([,v]) => v)));
-      setResult(await apiGet(`/reports/other-financials?${q}`));
+      const q = new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([,v]) => v)));
+      const data = await apiGet(`/reports/other-financials?${q}`);
+      setResult(data.sales);
     } finally { setLoading(false); }
   };
 
   const doExcel = async () => {
     if (!result) return;
-    const saleRows = result.sales.rows.map((r, i) => ({
+    const rows = result.rows.map((r, i) => ({
       '#': i + 1, 'Sale Code': r.sale_code, 'Customer': r.customer?.name || '',
       'Project': r.project?.name || '', 'Plot No': r.plot_no || '',
       'Discount': fmtNum(r.discount), 'Brokerage': fmtNum(r.brokerage),
       'Incentive': fmtNum(r.incentive), 'Extra Income': fmtNum(r.extra_income),
     }));
-    const purRows = result.purchases.rows.map((r, i) => ({
-      '#': i + 1, 'Purchase Code': r.purchase_code, 'Plot No': r.plot_no || '', 'Location': r.location || '',
-      'Brokerage': fmtNum(r.brokerage), 'Extra Expenses': fmtNum(r.extra_expenses),
-      'Reg. Charges': fmtNum(r.registration_charges), 'Extra Income': fmtNum(r.extra_income),
-    }));
-    await exportXlsx([{ name: 'Sales', rows: saleRows }, { name: 'Purchases', rows: purRows }], `other_financials_${new Date().toISOString().slice(0,10)}.xlsx`);
+    await exportXlsx([{ name: 'Sales Financials', rows }], `other_financials_sales_${new Date().toISOString().slice(0,10)}.xlsx`);
   };
 
-  const GrandTotalBar = ({ items }) => (
-    <div className="bg-white border border-gray-200 rounded-lg px-5 py-3 mb-3 flex items-center gap-8 flex-wrap">
-      <span className="text-sm font-bold text-gray-700">Grand Total</span>
-      {items.map(({ label, value }) => (
-        <div key={label} className="flex flex-col">
-          <span className="text-[10px] text-gray-400 uppercase tracking-wider">{label}</span>
-          <span className="text-base font-bold text-gray-800">₹ {fmt(value)}</span>
-        </div>
-      ))}
-    </div>
-  );
-
   return (
-    <div className="flex flex-col gap-6">
-      {/* ── Filters ── */}
-      <div className="bg-white border border-gray-200 rounded-lg p-4 print:hidden">
-        <div className="flex flex-col gap-3">
-          <div className="flex items-end gap-3 flex-wrap">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider self-center mr-1">Sales</span>
-            <Field label="Project">
-              <select value={saleFilters.project_id} onChange={e => setSaleFilters(f => ({ ...f, project_id: e.target.value }))} className={selectCls} style={{ minWidth: 160 }}>
-                <option value="">All Projects</option>
-                {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-            </Field>
-          </div>
-          <div className="flex items-end gap-3 flex-wrap">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider self-center mr-1">Purchase</span>
-            <Field label="Plot No.">
-              <input type="text" value={purFilters.plot_no} onChange={e => setPurFilters(f => ({ ...f, plot_no: e.target.value }))} className={inputCls} placeholder="e.g. 5A" style={{ minWidth: 130 }} />
-            </Field>
-          </div>
-          <div className="flex gap-2">
-            <RunBtn onClick={run} loading={loading} />
-            {result && <><PrintBtn /><ExcelBtn onClick={doExcel} /></>}
-          </div>
-        </div>
+    <div>
+      <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4 print:hidden">
+        <FilterRow>
+          <Field label="Project">
+            <select value={filters.project_id} onChange={e => setFilters(f => ({ ...f, project_id: e.target.value }))} className={selectCls} style={{ minWidth: 160 }}>
+              <option value="">All Projects</option>
+              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </Field>
+          <RunBtn onClick={run} loading={loading} />
+          {result && <><PrintBtn /><ExcelBtn onClick={doExcel} /></>}
+        </FilterRow>
       </div>
 
       {result && (
         <>
-          {/* ── Sales Section ── */}
-          <div>
-            <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-2 px-1">Sales</h3>
-            <GrandTotalBar items={[
-              { label: 'Total Discount',     value: result.sales.summary.total_discount },
-              { label: 'Total Brokerage',    value: result.sales.summary.total_brokerage },
-              { label: 'Total Incentive',    value: result.sales.summary.total_incentive },
-              { label: 'Total Extra Income', value: result.sales.summary.total_extra_income },
-            ]} />
-            <div className="bg-white border border-gray-200 rounded-lg overflow-auto max-h-[45vh]">
-              <table className="w-full text-sm border-collapse">
-                <thead className="sticky top-0 z-10 bg-gray-50">
-                  <tr className="border-b border-gray-200">
-                    {['#','Sale Code','Customer','Project','Plot No.','Discount','Brokerage','Incentive','Extra Income'].map(h => (
-                      <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.sales.rows.length === 0 ? (
-                    <tr><td colSpan={9} className="py-8 text-center text-sm text-gray-400">No sales financial records found</td></tr>
-                  ) : result.sales.rows.map((r, i) => (
-                    <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
-                      <td className="px-3 py-2.5 whitespace-nowrap">
-                        <span className="font-mono text-xs font-semibold text-[#875A7B] bg-[#875A7B]/8 px-1.5 py-0.5 rounded">{r.sale_code}</span>
-                      </td>
-                      <td className="px-3 py-2.5 font-medium text-gray-800 whitespace-nowrap">{r.customer?.name || '—'}</td>
-                      <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{r.project?.name || '—'}</td>
-                      <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{r.plot_no || '—'}</td>
-                      <td className="px-3 py-2.5 text-red-600 whitespace-nowrap">{r.discount     ? '₹ ' + fmt(r.discount)     : '—'}</td>
-                      <td className="px-3 py-2.5 text-orange-600 whitespace-nowrap">{r.brokerage   ? '₹ ' + fmt(r.brokerage)   : '—'}</td>
-                      <td className="px-3 py-2.5 text-blue-600 whitespace-nowrap">{r.incentive    ? '₹ ' + fmt(r.incentive)    : '—'}</td>
-                      <td className="px-3 py-2.5 text-emerald-700 font-medium whitespace-nowrap">{r.extra_income ? '₹ ' + fmt(r.extra_income) : '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <div className="bg-white border border-gray-200 rounded-lg px-5 py-3 mb-4 flex items-center gap-8 flex-wrap">
+            <span className="text-sm font-bold text-gray-700">Grand Total</span>
+            {[['Total Discount', result.summary.total_discount], ['Total Brokerage', result.summary.total_brokerage], ['Total Incentive', result.summary.total_incentive], ['Total Extra Income', result.summary.total_extra_income]].map(([label, value]) => (
+              <div key={label} className="flex flex-col">
+                <span className="text-[10px] text-gray-400 uppercase tracking-wider">{label}</span>
+                <span className="text-base font-bold text-gray-800">₹ {fmt(value)}</span>
+              </div>
+            ))}
           </div>
-
-          {/* ── Purchases Section ── */}
-          <div>
-            <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-2 px-1">Purchase</h3>
-            <GrandTotalBar items={[
-              { label: 'Total Brokerage',     value: result.purchases.summary.total_brokerage },
-              { label: 'Total Extra Expenses', value: result.purchases.summary.total_extra_expenses },
-              { label: 'Total Reg. Charges',  value: result.purchases.summary.total_registration_charges },
-              { label: 'Total Extra Income',  value: result.purchases.summary.total_extra_income },
-            ]} />
-            <div className="bg-white border border-gray-200 rounded-lg overflow-auto max-h-[45vh]">
-              <table className="w-full text-sm border-collapse">
-                <thead className="sticky top-0 z-10 bg-gray-50">
-                  <tr className="border-b border-gray-200">
-                    {['#','Purchase Code','Plot No.','Location','Brokerage','Extra Expenses','Reg. Charges','Extra Income'].map(h => (
-                      <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.purchases.rows.length === 0 ? (
-                    <tr><td colSpan={8} className="py-8 text-center text-sm text-gray-400">No purchase financial records found</td></tr>
-                  ) : result.purchases.rows.map((r, i) => (
-                    <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
-                      <td className="px-3 py-2.5 whitespace-nowrap">
-                        <span className="font-mono text-xs font-semibold text-[#875A7B] bg-[#875A7B]/8 px-1.5 py-0.5 rounded">{r.purchase_code}</span>
-                      </td>
-                      <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap">{r.plot_no || '—'}</td>
-                      <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{r.location || '—'}</td>
-                      <td className="px-3 py-2.5 text-orange-600 whitespace-nowrap">{r.brokerage            ? '₹ ' + fmt(r.brokerage)            : '—'}</td>
-                      <td className="px-3 py-2.5 text-red-600 whitespace-nowrap">{r.extra_expenses       ? '₹ ' + fmt(r.extra_expenses)       : '—'}</td>
-                      <td className="px-3 py-2.5 text-blue-600 whitespace-nowrap">{r.registration_charges ? '₹ ' + fmt(r.registration_charges) : '—'}</td>
-                      <td className="px-3 py-2.5 text-emerald-700 font-medium whitespace-nowrap">{r.extra_income        ? '₹ ' + fmt(r.extra_income)        : '—'}</td>
-                    </tr>
+          <div className="bg-white border border-gray-200 rounded-lg overflow-auto max-h-[65vh]">
+            <table className="w-full text-sm border-collapse">
+              <thead className="sticky top-0 z-10 bg-gray-50">
+                <tr className="border-b border-gray-200">
+                  {['#','Sale Code','Customer','Project','Plot No.','Discount','Brokerage','Incentive','Extra Income'].map(h => (
+                    <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </tr>
+              </thead>
+              <tbody>
+                {result.rows.length === 0 ? (
+                  <tr><td colSpan={9} className="py-10 text-center text-sm text-gray-400">No sales financial records found</td></tr>
+                ) : result.rows.map((r, i) => (
+                  <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap"><span className="font-mono text-xs font-semibold text-[#875A7B] bg-[#875A7B]/8 px-1.5 py-0.5 rounded">{r.sale_code}</span></td>
+                    <td className="px-3 py-2.5 font-medium text-gray-800 whitespace-nowrap">{r.customer?.name || '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{r.project?.name || '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{r.plot_no || '—'}</td>
+                    <td className="px-3 py-2.5 text-red-600 whitespace-nowrap">{r.discount     ? '₹ ' + fmt(r.discount)     : '—'}</td>
+                    <td className="px-3 py-2.5 text-orange-600 whitespace-nowrap">{r.brokerage   ? '₹ ' + fmt(r.brokerage)   : '—'}</td>
+                    <td className="px-3 py-2.5 text-blue-600 whitespace-nowrap">{r.incentive    ? '₹ ' + fmt(r.incentive)    : '—'}</td>
+                    <td className="px-3 py-2.5 text-emerald-700 font-medium whitespace-nowrap">{r.extra_income ? '₹ ' + fmt(r.extra_income) : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+function OtherFinancialsPurchaseTab() {
+  const [filters, setFilters] = useState({ plot_no: '' });
+  const [result,  setResult]  = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const run = async () => {
+    setLoading(true);
+    try {
+      const q = new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([,v]) => v)));
+      const data = await apiGet(`/reports/other-financials?${q}`);
+      setResult(data.purchases);
+    } finally { setLoading(false); }
+  };
+
+  const doExcel = async () => {
+    if (!result) return;
+    const rows = result.rows.map((r, i) => ({
+      '#': i + 1, 'Purchase Code': r.purchase_code, 'Plot No': r.plot_no || '', 'Location': r.location || '',
+      'Brokerage': fmtNum(r.brokerage), 'Extra Expenses': fmtNum(r.extra_expenses),
+      'Reg. Charges': fmtNum(r.registration_charges), 'Extra Income': fmtNum(r.extra_income),
+    }));
+    await exportXlsx([{ name: 'Purchase Financials', rows }], `other_financials_purchase_${new Date().toISOString().slice(0,10)}.xlsx`);
+  };
+
+  return (
+    <div>
+      <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4 print:hidden">
+        <FilterRow>
+          <Field label="Plot No.">
+            <input type="text" value={filters.plot_no} onChange={e => setFilters(f => ({ ...f, plot_no: e.target.value }))} className={inputCls} placeholder="e.g. 5A" style={{ minWidth: 130 }} />
+          </Field>
+          <RunBtn onClick={run} loading={loading} />
+          {result && <><PrintBtn /><ExcelBtn onClick={doExcel} /></>}
+        </FilterRow>
+      </div>
+
+      {result && (
+        <>
+          <div className="bg-white border border-gray-200 rounded-lg px-5 py-3 mb-4 flex items-center gap-8 flex-wrap">
+            <span className="text-sm font-bold text-gray-700">Grand Total</span>
+            {[['Total Brokerage', result.summary.total_brokerage], ['Total Extra Expenses', result.summary.total_extra_expenses], ['Total Reg. Charges', result.summary.total_registration_charges], ['Total Extra Income', result.summary.total_extra_income]].map(([label, value]) => (
+              <div key={label} className="flex flex-col">
+                <span className="text-[10px] text-gray-400 uppercase tracking-wider">{label}</span>
+                <span className="text-base font-bold text-gray-800">₹ {fmt(value)}</span>
+              </div>
+            ))}
+          </div>
+          <div className="bg-white border border-gray-200 rounded-lg overflow-auto max-h-[65vh]">
+            <table className="w-full text-sm border-collapse">
+              <thead className="sticky top-0 z-10 bg-gray-50">
+                <tr className="border-b border-gray-200">
+                  {['#','Purchase Code','Plot No.','Location','Brokerage','Extra Expenses','Reg. Charges','Extra Income'].map(h => (
+                    <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {result.rows.length === 0 ? (
+                  <tr><td colSpan={8} className="py-10 text-center text-sm text-gray-400">No purchase financial records found</td></tr>
+                ) : result.rows.map((r, i) => (
+                  <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap"><span className="font-mono text-xs font-semibold text-[#875A7B] bg-[#875A7B]/8 px-1.5 py-0.5 rounded">{r.purchase_code}</span></td>
+                    <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap">{r.plot_no || '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{r.location || '—'}</td>
+                    <td className="px-3 py-2.5 text-orange-600 whitespace-nowrap">{r.brokerage            ? '₹ ' + fmt(r.brokerage)            : '—'}</td>
+                    <td className="px-3 py-2.5 text-red-600 whitespace-nowrap">{r.extra_expenses       ? '₹ ' + fmt(r.extra_expenses)       : '—'}</td>
+                    <td className="px-3 py-2.5 text-blue-600 whitespace-nowrap">{r.registration_charges ? '₹ ' + fmt(r.registration_charges) : '—'}</td>
+                    <td className="px-3 py-2.5 text-emerald-700 font-medium whitespace-nowrap">{r.extra_income ? '₹ ' + fmt(r.extra_income) : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function OtherFinancialsTab() {
+  const [innerTab, setInnerTab] = useState('sales');
+  return (
+    <div>
+      <div className="flex gap-1 mb-4 bg-white border border-gray-200 rounded-lg p-1 w-fit print:hidden">
+        {[{ id: 'sales', label: 'Sales' }, { id: 'purchase', label: 'Purchase' }].map(t => (
+          <button key={t.id} onClick={() => setInnerTab(t.id)}
+            className={`px-4 py-1.5 text-sm font-medium rounded-md transition whitespace-nowrap ${innerTab === t.id ? 'text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+            style={innerTab === t.id ? { backgroundColor: '#875A7B' } : {}}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {innerTab === 'sales'    && <OtherFinancialsSalesTab />}
+      {innerTab === 'purchase' && <OtherFinancialsPurchaseTab />}
     </div>
   );
 }
