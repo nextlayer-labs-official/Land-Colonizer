@@ -670,7 +670,7 @@ const additionalCostsReport = async (req, res) => {
 const bookingIncomeReport = async (req, res) => {
   const { project_id, date_from, date_to } = req.query;
 
-  const where = {};
+  const where = { status: 'REFUNDED' };
   if (date_from || date_to) {
     where.booking_date = {};
     if (date_from) where.booking_date.gte = new Date(date_from);

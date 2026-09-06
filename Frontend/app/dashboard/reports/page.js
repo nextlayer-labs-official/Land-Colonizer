@@ -1606,7 +1606,6 @@ function BookingIncomeTab() {
       'Customer':       r.customer?.name || '',
       'Booking Date':   r.booking_date ? fmtDate(r.booking_date) : '',
       'Booking Amount': fmtNum(r.booking_amount),
-      'Status':         r.status,
       'Refunded':       fmtNum(r.refund_amount),
       'Income':         fmtNum(r.income_amount),
     }));
@@ -1657,14 +1656,14 @@ function BookingIncomeTab() {
             <table className="w-full text-sm border-collapse">
               <thead className="sticky top-0 z-10 bg-gray-50">
                 <tr className="border-b border-gray-200">
-                  {['#','Sale ID','Plot No.','Project','Customer','Booking Date','Booking Amount','Status','Refunded','Income'].map(h => (
+                  {['#','Sale ID','Plot No.','Project','Customer','Booking Date','Booking Amount','Refunded','Income'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {result.rows.length === 0 ? (
-                  <tr><td colSpan={10} className="py-10 text-center text-sm text-gray-400">No booking income records found</td></tr>
+                  <tr><td colSpan={9} className="py-10 text-center text-sm text-gray-400">No refunded booking records found</td></tr>
                 ) : result.rows.map((r, i) => (
                   <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
@@ -1676,11 +1675,6 @@ function BookingIncomeTab() {
                     <td className="px-3 py-2.5 font-medium text-gray-800 whitespace-nowrap">{r.customer?.name || '—'}</td>
                     <td className="px-3 py-2.5 text-gray-500 whitespace-nowrap">{r.booking_date ? fmtDate(r.booking_date) : '—'}</td>
                     <td className="px-3 py-2.5 font-medium text-gray-800 whitespace-nowrap">₹ {fmt(r.booking_amount)}</td>
-                    <td className="px-3 py-2.5 whitespace-nowrap">
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_STYLE[r.status] || 'bg-gray-100 text-gray-500'}`}>
-                        {r.status ? r.status.charAt(0) + r.status.slice(1).toLowerCase() : '—'}
-                      </span>
-                    </td>
                     <td className="px-3 py-2.5 text-red-600 whitespace-nowrap">{r.refund_amount ? '₹ ' + fmt(r.refund_amount) : '0'}</td>
                     <td className="px-3 py-2.5 font-semibold text-emerald-700 whitespace-nowrap">₹ {fmt(r.income_amount)}</td>
                   </tr>
