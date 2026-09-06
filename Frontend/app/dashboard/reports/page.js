@@ -1572,6 +1572,12 @@ function AdditionalCostsTab() {
 }
 
 // ── Extra Income Statement — sub-tab: Customer Booking Income ─────────────────
+const STATUS_STYLE = {
+  PENDING:   'bg-amber-50  text-amber-700',
+  CONFIRMED: 'bg-emerald-50 text-emerald-700',
+  REFUNDED:  'bg-red-50    text-red-600',
+};
+
 function BookingIncomeTab() {
   const [filters,  setFilters]  = useState({ project_id: '', date_from: '', date_to: '' });
   const [result,   setResult]   = useState(null);
@@ -1593,16 +1599,16 @@ function BookingIncomeTab() {
   const doExcel = async () => {
     if (!result) return;
     const rows = result.rows.map((r, i) => ({
-      '#':               i + 1,
-      'Sale Code':       r.sale_code,
-      'Customer':        r.customer?.name || '',
-      'Project':         r.project?.name  || '',
-      'Plot No':         r.plot_no        || '',
-      'Sale Date':       r.sale_date ? fmtDate(r.sale_date) : '',
-      'Booking Amount':  fmtNum(r.booking_amount),
-      'Advance Payment': fmtNum(r.advance_payment),
-      'Total Received':  fmtNum(r.total_received),
-      'Actual Price':    fmtNum(r.actual_price),
+      '#':              i + 1,
+      'Sale Code':      r.sale_code,
+      'Plot No':        r.plot_no     || '',
+      'Project':        r.project?.name || '',
+      'Customer':       r.customer?.name || '',
+      'Booking Date':   r.booking_date ? fmtDate(r.booking_date) : '',
+      'Booking Amount': fmtNum(r.booking_amount),
+      'Status':         r.status,
+      'Refunded':       fmtNum(r.refund_amount),
+      'Income':         fmtNum(r.income_amount),
     }));
     await exportXlsx([{ name: 'Booking Income', rows }], `booking_income_${new Date().toISOString().slice(0,10)}.xlsx`);
   };
@@ -1626,18 +1632,32 @@ function BookingIncomeTab() {
 
       {result && (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-            <SummaryCard label="Sales"           value={result.summary.count} />
-            <SummaryCard label="Total Booking"   value={'₹ ' + fmt(result.summary.total_booking)} />
-            <SummaryCard label="Total Advance"   value={'₹ ' + fmt(result.summary.total_advance)} />
-            <SummaryCard label="Total Received"  value={'₹ ' + fmt(result.summary.total_received)} />
+          {/* Grand total summary bar */}
+          <div className="bg-white border border-gray-200 rounded-lg px-5 py-3 mb-4 flex items-center gap-8 flex-wrap">
+            <span className="text-sm font-bold text-gray-700">Grand Total</span>
+            <div className="flex flex-col">
+              <span className="text-[10px] text-gray-400 uppercase tracking-wider">Booking Amount</span>
+              <span className="text-base font-bold text-gray-800">₹ {fmt(result.summary.total_booking)}</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[10px] text-gray-400 uppercase tracking-wider">Refunded</span>
+              <span className="text-base font-bold text-red-600">₹ {fmt(result.summary.total_refunded)}</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[10px] text-gray-400 uppercase tracking-wider">Income</span>
+              <span className="text-base font-bold text-emerald-700">₹ {fmt(result.summary.total_income)}</span>
+            </div>
+            <div className="flex flex-col ml-auto">
+              <span className="text-[10px] text-gray-400 uppercase tracking-wider">Records</span>
+              <span className="text-base font-bold text-gray-800">{result.summary.count}</span>
+            </div>
           </div>
 
           <div className="bg-white border border-gray-200 rounded-lg overflow-auto max-h-[65vh]">
             <table className="w-full text-sm border-collapse">
               <thead className="sticky top-0 z-10 bg-gray-50">
                 <tr className="border-b border-gray-200">
-                  {['#','Sale Code','Customer','Project','Plot','Sale Date','Booking Amount','Advance Payment','Total Received','Actual Price'].map(h => (
+                  {['#','Sale ID','Plot No.','Project','Customer','Booking Date','Booking Amount','Status','Refunded','Income'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -1651,14 +1671,18 @@ function BookingIncomeTab() {
                     <td className="px-3 py-2.5 whitespace-nowrap">
                       <span className="font-mono text-xs font-semibold text-[#875A7B] bg-[#875A7B]/8 px-1.5 py-0.5 rounded">{r.sale_code}</span>
                     </td>
-                    <td className="px-3 py-2.5 font-medium text-gray-800 whitespace-nowrap">{r.customer?.name || '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap">{r.plot_no || '—'}</td>
                     <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{r.project?.name || '—'}</td>
-                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{r.plot_no || '—'}</td>
-                    <td className="px-3 py-2.5 text-gray-500 whitespace-nowrap">{r.sale_date ? fmtDate(r.sale_date) : '—'}</td>
-                    <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap">{r.booking_amount ? '₹ ' + fmt(r.booking_amount) : '—'}</td>
-                    <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap">{r.advance_payment ? '₹ ' + fmt(r.advance_payment) : '—'}</td>
-                    <td className="px-3 py-2.5 font-semibold text-emerald-700 whitespace-nowrap">₹ {fmt(r.total_received)}</td>
-                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{r.actual_price ? '₹ ' + fmt(r.actual_price) : '—'}</td>
+                    <td className="px-3 py-2.5 font-medium text-gray-800 whitespace-nowrap">{r.customer?.name || '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-500 whitespace-nowrap">{r.booking_date ? fmtDate(r.booking_date) : '—'}</td>
+                    <td className="px-3 py-2.5 font-medium text-gray-800 whitespace-nowrap">₹ {fmt(r.booking_amount)}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_STYLE[r.status] || 'bg-gray-100 text-gray-500'}`}>
+                        {r.status ? r.status.charAt(0) + r.status.slice(1).toLowerCase() : '—'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5 text-red-600 whitespace-nowrap">{r.refund_amount ? '₹ ' + fmt(r.refund_amount) : '0'}</td>
+                    <td className="px-3 py-2.5 font-semibold text-emerald-700 whitespace-nowrap">₹ {fmt(r.income_amount)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1672,7 +1696,8 @@ function BookingIncomeTab() {
 
 // ── Extra Income Statement — sub-tab: Other Financials ────────────────────────
 function OtherFinancialsTab() {
-  const [filters,  setFilters]  = useState({ project_id: '' });
+  const [saleFilters, setSaleFilters] = useState({ project_id: '' });
+  const [purFilters,  setPurFilters]  = useState({ plot_no: '' });
   const [result,   setResult]   = useState(null);
   const [loading,  setLoading]  = useState(false);
   const [projects, setProjects] = useState([]);
@@ -1684,85 +1709,148 @@ function OtherFinancialsTab() {
   const run = async () => {
     setLoading(true);
     try {
-      const q = new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([,v]) => v)));
+      const params = { ...saleFilters, ...purFilters };
+      const q = new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([,v]) => v)));
       setResult(await apiGet(`/reports/other-financials?${q}`));
     } finally { setLoading(false); }
   };
 
   const doExcel = async () => {
     if (!result) return;
-    const rows = result.rows.map((r, i) => ({
-      '#':             i + 1,
-      'Sale Code':     r.sale_code,
-      'Customer':      r.customer?.name || '',
-      'Project':       r.project?.name  || '',
-      'Plot No':       r.plot_no        || '',
-      'Actual Price':  fmtNum(r.actual_price),
-      'Extra Income':  fmtNum(r.extra_income),
-      'Discount':      fmtNum(r.discount),
-      'Brokerage':     fmtNum(r.brokerage),
-      'Incentive':     fmtNum(r.incentive),
-      'Net Amount':    fmtNum(r.net_amount),
+    const saleRows = result.sales.rows.map((r, i) => ({
+      '#': i + 1, 'Sale Code': r.sale_code, 'Customer': r.customer?.name || '',
+      'Project': r.project?.name || '', 'Plot No': r.plot_no || '',
+      'Discount': fmtNum(r.discount), 'Brokerage': fmtNum(r.brokerage),
+      'Incentive': fmtNum(r.incentive), 'Extra Income': fmtNum(r.extra_income),
     }));
-    await exportXlsx([{ name: 'Other Financials', rows }], `other_financials_${new Date().toISOString().slice(0,10)}.xlsx`);
+    const purRows = result.purchases.rows.map((r, i) => ({
+      '#': i + 1, 'Purchase Code': r.purchase_code, 'Plot No': r.plot_no || '', 'Location': r.location || '',
+      'Brokerage': fmtNum(r.brokerage), 'Extra Expenses': fmtNum(r.extra_expenses),
+      'Reg. Charges': fmtNum(r.registration_charges), 'Extra Income': fmtNum(r.extra_income),
+    }));
+    await exportXlsx([{ name: 'Sales', rows: saleRows }, { name: 'Purchases', rows: purRows }], `other_financials_${new Date().toISOString().slice(0,10)}.xlsx`);
   };
 
+  const GrandTotalBar = ({ items }) => (
+    <div className="bg-white border border-gray-200 rounded-lg px-5 py-3 mb-3 flex items-center gap-8 flex-wrap">
+      <span className="text-sm font-bold text-gray-700">Grand Total</span>
+      {items.map(({ label, value }) => (
+        <div key={label} className="flex flex-col">
+          <span className="text-[10px] text-gray-400 uppercase tracking-wider">{label}</span>
+          <span className="text-base font-bold text-gray-800">₹ {fmt(value)}</span>
+        </div>
+      ))}
+    </div>
+  );
+
   return (
-    <div>
-      <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4 print:hidden">
-        <FilterRow>
-          <Field label="Project">
-            <select value={filters.project_id} onChange={e => setFilters(f => ({ ...f, project_id: e.target.value }))} className={selectCls} style={{ minWidth: 160 }}>
-              <option value="">All Projects</option>
-              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          </Field>
-          <RunBtn onClick={run} loading={loading} />
-          {result && <><PrintBtn /><ExcelBtn onClick={doExcel} /></>}
-        </FilterRow>
+    <div className="flex flex-col gap-6">
+      {/* ── Filters ── */}
+      <div className="bg-white border border-gray-200 rounded-lg p-4 print:hidden">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-end gap-3 flex-wrap">
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider self-center mr-1">Sales</span>
+            <Field label="Project">
+              <select value={saleFilters.project_id} onChange={e => setSaleFilters(f => ({ ...f, project_id: e.target.value }))} className={selectCls} style={{ minWidth: 160 }}>
+                <option value="">All Projects</option>
+                {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </Field>
+          </div>
+          <div className="flex items-end gap-3 flex-wrap">
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider self-center mr-1">Purchase</span>
+            <Field label="Plot No.">
+              <input type="text" value={purFilters.plot_no} onChange={e => setPurFilters(f => ({ ...f, plot_no: e.target.value }))} className={inputCls} placeholder="e.g. 5A" style={{ minWidth: 130 }} />
+            </Field>
+          </div>
+          <div className="flex gap-2">
+            <RunBtn onClick={run} loading={loading} />
+            {result && <><PrintBtn /><ExcelBtn onClick={doExcel} /></>}
+          </div>
+        </div>
       </div>
 
       {result && (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
-            <SummaryCard label="Records"       value={result.summary.count} />
-            <SummaryCard label="Extra Income"  value={'₹ ' + fmt(result.summary.total_extra_income)} />
-            <SummaryCard label="Discount"      value={'₹ ' + fmt(result.summary.total_discount)} />
-            <SummaryCard label="Brokerage"     value={'₹ ' + fmt(result.summary.total_brokerage)} />
-            <SummaryCard label="Incentive"     value={'₹ ' + fmt(result.summary.total_incentive)} />
+          {/* ── Sales Section ── */}
+          <div>
+            <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-2 px-1">Sales</h3>
+            <GrandTotalBar items={[
+              { label: 'Total Discount',     value: result.sales.summary.total_discount },
+              { label: 'Total Brokerage',    value: result.sales.summary.total_brokerage },
+              { label: 'Total Incentive',    value: result.sales.summary.total_incentive },
+              { label: 'Total Extra Income', value: result.sales.summary.total_extra_income },
+            ]} />
+            <div className="bg-white border border-gray-200 rounded-lg overflow-auto max-h-[45vh]">
+              <table className="w-full text-sm border-collapse">
+                <thead className="sticky top-0 z-10 bg-gray-50">
+                  <tr className="border-b border-gray-200">
+                    {['#','Sale Code','Customer','Project','Plot No.','Discount','Brokerage','Incentive','Extra Income'].map(h => (
+                      <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.sales.rows.length === 0 ? (
+                    <tr><td colSpan={9} className="py-8 text-center text-sm text-gray-400">No sales financial records found</td></tr>
+                  ) : result.sales.rows.map((r, i) => (
+                    <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
+                      <td className="px-3 py-2.5 whitespace-nowrap">
+                        <span className="font-mono text-xs font-semibold text-[#875A7B] bg-[#875A7B]/8 px-1.5 py-0.5 rounded">{r.sale_code}</span>
+                      </td>
+                      <td className="px-3 py-2.5 font-medium text-gray-800 whitespace-nowrap">{r.customer?.name || '—'}</td>
+                      <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{r.project?.name || '—'}</td>
+                      <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{r.plot_no || '—'}</td>
+                      <td className="px-3 py-2.5 text-red-600 whitespace-nowrap">{r.discount     ? '₹ ' + fmt(r.discount)     : '—'}</td>
+                      <td className="px-3 py-2.5 text-orange-600 whitespace-nowrap">{r.brokerage   ? '₹ ' + fmt(r.brokerage)   : '—'}</td>
+                      <td className="px-3 py-2.5 text-blue-600 whitespace-nowrap">{r.incentive    ? '₹ ' + fmt(r.incentive)    : '—'}</td>
+                      <td className="px-3 py-2.5 text-emerald-700 font-medium whitespace-nowrap">{r.extra_income ? '₹ ' + fmt(r.extra_income) : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-lg overflow-auto max-h-[65vh]">
-            <table className="w-full text-sm border-collapse">
-              <thead className="sticky top-0 z-10 bg-gray-50">
-                <tr className="border-b border-gray-200">
-                  {['#','Sale Code','Customer','Project','Plot','Actual Price','Extra Income','Discount','Brokerage','Incentive','Net Amount'].map(h => (
-                    <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {result.rows.length === 0 ? (
-                  <tr><td colSpan={11} className="py-10 text-center text-sm text-gray-400">No other financial records found</td></tr>
-                ) : result.rows.map((r, i) => (
-                  <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
-                    <td className="px-3 py-2.5 whitespace-nowrap">
-                      <span className="font-mono text-xs font-semibold text-[#875A7B] bg-[#875A7B]/8 px-1.5 py-0.5 rounded">{r.sale_code}</span>
-                    </td>
-                    <td className="px-3 py-2.5 font-medium text-gray-800 whitespace-nowrap">{r.customer?.name || '—'}</td>
-                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{r.project?.name || '—'}</td>
-                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{r.plot_no || '—'}</td>
-                    <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap">{r.actual_price ? '₹ ' + fmt(r.actual_price) : '—'}</td>
-                    <td className="px-3 py-2.5 text-emerald-700 font-medium whitespace-nowrap">{r.extra_income ? '₹ ' + fmt(r.extra_income) : '—'}</td>
-                    <td className="px-3 py-2.5 text-red-600 whitespace-nowrap">{r.discount   ? '₹ ' + fmt(r.discount)   : '—'}</td>
-                    <td className="px-3 py-2.5 text-orange-600 whitespace-nowrap">{r.brokerage ? '₹ ' + fmt(r.brokerage) : '—'}</td>
-                    <td className="px-3 py-2.5 text-blue-600 whitespace-nowrap">{r.incentive  ? '₹ ' + fmt(r.incentive)  : '—'}</td>
-                    <td className="px-3 py-2.5 font-semibold text-gray-800 whitespace-nowrap">{r.net_amount ? '₹ ' + fmt(r.net_amount) : '—'}</td>
+          {/* ── Purchases Section ── */}
+          <div>
+            <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-2 px-1">Purchase</h3>
+            <GrandTotalBar items={[
+              { label: 'Total Brokerage',     value: result.purchases.summary.total_brokerage },
+              { label: 'Total Extra Expenses', value: result.purchases.summary.total_extra_expenses },
+              { label: 'Total Reg. Charges',  value: result.purchases.summary.total_registration_charges },
+              { label: 'Total Extra Income',  value: result.purchases.summary.total_extra_income },
+            ]} />
+            <div className="bg-white border border-gray-200 rounded-lg overflow-auto max-h-[45vh]">
+              <table className="w-full text-sm border-collapse">
+                <thead className="sticky top-0 z-10 bg-gray-50">
+                  <tr className="border-b border-gray-200">
+                    {['#','Purchase Code','Plot No.','Location','Brokerage','Extra Expenses','Reg. Charges','Extra Income'].map(h => (
+                      <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {result.purchases.rows.length === 0 ? (
+                    <tr><td colSpan={8} className="py-8 text-center text-sm text-gray-400">No purchase financial records found</td></tr>
+                  ) : result.purchases.rows.map((r, i) => (
+                    <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
+                      <td className="px-3 py-2.5 whitespace-nowrap">
+                        <span className="font-mono text-xs font-semibold text-[#875A7B] bg-[#875A7B]/8 px-1.5 py-0.5 rounded">{r.purchase_code}</span>
+                      </td>
+                      <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap">{r.plot_no || '—'}</td>
+                      <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{r.location || '—'}</td>
+                      <td className="px-3 py-2.5 text-orange-600 whitespace-nowrap">{r.brokerage            ? '₹ ' + fmt(r.brokerage)            : '—'}</td>
+                      <td className="px-3 py-2.5 text-red-600 whitespace-nowrap">{r.extra_expenses       ? '₹ ' + fmt(r.extra_expenses)       : '—'}</td>
+                      <td className="px-3 py-2.5 text-blue-600 whitespace-nowrap">{r.registration_charges ? '₹ ' + fmt(r.registration_charges) : '—'}</td>
+                      <td className="px-3 py-2.5 text-emerald-700 font-medium whitespace-nowrap">{r.extra_income        ? '₹ ' + fmt(r.extra_income)        : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </>
       )}

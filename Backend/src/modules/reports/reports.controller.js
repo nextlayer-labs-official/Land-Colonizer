@@ -670,112 +670,143 @@ const additionalCostsReport = async (req, res) => {
 const bookingIncomeReport = async (req, res) => {
   const { project_id, date_from, date_to } = req.query;
 
-  const where = { archived: false };
-  if (project_id) where.inventory = { project_id: parseInt(project_id) };
+  const where = {};
   if (date_from || date_to) {
-    where.sale_date = {};
-    if (date_from) where.sale_date.gte = new Date(date_from);
-    if (date_to)   where.sale_date.lte = new Date(date_to + 'T23:59:59.999');
+    where.booking_date = {};
+    if (date_from) where.booking_date.gte = new Date(date_from);
+    if (date_to)   where.booking_date.lte = new Date(date_to + 'T23:59:59.999');
   }
+  if (project_id) where.sale = { inventory: { project_id: parseInt(project_id) } };
 
-  const sales = await prisma.sale.findMany({
+  const bookings = await prisma.saleBooking.findMany({
     where,
     select: {
-      id: true, sale_code: true, sale_date: true,
-      booking_amount: true, booking_in_received: true, booking_details: true,
-      advance_payment: true, advance_payment_date: true, advance_payment_details: true,
-      actual_price: true,
-      customer:  { select: { id: true, name: true, phone: true } },
-      inventory: { select: { plot_no: true, sl_no: true, project: { select: { id: true, name: true } } } },
+      id: true, booking_amount: true, booking_date: true,
+      refund_amount: true, income_amount: true, status: true, notes: true,
+      sale: {
+        select: {
+          id: true, sale_code: true,
+          inventory: { select: { plot_no: true, sl_no: true, project: { select: { id: true, name: true } } } },
+        },
+      },
+      customer: { select: { id: true, name: true } },
     },
     orderBy: { created_at: 'desc' },
   });
 
-  const rows = sales
-    .map(s => {
-      const booking = s.booking_in_received ? Number(s.booking_amount || 0) : 0;
-      const advance = Number(s.advance_payment || 0);
-      return {
-        id:                    s.id,
-        sale_code:             s.sale_code || `SAL-${String(s.id).padStart(4, '0')}`,
-        sale_date:             s.sale_date,
-        customer:              s.customer  || null,
-        project:               s.inventory?.project || null,
-        plot_no:               s.inventory?.plot_no || s.inventory?.sl_no || null,
-        booking_amount:        booking,
-        booking_received:      s.booking_in_received || false,
-        booking_details:       s.booking_details || null,
-        advance_payment:       advance,
-        advance_payment_date:  s.advance_payment_date,
-        advance_payment_details: s.advance_payment_details || null,
-        actual_price:          Number(s.actual_price || 0),
-        total_received:        parseFloat((booking + advance).toFixed(2)),
-      };
-    })
-    .filter(r => r.total_received > 0);
+  const rows = bookings.map(b => {
+    const booking_amount = Number(b.booking_amount || 0);
+    const refund_amount  = Number(b.refund_amount  || 0);
+    const income_amount  = b.income_amount != null ? Number(b.income_amount) : parseFloat((booking_amount - refund_amount).toFixed(2));
+    return {
+      id:             b.id,
+      sale_id:        b.sale?.id,
+      sale_code:      b.sale?.sale_code || `SAL-${String(b.sale?.id || 0).padStart(5, '0')}`,
+      plot_no:        b.sale?.inventory?.plot_no || b.sale?.inventory?.sl_no || null,
+      project:        b.sale?.inventory?.project || null,
+      customer:       b.customer || null,
+      booking_date:   b.booking_date,
+      booking_amount,
+      refund_amount,
+      income_amount,
+      status:         b.status,
+      notes:          b.notes || null,
+    };
+  });
 
   res.json({
     rows,
     summary: {
       count:          rows.length,
-      total_booking:  parseFloat(rows.reduce((s, r) => s + r.booking_amount,  0).toFixed(2)),
-      total_advance:  parseFloat(rows.reduce((s, r) => s + r.advance_payment, 0).toFixed(2)),
-      total_received: parseFloat(rows.reduce((s, r) => s + r.total_received,  0).toFixed(2)),
+      total_booking:  parseFloat(rows.reduce((s, r) => s + r.booking_amount, 0).toFixed(2)),
+      total_refunded: parseFloat(rows.reduce((s, r) => s + r.refund_amount,  0).toFixed(2)),
+      total_income:   parseFloat(rows.reduce((s, r) => s + r.income_amount,  0).toFixed(2)),
     },
   });
 };
 
 // ── Other Financials Report ───────────────────────────────────────────────────
 const otherFinancialsReport = async (req, res) => {
-  const { project_id } = req.query;
+  const { project_id, plot_no } = req.query;
 
-  const where = { archived: false };
-  if (project_id) where.inventory = { project_id: parseInt(project_id) };
+  // ── Sales section ──
+  const saleWhere = { archived: false };
+  if (project_id) saleWhere.inventory = { project_id: parseInt(project_id) };
 
-  const sales = await prisma.sale.findMany({
-    where,
+  const salesRaw = await prisma.sale.findMany({
+    where: saleWhere,
     select: {
       id: true, sale_code: true,
-      extra_income: true, extra_income_details: true,
-      discount: true, discount_details: true,
-      brokerage: true, brokerage_details: true,
-      incentive: true, incentive_details: true,
-      net_amount: true, actual_price: true,
+      discount: true, brokerage: true, incentive: true, extra_income: true,
       customer:  { select: { id: true, name: true } },
       inventory: { select: { plot_no: true, sl_no: true, project: { select: { id: true, name: true } } } },
     },
     orderBy: { created_at: 'desc' },
   });
 
-  const rows = sales
+  const saleRows = salesRaw
     .map(s => ({
-      id:                    s.id,
-      sale_code:             s.sale_code || `SAL-${String(s.id).padStart(4, '0')}`,
-      customer:              s.customer  || null,
-      project:               s.inventory?.project || null,
-      plot_no:               s.inventory?.plot_no || s.inventory?.sl_no || null,
-      actual_price:          Number(s.actual_price  || 0),
-      extra_income:          Number(s.extra_income  || 0),
-      extra_income_details:  s.extra_income_details || null,
-      discount:              Number(s.discount       || 0),
-      discount_details:      s.discount_details      || null,
-      brokerage:             Number(s.brokerage      || 0),
-      brokerage_details:     s.brokerage_details     || null,
-      incentive:             Number(s.incentive      || 0),
-      incentive_details:     s.incentive_details     || null,
-      net_amount:            Number(s.net_amount     || 0),
+      id:           s.id,
+      sale_code:    s.sale_code || `SAL-${String(s.id).padStart(5, '0')}`,
+      customer:     s.customer  || null,
+      project:      s.inventory?.project || null,
+      plot_no:      s.inventory?.plot_no || s.inventory?.sl_no || null,
+      discount:     Number(s.discount     || 0),
+      brokerage:    Number(s.brokerage    || 0),
+      incentive:    Number(s.incentive    || 0),
+      extra_income: Number(s.extra_income || 0),
     }))
-    .filter(r => r.extra_income > 0 || r.discount > 0 || r.brokerage > 0 || r.incentive > 0);
+    .filter(r => r.discount > 0 || r.brokerage > 0 || r.incentive > 0 || r.extra_income > 0);
+
+  // ── Purchases section ──
+  const purWhere = {};
+  if (plot_no) purWhere.plot_no = { contains: plot_no };
+
+  const purchasesRaw = await prisma.purchase.findMany({
+    where: purWhere,
+    select: {
+      id: true, purchase_code: true, plot_no: true, location: true,
+      brokerage: true, extra_expenses: true, registration_charges: true, extra_income: true,
+    },
+    orderBy: { created_at: 'desc' },
+  });
+
+  const purchaseRows = purchasesRaw
+    .map(p => ({
+      id:                   p.id,
+      purchase_code:        p.purchase_code || `PUR-${String(p.id).padStart(5, '0')}`,
+      plot_no:              p.plot_no   || null,
+      location:             p.location  || null,
+      brokerage:            Number(p.brokerage             || 0),
+      extra_expenses:       Number(p.extra_expenses        || 0),
+      registration_charges: Number(p.registration_charges  || 0),
+      extra_income:         Number(p.extra_income          || 0),
+    }))
+    .filter(r => r.brokerage > 0 || r.extra_expenses > 0 || r.registration_charges > 0 || r.extra_income > 0);
+
+  const saleSum  = (key) => parseFloat(saleRows.reduce((s, r)     => s + r[key], 0).toFixed(2));
+  const purSum   = (key) => parseFloat(purchaseRows.reduce((s, r) => s + r[key], 0).toFixed(2));
 
   res.json({
-    rows,
-    summary: {
-      count:               rows.length,
-      total_extra_income:  parseFloat(rows.reduce((s, r) => s + r.extra_income, 0).toFixed(2)),
-      total_discount:      parseFloat(rows.reduce((s, r) => s + r.discount,     0).toFixed(2)),
-      total_brokerage:     parseFloat(rows.reduce((s, r) => s + r.brokerage,    0).toFixed(2)),
-      total_incentive:     parseFloat(rows.reduce((s, r) => s + r.incentive,    0).toFixed(2)),
-      total_net_amount:    parseFloat(rows.reduce((s, r) => s + r.net_amount,   0).toFixed(2)),
+    sales: {
+      rows: saleRows,
+      summary: {
+        count:              saleRows.length,
+        total_discount:     saleSum('discount'),
+        total_brokerage:    saleSum('brokerage'),
+        total_incentive:    saleSum('incentive'),
+        total_extra_income: saleSum('extra_income'),
+      },
+    },
+    purchases: {
+      rows: purchaseRows,
+      summary: {
+        count:                    purchaseRows.length,
+        total_brokerage:          purSum('brokerage'),
+        total_extra_expenses:     purSum('extra_expenses'),
+        total_registration_charges: purSum('registration_charges'),
+        total_extra_income:       purSum('extra_income'),
+      },
     },
   });
 };
