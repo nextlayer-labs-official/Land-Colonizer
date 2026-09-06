@@ -594,4 +594,76 @@ const balanceDueReport = async (req, res) => {
   });
 };
 
-module.exports = { salesReport, inventoryReport, purchaseReport, brokerReport, instalmentsReport, availabilityReport, balanceDueReport };
+// ── Additional Costs Report ──────────────────────────────────────────────────
+const additionalCostsReport = async (req, res) => {
+  const { project_id } = req.query;
+
+  const where = { archived: false };
+  if (project_id) where.inventory = { project_id: parseInt(project_id) };
+
+  const sales = await prisma.sale.findMany({
+    where,
+    select: {
+      id: true, sale_code: true,
+      registration_charges: true, registration_paid: true, registration_details: true,
+      intkaal_charges: true, intkaal_paid: true, intkaal_details: true,
+      water_connection_charges: true, water_connection_paid: true, water_connection_details: true,
+      electricity_meter_charges: true, electricity_meter_paid: true, electricity_meter_details: true,
+      customer:  { select: { id: true, name: true } },
+      inventory: { select: { plot_no: true, sl_no: true, project: { select: { id: true, name: true } } } },
+    },
+    orderBy: { created_at: 'desc' },
+  });
+
+  const rows = sales
+    .map(s => {
+      const reg_charged  = Number(s.registration_charges       || 0);
+      const reg_paid     = Number(s.registration_paid          || 0);
+      const int_charged  = Number(s.intkaal_charges            || 0);
+      const int_paid     = Number(s.intkaal_paid               || 0);
+      const wat_charged  = Number(s.water_connection_charges   || 0);
+      const wat_paid     = Number(s.water_connection_paid      || 0);
+      const elec_charged = Number(s.electricity_meter_charges  || 0);
+      const elec_paid    = Number(s.electricity_meter_paid     || 0);
+
+      const total_charged = reg_charged + int_charged + wat_charged + elec_charged;
+      const total_paid    = reg_paid    + int_paid    + wat_paid    + elec_paid;
+
+      return {
+        id:        s.id,
+        sale_code: s.sale_code || `SAL-${String(s.id).padStart(4, '0')}`,
+        customer:  s.customer  || null,
+        project:   s.inventory?.project || null,
+        plot_no:   s.inventory?.plot_no || s.inventory?.sl_no || null,
+        registration:  { charged: reg_charged,  paid: reg_paid,  pl: parseFloat((reg_charged  - reg_paid).toFixed(2)),  details: s.registration_details       || null },
+        intkaal:       { charged: int_charged,  paid: int_paid,  pl: parseFloat((int_charged  - int_paid).toFixed(2)),  details: s.intkaal_details             || null },
+        water:         { charged: wat_charged,  paid: wat_paid,  pl: parseFloat((wat_charged  - wat_paid).toFixed(2)),  details: s.water_connection_details    || null },
+        electricity:   { charged: elec_charged, paid: elec_paid, pl: parseFloat((elec_charged - elec_paid).toFixed(2)), details: s.electricity_meter_details   || null },
+        total_charged,
+        total_paid,
+        profit_loss: parseFloat((total_charged - total_paid).toFixed(2)),
+      };
+    })
+    .filter(r => r.total_charged > 0 || r.total_paid > 0);
+
+  const sum = (key) => rows.reduce((s, r) => s + r[key], 0);
+  const typeSum = (type, key) => rows.reduce((s, r) => s + r[type][key], 0);
+
+  res.json({
+    rows,
+    summary: {
+      count:       rows.length,
+      total_charged: parseFloat(sum('total_charged').toFixed(2)),
+      total_paid:    parseFloat(sum('total_paid').toFixed(2)),
+      profit_loss:   parseFloat(sum('profit_loss').toFixed(2)),
+      by_type: {
+        registration:  { charged: parseFloat(typeSum('registration', 'charged').toFixed(2)), paid: parseFloat(typeSum('registration', 'paid').toFixed(2)), pl: parseFloat(typeSum('registration', 'pl').toFixed(2)) },
+        intkaal:       { charged: parseFloat(typeSum('intkaal',      'charged').toFixed(2)), paid: parseFloat(typeSum('intkaal',      'paid').toFixed(2)), pl: parseFloat(typeSum('intkaal',      'pl').toFixed(2)) },
+        water:         { charged: parseFloat(typeSum('water',        'charged').toFixed(2)), paid: parseFloat(typeSum('water',        'paid').toFixed(2)), pl: parseFloat(typeSum('water',        'pl').toFixed(2)) },
+        electricity:   { charged: parseFloat(typeSum('electricity',  'charged').toFixed(2)), paid: parseFloat(typeSum('electricity',  'paid').toFixed(2)), pl: parseFloat(typeSum('electricity',  'pl').toFixed(2)) },
+      },
+    },
+  });
+};
+
+module.exports = { salesReport, inventoryReport, purchaseReport, brokerReport, instalmentsReport, availabilityReport, balanceDueReport, additionalCostsReport };

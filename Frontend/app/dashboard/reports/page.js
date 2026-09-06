@@ -1400,6 +1400,177 @@ function BalanceDueReport() {
   );
 }
 
+// ── Additional Costs Report ───────────────────────────────────────────────────
+function AdditionalCostsReport() {
+  const [filters,  setFilters]  = useState({ project_id: '' });
+  const [result,   setResult]   = useState(null);
+  const [loading,  setLoading]  = useState(false);
+  const [projects, setProjects] = useState([]);
+
+  useEffect(() => {
+    apiGet('/lookup/projects?limit=500').then(d => setProjects(d || [])).catch(() => {});
+  }, []);
+
+  const run = async () => {
+    setLoading(true);
+    try {
+      const q = new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([,v]) => v)));
+      setResult(await apiGet(`/reports/additional-costs?${q}`));
+    } finally { setLoading(false); }
+  };
+
+  const doExcel = async () => {
+    if (!result) return;
+    const rows = result.rows.map((r, i) => ({
+      '#':                          i + 1,
+      'Sale Code':                  r.sale_code,
+      'Customer':                   r.customer?.name || '',
+      'Project':                    r.project?.name  || '',
+      'Plot No':                    r.plot_no        || '',
+      'Reg. Charged':               fmtNum(r.registration.charged),
+      'Reg. Paid':                  fmtNum(r.registration.paid),
+      'Reg. P&L':                   fmtNum(r.registration.pl),
+      'Intkaal Charged':            fmtNum(r.intkaal.charged),
+      'Intkaal Paid':               fmtNum(r.intkaal.paid),
+      'Intkaal P&L':                fmtNum(r.intkaal.pl),
+      'Water Charged':              fmtNum(r.water.charged),
+      'Water Paid':                 fmtNum(r.water.paid),
+      'Water P&L':                  fmtNum(r.water.pl),
+      'Electricity Charged':        fmtNum(r.electricity.charged),
+      'Electricity Paid':           fmtNum(r.electricity.paid),
+      'Electricity P&L':            fmtNum(r.electricity.pl),
+      'Total Received':             fmtNum(r.total_charged),
+      'Total Paid':                 fmtNum(r.total_paid),
+      'Net P&L':                    fmtNum(r.profit_loss),
+    }));
+    await exportXlsx([{ name: 'Additional Costs', rows }], `additional_costs_${new Date().toISOString().slice(0,10)}.xlsx`);
+  };
+
+  const plColor = (v) => v > 0 ? 'text-emerald-600' : v < 0 ? 'text-red-600' : 'text-gray-400';
+
+  const TypeCard = ({ label, data }) => (
+    <div className="bg-white border border-gray-200 rounded-lg p-4 flex flex-col gap-2">
+      <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{label}</span>
+      <div className="grid grid-cols-3 gap-2">
+        <div className="flex flex-col">
+          <span className="text-[10px] text-gray-400 uppercase tracking-wider">Received</span>
+          <span className="text-sm font-bold text-gray-800">₹ {fmt(data.charged)}</span>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-[10px] text-gray-400 uppercase tracking-wider">Paid</span>
+          <span className="text-sm font-bold text-gray-800">₹ {fmt(data.paid)}</span>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-[10px] text-gray-400 uppercase tracking-wider">Profit / Loss</span>
+          <span className={`text-sm font-bold ${plColor(data.pl)}`}>{data.pl >= 0 ? '+' : ''}₹ {fmt(Math.abs(data.pl))}</span>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4 print:hidden">
+        <FilterRow>
+          <Field label="Project">
+            <select value={filters.project_id} onChange={e => setFilters(f => ({ ...f, project_id: e.target.value }))} className={selectCls} style={{ minWidth: 160 }}>
+              <option value="">All Projects</option>
+              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </Field>
+          <RunBtn onClick={run} loading={loading} />
+          {result && <><PrintBtn /><ExcelBtn onClick={doExcel} /></>}
+        </FilterRow>
+      </div>
+
+      {result && (
+        <>
+          {/* Top summary */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            <SummaryCard label="Sales with Costs"   value={result.summary.count} />
+            <SummaryCard label="Total Received"     value={'₹ ' + fmt(result.summary.total_charged)} />
+            <SummaryCard label="Total Paid Out"     value={'₹ ' + fmt(result.summary.total_paid)} />
+            <SummaryCard label="Net Profit / Loss"  value={
+              <span className={plColor(result.summary.profit_loss)}>
+                {result.summary.profit_loss >= 0 ? '+' : ''}₹ {fmt(Math.abs(result.summary.profit_loss))}
+              </span>
+            } />
+          </div>
+
+          {/* Per-type breakdown */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-4">
+            <TypeCard label="Registration Charges" data={result.summary.by_type.registration} />
+            <TypeCard label="Intkaal Charges"      data={result.summary.by_type.intkaal} />
+            <TypeCard label="Water Connection"     data={result.summary.by_type.water} />
+            <TypeCard label="Electricity Meter"    data={result.summary.by_type.electricity} />
+          </div>
+
+          {/* Detail table */}
+          <div className="bg-white border border-gray-200 rounded-lg overflow-auto max-h-[60vh]">
+            <table className="w-full text-sm border-collapse">
+              <thead className="sticky top-0 z-10 bg-gray-50">
+                <tr className="border-b border-gray-200">
+                  <th rowSpan={2} className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">#</th>
+                  <th rowSpan={2} className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">Sale Code</th>
+                  <th rowSpan={2} className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">Customer</th>
+                  <th rowSpan={2} className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">Project</th>
+                  <th rowSpan={2} className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">Plot</th>
+                  <th colSpan={3} className="px-3 py-1.5 text-center text-xs font-semibold text-blue-600 uppercase tracking-wider border-r border-gray-200 border-b border-gray-200">Registration</th>
+                  <th colSpan={3} className="px-3 py-1.5 text-center text-xs font-semibold text-violet-600 uppercase tracking-wider border-r border-gray-200 border-b border-gray-200">Intkaal</th>
+                  <th colSpan={3} className="px-3 py-1.5 text-center text-xs font-semibold text-cyan-600 uppercase tracking-wider border-r border-gray-200 border-b border-gray-200">Water</th>
+                  <th colSpan={3} className="px-3 py-1.5 text-center text-xs font-semibold text-amber-600 uppercase tracking-wider border-r border-gray-200 border-b border-gray-200">Electricity</th>
+                  <th rowSpan={2} className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">Total Rcvd</th>
+                  <th rowSpan={2} className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap border-r border-gray-200">Total Paid</th>
+                  <th rowSpan={2} className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Net P&amp;L</th>
+                </tr>
+                <tr className="border-b border-gray-200 bg-gray-50">
+                  {['Rcvd','Paid','P&L','Rcvd','Paid','P&L','Rcvd','Paid','P&L','Rcvd','Paid','P&L'].map((h, i) => (
+                    <th key={i} className={`px-3 py-1.5 text-left text-xs font-medium text-gray-400 whitespace-nowrap ${i % 3 === 2 ? 'border-r border-gray-200' : ''}`}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {result.rows.length === 0 ? (
+                  <tr><td colSpan={21} className="py-10 text-center text-sm text-gray-400">No additional cost records found</td></tr>
+                ) : result.rows.map((r, i) => {
+                  const CellAmt = ({ v }) => <td className="px-3 py-2.5 whitespace-nowrap text-gray-700">{v ? '₹ ' + fmt(v) : '—'}</td>;
+                  const CellPL  = ({ v, border }) => <td className={`px-3 py-2.5 whitespace-nowrap font-medium ${plColor(v)} ${border ? 'border-r border-gray-200' : ''}`}>{v !== 0 ? (v > 0 ? '+' : '') + '₹ ' + fmt(Math.abs(v)) : '—'}</td>;
+                  return (
+                    <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="px-3 py-2.5 text-gray-400 text-xs border-r border-gray-100">{i + 1}</td>
+                      <td className="px-3 py-2.5 whitespace-nowrap border-r border-gray-100">
+                        <span className="font-mono text-xs font-semibold text-[#875A7B] bg-[#875A7B]/8 px-1.5 py-0.5 rounded">{r.sale_code}</span>
+                      </td>
+                      <td className="px-3 py-2.5 font-medium text-gray-800 whitespace-nowrap border-r border-gray-100">{r.customer?.name || '—'}</td>
+                      <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap border-r border-gray-100">{r.project?.name || '—'}</td>
+                      <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap border-r border-gray-100">{r.plot_no || '—'}</td>
+                      <CellAmt v={r.registration.charged} />
+                      <CellAmt v={r.registration.paid} />
+                      <CellPL  v={r.registration.pl} border />
+                      <CellAmt v={r.intkaal.charged} />
+                      <CellAmt v={r.intkaal.paid} />
+                      <CellPL  v={r.intkaal.pl} border />
+                      <CellAmt v={r.water.charged} />
+                      <CellAmt v={r.water.paid} />
+                      <CellPL  v={r.water.pl} border />
+                      <CellAmt v={r.electricity.charged} />
+                      <CellAmt v={r.electricity.paid} />
+                      <CellPL  v={r.electricity.pl} border />
+                      <td className="px-3 py-2.5 font-medium text-gray-800 whitespace-nowrap border-r border-gray-100">₹ {fmt(r.total_charged)}</td>
+                      <td className="px-3 py-2.5 font-medium text-gray-800 whitespace-nowrap border-r border-gray-100">₹ {fmt(r.total_paid)}</td>
+                      <td className={`px-3 py-2.5 font-bold whitespace-nowrap ${plColor(r.profit_loss)}`}>{r.profit_loss !== 0 ? (r.profit_loss > 0 ? '+' : '') + '₹ ' + fmt(Math.abs(r.profit_loss)) : '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 const TABS = [
   { id: 'sales',        label: 'Sales Report' },
@@ -1408,7 +1579,8 @@ const TABS = [
   { id: 'brokers',      label: 'Broker Report' },
   { id: 'instalments',  label: 'Instalments Report' },
   { id: 'balance-due',  label: 'Balance Due Report' },
-  { id: 'availability', label: 'Availability Report' },
+  { id: 'availability',      label: 'Availability Report' },
+  { id: 'additional-costs', label: 'Additional Costs' },
 ];
 
 export default function ReportsPage() {
@@ -1442,7 +1614,8 @@ export default function ReportsPage() {
         {tab === 'brokers'      && <BrokerReport />}
         {tab === 'instalments'  && <InstalmentsReport />}
         {tab === 'balance-due'  && <BalanceDueReport />}
-        {tab === 'availability' && <AvailabilityReport />}
+        {tab === 'availability'      && <AvailabilityReport />}
+        {tab === 'additional-costs'  && <AdditionalCostsReport />}
       </div>
 
       <style>{`
