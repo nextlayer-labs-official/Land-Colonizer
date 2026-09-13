@@ -1667,7 +1667,7 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
 }
 
 // ── PDF Report Generator ──────────────────────────────────────────────────────
-function generateSaleReportHTML(form, effectiveInstPaid, effectiveBalance, companyName = 'Company') {
+function generateSaleReportHTML(form, effectiveInstPaid, effectiveBalance, companyName = 'Company', opts = { additionalCosts: true, otherCharges: true }) {
   const f = (n) => n != null && n !== '' ? `&#8377;${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '&mdash;';
   const d = (v) => v ? new Date(v).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '&mdash;';
   const s = (v) => (v && String(v).trim()) ? String(v).trim() : '&mdash;';
@@ -1829,7 +1829,7 @@ body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#1f2937;backgro
   </table>
 </div>
 
-${addlRows.length > 0 ? `
+${opts.additionalCosts !== false && addlRows.length > 0 ? `
 <!-- ADDITIONAL COSTS -->
 <div style="margin-bottom:14px;">
   ${sectionTitle('Additional Costs')}
@@ -1852,7 +1852,7 @@ ${addlRows.length > 0 ? `
   </table>
 </div>` : ''}
 
-${otherRows.length > 0 ? `
+${opts.otherCharges !== false && otherRows.length > 0 ? `
 <!-- OTHER CHARGES -->
 <div style="margin-bottom:14px;">
   ${sectionTitle('Other Charges')}
@@ -1963,6 +1963,8 @@ export default function SaleDetailPage() {
   const [projectOpen,   setProjectOpen]   = useState(false);
   const [linkedProject, setLinkedProject] = useState(null);
   const [projectSaving, setProjectSaving] = useState(false);
+  const [showPdfModal,  setShowPdfModal]  = useState(false);
+  const [pdfOpts,       setPdfOpts]       = useState({ additionalCosts: true, otherCharges: true });
 
   const canEdit             = can('SALE_EDIT')               || me?.is_system;
   const canDelete           = can('SALE_DELETE')             || me?.is_system;
@@ -2059,13 +2061,16 @@ export default function SaleDetailPage() {
   const effectiveBalance    = Math.max(0, balanceP - (bookingInReceived ? bookingP : 0) - effectiveInstPaid);
   const effectiveReceivedP  = receivedP + effectiveInstPaid;
 
-  const handleExportPDF = async () => {
+  const handleExportPDF = () => setShowPdfModal(true);
+
+  const doExportPDF = async (opts) => {
+    setShowPdfModal(false);
     let companyName = 'Company';
     try {
       const s = await apiGet('/settings/public');
       if (s?.company_name) companyName = s.company_name;
     } catch { /* use default */ }
-    const html = generateSaleReportHTML(form, effectiveInstPaid, effectiveBalance, companyName);
+    const html = generateSaleReportHTML(form, effectiveInstPaid, effectiveBalance, companyName, opts);
     const w = window.open('', '_blank');
     if (!w) return;
     w.document.write(html);
@@ -2083,6 +2088,40 @@ export default function SaleDetailPage() {
 
   return (
     <div className="flex flex-col h-full bg-[#F4F5F7]">
+
+      {/* ── PDF Options Modal ── */}
+      {showPdfModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
+            <h2 className="text-base font-semibold text-gray-800 mb-1">PDF Options</h2>
+            <p className="text-xs text-gray-500 mb-4">Choose which sections to include in the PDF.</p>
+            <div className="space-y-3 mb-6">
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <input type="checkbox" className="w-4 h-4 rounded accent-purple-600"
+                  checked={pdfOpts.additionalCosts}
+                  onChange={e => setPdfOpts(p => ({ ...p, additionalCosts: e.target.checked }))} />
+                <span className="text-sm text-gray-700">Additional Costs <span className="text-gray-400 text-xs">(Registration, Intkaal, Water, Electricity)</span></span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <input type="checkbox" className="w-4 h-4 rounded accent-purple-600"
+                  checked={pdfOpts.otherCharges}
+                  onChange={e => setPdfOpts(p => ({ ...p, otherCharges: e.target.checked }))} />
+                <span className="text-sm text-gray-700">Other Charges <span className="text-gray-400 text-xs">(Extra Income, Discount, Brokerage, Incentive)</span></span>
+              </label>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowPdfModal(false)}
+                className="px-4 py-2 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition">
+                Cancel
+              </button>
+              <button onClick={() => doExportPDF(pdfOpts)}
+                className="px-4 py-2 text-sm rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition font-medium">
+                Generate PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Control bar ── */}
       <div className="bg-white border-b border-gray-200 shadow-sm shrink-0">

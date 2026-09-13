@@ -735,7 +735,7 @@ function EditUnitModal({ open, onClose, purchase, inventory = [], unitData, onSa
 }
 
 // ── PDF Report Generator ──────────────────────────────────────────────────────
-function generatePurchaseReportHTML(form, c, totalInstPaid, inventory, companyName = 'Company') {
+function generatePurchaseReportHTML(form, c, totalInstPaid, inventory, companyName = 'Company', opts = { costBreakdown: true }) {
   const mf = (n) => n != null && n !== '' ? `&#8377;${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '&mdash;';
   const df = (v) => v ? new Date(v).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '&mdash;';
   const sv = (v) => (v && String(v).trim()) ? String(v).trim() : '&mdash;';
@@ -806,7 +806,7 @@ body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#1f2937;backgro
     ${finRow('Balance to Pay',mf(effectiveBal),true)}
   </table>
 </div>
-${(form.brokerage||form.extra_expenses||form.registration_charges||form.extra_income)?`
+${opts.costBreakdown !== false && (form.brokerage||form.extra_expenses||form.registration_charges||form.extra_income)?`
 <div style="margin-bottom:14px;">${secTitle('Cost Breakdown')}
   <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-top:none;">
     ${form.brokerage?finRow('Brokerage',mf(form.brokerage)):''}
@@ -884,6 +884,8 @@ export default function PurchaseRecordPage() {
   const [actMenu,       setActMenu]       = useState(false);
   const [totalInstPaid, setTotalInstPaid] = useState(0);
   const [driveActive,   setDriveActive]   = useState(false);
+  const [showPdfModal,  setShowPdfModal]  = useState(false);
+  const [pdfOpts,       setPdfOpts]       = useState({ costBreakdown: true });
 
   const canEdit            = can('PURCHASE_EDIT')   || me?.is_system;
   const canDelete          = can('PURCHASE_DELETE') || me?.is_system;
@@ -959,11 +961,14 @@ export default function PurchaseRecordPage() {
     catch (e) { setError(e.message); setDeleting(false); setShowDel(false); }
   };
 
-  const handleExportPDF = async () => {
+  const handleExportPDF = () => setShowPdfModal(true);
+
+  const doExportPDF = async (opts) => {
+    setShowPdfModal(false);
     let companyName = 'Company';
     try { const s = await apiGet('/settings/public'); if (s?.company_name) companyName = s.company_name; } catch { /* default */ }
     const snap = computed(form);
-    const html = generatePurchaseReportHTML(form, snap, totalInstPaid, inventory, companyName);
+    const html = generatePurchaseReportHTML(form, snap, totalInstPaid, inventory, companyName, opts);
     const w = window.open('', '_blank');
     if (!w) return;
     w.document.write(html);
@@ -1012,6 +1017,34 @@ export default function PurchaseRecordPage() {
 
   return (
     <div className="flex flex-col h-full bg-[#F4F5F7]">
+
+      {/* ── PDF Options Modal ── */}
+      {showPdfModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
+            <h2 className="text-base font-semibold text-gray-800 mb-1">PDF Options</h2>
+            <p className="text-xs text-gray-500 mb-4">Choose which sections to include in the PDF.</p>
+            <div className="space-y-3 mb-6">
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <input type="checkbox" className="w-4 h-4 rounded accent-[#875A7B]"
+                  checked={pdfOpts.costBreakdown}
+                  onChange={e => setPdfOpts(p => ({ ...p, costBreakdown: e.target.checked }))} />
+                <span className="text-sm text-gray-700">Cost Breakdown <span className="text-gray-400 text-xs">(Brokerage, Extra Expenses, Registration Charges, Extra Income)</span></span>
+              </label>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowPdfModal(false)}
+                className="px-4 py-2 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition">
+                Cancel
+              </button>
+              <button onClick={() => doExportPDF(pdfOpts)}
+                className="px-4 py-2 text-sm rounded-lg bg-[#875A7B] text-white hover:bg-[#6d4a63] transition font-medium">
+                Generate PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Top bar ── */}
       <div className="bg-white border-b border-gray-200 shadow-sm shrink-0">
