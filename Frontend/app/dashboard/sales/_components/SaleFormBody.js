@@ -318,46 +318,48 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false, sho
 
         <SectionDivider title="Other Financial" />
 
+        {/* Payment Due Date — left col, right col empty */}
         <div>
           <FieldLabel>Payment Due Date</FieldLabel>
           <FInput type="date" value={form.payment_due_date?.split?.('T')?.[0] ?? form.payment_due_date ?? ''} onChange={set('payment_due_date')} readOnly={readOnly} />
         </div>
+        <div />
 
+        {/* Discount */}
         <div>
           <FieldLabel>Discount (₹)</FieldLabel>
           <FInput type="number" value={form.discount} onChange={set('discount')} placeholder="0" readOnly={readOnly} />
         </div>
-
         <div>
           <FieldLabel>Discount Details</FieldLabel>
           <FTextarea value={form.discount_details} onChange={set('discount_details')} placeholder="Reason…" readOnly={readOnly} />
         </div>
 
+        {/* Brokerage */}
         <div>
           <FieldLabel>Brokerage (₹)</FieldLabel>
           <FInput type="number" value={form.brokerage} onChange={set('brokerage')} placeholder="0" readOnly={readOnly} />
         </div>
-
         <div>
           <FieldLabel>Brokerage Details</FieldLabel>
           <FTextarea value={form.brokerage_details} onChange={set('brokerage_details')} placeholder="Notes…" readOnly={readOnly} />
         </div>
 
+        {/* Incentive */}
         <div>
           <FieldLabel>Incentive (₹)</FieldLabel>
           <FInput type="number" value={form.incentive} onChange={set('incentive')} placeholder="0" readOnly={readOnly} />
         </div>
-
         <div>
           <FieldLabel>Incentive Details</FieldLabel>
           <FTextarea value={form.incentive_details} onChange={set('incentive_details')} placeholder="Notes…" readOnly={readOnly} />
         </div>
 
+        {/* Extra Income */}
         <div>
           <FieldLabel>Extra Income (₹)</FieldLabel>
           <FInput type="number" value={form.extra_income} onChange={set('extra_income')} placeholder="0" readOnly={readOnly} />
         </div>
-
         <div>
           <FieldLabel>Extra Income Details</FieldLabel>
           <FTextarea value={form.extra_income_details} onChange={set('extra_income_details')} placeholder="Notes…" readOnly={readOnly} />
