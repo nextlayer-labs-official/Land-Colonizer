@@ -1989,14 +1989,7 @@ export default function SaleDetailPage() {
       .catch(() => {});
   }, []);
 
-  const set = (key) => (e) => {
-    const val = e.target.value;
-    setForm(p => key === 'date_of_registration'
-      ? { ...p, [key]: val, payment_due_date: '' }
-      : { ...p, [key]: val }
-    );
-    setError('');
-  };
+  const set = (key) => (e) => { setForm(p => ({ ...p, [key]: e.target.value })); setError(''); };
 
   const handlePickProject = async (project) => {
     setProjectOpen(false);
@@ -2016,6 +2009,10 @@ export default function SaleDetailPage() {
     setSaving(true); setError('');
     try {
       const { _inventory, _customer, _broker, ...payload } = form;
+      // If registration date changed, clear payment due date before saving
+      if (payload.date_of_registration !== original.date_of_registration) {
+        payload.payment_due_date = '';
+      }
       await apiPut(`/sales/${params.id}`, payload);
       setEditing(false); setSaved(true);
       await load();
