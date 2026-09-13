@@ -1989,7 +1989,14 @@ export default function SaleDetailPage() {
       .catch(() => {});
   }, []);
 
-  const set = (key) => (e) => { setForm(p => ({ ...p, [key]: e.target.value })); setError(''); };
+  const set = (key) => (e) => {
+    const val = e.target.value;
+    setForm(p => key === 'date_of_registration'
+      ? { ...p, [key]: val, payment_due_date: '' }
+      : { ...p, [key]: val }
+    );
+    setError('');
+  };
 
   const handlePickProject = async (project) => {
     setProjectOpen(false);

@@ -209,10 +209,30 @@ async function getSummary(req, res) {
     totalReceived += advance + booking + instPaid;
   }
 
+  // Area totals across all project inventory
+  const allInv = await prisma.inventory.findMany({
+    where: { project_id: { not: null } },
+    select: {
+      area: true,
+      status: true,
+      sales: { select: { attorney_completed: true, full_final_completed: true }, take: 1 },
+    },
+  });
+
+  const areaBy = (fn) => parseFloat(allInv.filter(fn).reduce((s, u) => s + Number(u.area || 0), 0).toFixed(4));
+  const st = (u) => (u.status || 'AVAILABLE').toLowerCase();
+
   res.json({
-    total_value:    parseFloat(totalValue.toFixed(2)),
-    total_received: parseFloat(totalReceived.toFixed(2)),
-    total_balance:  parseFloat(Math.max(0, totalValue - totalReceived).toFixed(2)),
+    total_value:       parseFloat(totalValue.toFixed(2)),
+    total_received:    parseFloat(totalReceived.toFixed(2)),
+    total_balance:     parseFloat(Math.max(0, totalValue - totalReceived).toFixed(2)),
+    total_area:        areaBy(() => true),
+    reserved_area:     areaBy(u => st(u) === 'reserved'),
+    sold_area:         areaBy(u => st(u) === 'sold'),
+    registered_area:   areaBy(u => st(u) === 'registered'),
+    attorney_area:     areaBy(u => u.sales?.[0]?.attorney_completed === true),
+    full_final_area:   areaBy(u => u.sales?.[0]?.full_final_completed === true),
+    balance_area:      areaBy(u => st(u) === 'available'),
   });
 }
 

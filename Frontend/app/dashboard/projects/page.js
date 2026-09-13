@@ -140,6 +140,29 @@ export default function ProjectsPage() {
         ))}
       </div>
 
+      {/* Area totals */}
+      <div className="rounded-2xl border border-gray-100 shadow-sm bg-white px-5 py-4">
+        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Total Area Summary (Sq Yd)</p>
+        <div className="grid grid-cols-4 sm:grid-cols-7 gap-4">
+          {[
+            { label: 'Total Area',  value: summary?.total_area,      color: 'text-gray-800'    },
+            { label: 'Reserved',    value: summary?.reserved_area,   color: 'text-amber-600'   },
+            { label: 'Sold',        value: summary?.sold_area,       color: 'text-blue-600'    },
+            { label: 'Registered',  value: summary?.registered_area, color: 'text-[#875A7B]'   },
+            { label: 'Attorney',    value: summary?.attorney_area,   color: 'text-indigo-600'  },
+            { label: 'Full & Final',value: summary?.full_final_area, color: 'text-violet-600'  },
+            { label: 'Balance',     value: summary?.balance_area,    color: 'text-emerald-600' },
+          ].map(({ label, value, color }) => (
+            <div key={label}>
+              <p className="text-[10px] text-gray-400 leading-tight">{label}</p>
+              {summary
+                ? <p className={`text-sm font-black tabular-nums mt-0.5 ${color}`}>{fmtArea(value)}</p>
+                : <div className="h-4 w-14 bg-gray-100 rounded animate-pulse mt-1" />}
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name, code, location…"
@@ -209,26 +232,6 @@ export default function ProjectsPage() {
                       <div key={key} className="text-center">
                         <p className="text-xs font-black text-gray-800">{p[key] || 0}</p>
                         <p className="text-[9px] text-gray-400">{label}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Area breakdown */}
-                <div className="mx-5 mb-3 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2.5">
-                  <div className="grid grid-cols-4 gap-x-2 gap-y-2">
-                    {[
-                      { label: 'Total Area',      value: p.total_area      },
-                      { label: 'Reserved',         value: p.reserved_area   },
-                      { label: 'Sold',             value: p.sold_area       },
-                      { label: 'Registered',       value: p.registered_area },
-                      { label: 'Attorney',         value: p.attorney_area   },
-                      { label: 'Full & Final',     value: p.full_final_area },
-                      { label: 'Balance',          value: p.balance_area    },
-                    ].map(({ label, value }) => (
-                      <div key={label}>
-                        <p className="text-[9px] text-gray-400 leading-tight">{label}</p>
-                        <p className="text-[11px] font-bold text-gray-800 tabular-nums leading-tight mt-0.5">{fmtArea(value)}</p>
                       </div>
                     ))}
                   </div>
