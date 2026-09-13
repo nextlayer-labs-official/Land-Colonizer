@@ -8,9 +8,9 @@ const salesReport = async (req, res) => {
 
   const where = { archived: false };
   if (date_from || date_to) {
-    where.created_at = {};
-    if (date_from) where.created_at.gte = new Date(date_from);
-    if (date_to)   where.created_at.lte = new Date(date_to + 'T23:59:59.999');
+    where.sale_date = {};
+    if (date_from) where.sale_date.gte = new Date(date_from);
+    if (date_to)   where.sale_date.lte = new Date(date_to + 'T23:59:59.999');
   }
   const invWhere = {};
   if (project_id) invWhere.project_id = parseInt(project_id);
@@ -86,6 +86,7 @@ const salesReport = async (req, res) => {
 
   const summary = {
     count:         rows.length,
+    total_area:    parseFloat(rows.reduce((s, r) => s + Number(r.total_area || 0), 0).toFixed(4)),
     total_value:   rows.reduce((s, r) => s + Number(r.total_value    || 0), 0),
     actual_price:  rows.reduce((s, r) => s + Number(r.actual_price   || 0), 0),
     total_balance: rows.reduce((s, r) => s + Number(r.balance_amount || 0), 0),
@@ -300,10 +301,11 @@ const brokerReport = async (req, res) => {
   });
 
   const summary = {
-    broker_count:     rows.length,
-    total_sales:      rows.reduce((s, r) => s + r.sales_count,        0),
-    total_purchases:  rows.reduce((s, r) => s + r.purchases_count,     0),
-    total_brokerage:  rows.reduce((s, r) => s + r.total_brokerage,     0),
+    broker_count:      rows.length,
+    total_sales:       rows.reduce((s, r) => s + r.sales_count,    0),
+    total_purchases:   rows.reduce((s, r) => s + r.purchases_count, 0),
+    total_brokerage:   rows.reduce((s, r) => s + r.total_brokerage, 0),
+    total_sales_area:  parseFloat(rows.reduce((s, b) => s + b.sales.reduce((ss, sale) => ss + Number(sale.total_area || 0), 0), 0).toFixed(4)),
   };
 
   res.json({ brokers: rows, summary });
@@ -432,6 +434,7 @@ const instalmentsReport = async (req, res) => {
     sale_pending: saleRows,
     sale_summary: {
       count:         saleRows.length,
+      total_area:    parseFloat(saleRows.reduce((s, r) => s + Number(r.total_area || 0), 0).toFixed(4)),
       total_paid:    saleRows.reduce((s, r) => s + r.paid_amount, 0),
       total_pending: saleRows.reduce((s, r) => s + r.pending_amount, 0),
     },
@@ -587,6 +590,7 @@ const balanceDueReport = async (req, res) => {
     rows,
     summary: {
       count:          rows.length,
+      total_area:     parseFloat(rows.reduce((s, r) => s + Number(r.total_area || 0), 0).toFixed(4)),
       total_received: rows.reduce((s, r) => s + r.received, 0),
       total_pending:  rows.reduce((s, r) => s + r.pending, 0),
       total_balance:  rows.reduce((s, r) => s + r.balance, 0),

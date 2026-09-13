@@ -9,6 +9,7 @@ import Pagination from '@/components/Pagination';
 const fmt    = (n) => Number(n || 0).toLocaleString('en-IN');
 const fmtCr  = (n) => { const v = Number(n || 0); return v > 0 ? `₹${v.toLocaleString('en-IN')}` : '—'; };
 const fmtINR = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
+const fmtArea = (n) => { const v = Number(n || 0); return v > 0 ? v.toLocaleString('en-IN', { maximumFractionDigits: 2 }) : '0'; };
 
 const STATUS_COLOR = {
   OPEN:    'bg-emerald-50 text-emerald-700',
@@ -201,13 +202,33 @@ export default function ProjectsPage() {
                 </div>
 
                 {/* Status bar */}
-                <div className="px-5 pb-4">
+                <div className="px-5 pb-3">
                   <MiniBar project={p} />
                   <div className="grid grid-cols-4 gap-1 mt-2">
                     {INV_STATUS.map(({ key, label, bar }) => (
                       <div key={key} className="text-center">
                         <p className="text-xs font-black text-gray-800">{p[key] || 0}</p>
                         <p className="text-[9px] text-gray-400">{label}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Area breakdown */}
+                <div className="mx-5 mb-3 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2.5">
+                  <div className="grid grid-cols-4 gap-x-2 gap-y-2">
+                    {[
+                      { label: 'Total Area',      value: p.total_area      },
+                      { label: 'Reserved',         value: p.reserved_area   },
+                      { label: 'Sold',             value: p.sold_area       },
+                      { label: 'Registered',       value: p.registered_area },
+                      { label: 'Attorney',         value: p.attorney_area   },
+                      { label: 'Full & Final',     value: p.full_final_area },
+                      { label: 'Balance',          value: p.balance_area    },
+                    ].map(({ label, value }) => (
+                      <div key={label}>
+                        <p className="text-[9px] text-gray-400 leading-tight">{label}</p>
+                        <p className="text-[11px] font-bold text-gray-800 tabular-nums leading-tight mt-0.5">{fmtArea(value)}</p>
                       </div>
                     ))}
                   </div>

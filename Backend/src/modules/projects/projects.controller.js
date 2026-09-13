@@ -11,12 +11,28 @@ const STATUS_LIST = ['OPEN', 'ONGOING', 'CLOSED'];
 function withComputed(project) {
   const inv = project.inventory || [];
   const total_area = inv.reduce((sum, u) => sum + Number(u.area || 0), 0);
+
+  const areaBy = (fn) => parseFloat(inv.filter(fn).reduce((s, u) => s + Number(u.area || 0), 0).toFixed(4));
+  const st = (u) => (u.status || 'AVAILABLE').toLowerCase();
+
   const counts = { available: 0, reserved: 0, sold: 0, registered: 0 };
   for (const u of inv) {
-    const s = (u.status || 'AVAILABLE').toLowerCase();
+    const s = st(u);
     if (counts[s] !== undefined) counts[s]++;
   }
-  return { ...project, total_area: parseFloat(total_area.toFixed(4)), ...counts, unit_count: inv.length };
+
+  return {
+    ...project,
+    total_area:      parseFloat(total_area.toFixed(4)),
+    reserved_area:   areaBy(u => st(u) === 'reserved'),
+    sold_area:       areaBy(u => st(u) === 'sold'),
+    registered_area: areaBy(u => st(u) === 'registered'),
+    attorney_area:   areaBy(u => u.sales?.[0]?.attorney_completed === true),
+    full_final_area: areaBy(u => u.sales?.[0]?.full_final_completed === true),
+    balance_area:    areaBy(u => st(u) === 'available'),
+    ...counts,
+    unit_count: inv.length,
+  };
 }
 
 function sanitize(body) {

@@ -203,8 +203,9 @@ function SalesReport() {
 
       {result && (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
             <SummaryCard label="Total Sales"   value={result.summary.count} />
+            <SummaryCard label="Total Area"    value={result.summary.total_area > 0 ? fmtN(result.summary.total_area) + ' Sq Yd' : '—'} />
             <SummaryCard label="Total Value"   value={'₹ ' + fmt(result.summary.total_value)} />
             <SummaryCard label="Actual Price"  value={'₹ ' + fmt(result.summary.actual_price)} />
             <SummaryCard label="Balance Due"   value={'₹ ' + fmt(result.summary.total_balance)} />
@@ -656,8 +657,9 @@ function BrokerReport() {
 
       {result && (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4 print:hidden">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4 print:hidden">
             <SummaryCard label="Brokers"         value={result.summary.broker_count} />
+            <SummaryCard label="Total Area"      value={result.summary.total_sales_area > 0 ? fmtN(result.summary.total_sales_area) + ' Sq Yd' : '—'} />
             <SummaryCard label="Total Sales"     value={result.summary.total_sales} />
             <SummaryCard label="Total Purchases" value={result.summary.total_purchases} />
             <SummaryCard label="Total Brokerage" value={'₹ ' + fmt(result.summary.total_brokerage)} />
@@ -1040,8 +1042,9 @@ function InstalmentsReport() {
                 }
               </button>
             </div>
-            <div className="grid grid-cols-3 gap-3 mb-3 print:hidden">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3 print:hidden">
               <SummaryCard label="Sales with Pending" value={result.sale_summary.count} />
+              <SummaryCard label="Total Area"         value={result.sale_summary.total_area > 0 ? fmtN(result.sale_summary.total_area) + ' Sq Yd' : '—'} />
               <SummaryCard label="Already Received"   value={'₹ ' + fmt(result.sale_summary.total_paid)} />
               <SummaryCard label="Total Pending"      value={'₹ ' + fmt(result.sale_summary.total_pending)} />
             </div>
@@ -1353,8 +1356,9 @@ function BalanceDueReport() {
       {result && (
         <>
           {/* Summary */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 print:hidden">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 print:hidden">
             <SummaryCard label="Sales with Balance" value={result.summary.count} />
+            <SummaryCard label="Total Area"         value={result.summary.total_area > 0 ? fmtN(result.summary.total_area) + ' Sq Yd' : '—'} />
             <SummaryCard label="Total Received"     value={'₹ ' + fmt(result.summary.total_received)} />
             <SummaryCard label="Pending (Inst.)"    value={'₹ ' + fmt(result.summary.total_pending)} />
             <SummaryCard label="Total Balance Due"  value={'₹ ' + fmt(result.summary.total_balance)} />
