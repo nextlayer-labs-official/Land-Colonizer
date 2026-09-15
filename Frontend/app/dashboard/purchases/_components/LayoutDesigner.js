@@ -147,6 +147,27 @@ function RotationHandle({ id }) {
 // ── Shared input style ────────────────────────────────────────────────────────
 const inp = { width: '100%', height: 28, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 5, color: '#111827', fontSize: 12, padding: '0 7px', boxSizing: 'border-box', outline: 'none' };
 
+// Infer canvas pixel dimensions from inventory unit's actual measurements.
+// front_area is the frontage (width); depth is derived from total area ÷ frontage.
+// Area unit conversion: if area is in Sq Yds, convert to sq ft before dividing by ft frontage.
+const PX_PER_FT = 5; // canvas pixels per foot
+function inferPlotSize(unit) {
+  const fa   = Number(unit?.front_area  || 0);
+  const area = Number(unit?.area        || 0);
+  if (!fa) return { w: 100, h: 70 };
+  const w = Math.max(40, Math.round(fa * PX_PER_FT));
+  let h;
+  if (area) {
+    const au = (unit?.area_unit || '').toLowerCase();
+    const areaSqFt = (au.includes('yard') || au.includes('yd')) ? area * 9 : area;
+    const depth = areaSqFt / fa;
+    h = Math.max(30, Math.round(depth * PX_PER_FT));
+  } else {
+    h = Math.round(w * 0.7);
+  }
+  return { w, h };
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = [], canEdit = true }) {
   const canvasRef   = useRef(null);  // the container div (overflow:hidden)
@@ -519,9 +540,10 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
     const inventoryId = Number(e.dataTransfer.getData('text/plain'));
     if (!inventoryId) return;
     const pos = getPos(e), g = snapRef.current;
+    const { w, h } = inferPlotSize(unitFor(inventoryId));
     setItems(prev => [
       ...prev.filter(i => !(i.type === 'plot' && i.inventory_id === inventoryId)),
-      { id: mkId(), type: 'plot', inventory_id: inventoryId, x: snapTo(pos.x - 50, g), y: snapTo(pos.y - 35, g), w: 100, h: 70 },
+      { id: mkId(), type: 'plot', inventory_id: inventoryId, x: snapTo(pos.x - w / 2, g), y: snapTo(pos.y - h / 2, g), w, h },
     ]);
   };
 
