@@ -23,12 +23,17 @@ function Val({ children, mono }) {
     </p>
   );
 }
+function fmtReadDate(v) {
+  if (!v) return '—';
+  const p = String(v).split('-');
+  return p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : v;
+}
 function FInput({ label, value, onChange, type = 'text', placeholder, readOnly }) {
   return (
     <div>
       <Label>{label}</Label>
       {readOnly
-        ? <Val>{value}</Val>
+        ? <Val>{type === 'date' ? fmtReadDate(value) : value}</Val>
         : <input type={type} value={value ?? ''} onChange={onChange} placeholder={placeholder}
             className="w-full border border-gray-200 rounded px-3 py-1.5 text-sm text-gray-800 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30 transition placeholder:text-gray-300" />}
     </div>
@@ -1442,7 +1447,7 @@ export default function PurchaseRecordPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-gray-50/60 border-b border-gray-100">
-                      {['Unit', 'Plot No', 'Facing', 'SL No', 'Location', 'Area', 'Plot Rate', 'Status', ''].map(h => (
+                      {['Unit', 'Plot No', 'Facing', 'SL No', 'Location', 'Front Area', 'Area', 'Plot Rate', 'Status', ''].map(h => (
                         <th key={h} className="px-4 py-2 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -1464,6 +1469,11 @@ export default function PurchaseRecordPage() {
                         <td className="px-4 py-3 text-gray-500 text-xs">{inv.sl_no || '—'}</td>
                         <td className="px-4 py-3 text-gray-500 text-xs max-w-[120px]">
                           <span className="truncate block">{inv.location || '—'}</span>
+                        </td>
+                        <td className="px-4 py-3 text-gray-700 text-xs whitespace-nowrap">
+                          {inv.front_area
+                            ? `${fmtNum(inv.front_area)}${inv.front_area_details ? ` ${inv.front_area_details}` : ''}`
+                            : '—'}
                         </td>
                         <td className="px-4 py-3 text-gray-700">
                           {inv.area

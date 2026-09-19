@@ -394,8 +394,33 @@ function PartialModal({ n, label, instAmount, onClose, onSave, saving }) {
 }
 
 // ── History Off-canvas ────────────────────────────────────────────────────────
-function HistoryCanvas({ n, label, instAmount, partialData, onClose, onDelete, deleting }) {
+function HistoryCanvas({ n, label, instAmount, partialData, onClose, onDelete, onUpdate, deleting, canEdit }) {
   const { list = [], total = 0, balance = 0 } = partialData || {};
+  const [editId,   setEditId]   = useState(null);
+  const [editForm, setEditForm] = useState({});
+  const [saving,   setSaving]   = useState(false);
+
+  const startEdit = (p) => {
+    setEditId(p.id);
+    setEditForm({
+      amount:       String(p.amount),
+      date:         p.date ? p.date.split('T')[0] : '',
+      payment_mode: p.payment_mode || '',
+      details:      p.details || '',
+    });
+  };
+
+  const handleSave = async () => {
+    if (!editForm.amount || !editForm.date) return;
+    setSaving(true);
+    try {
+      await onUpdate(editId, editForm);
+      setEditId(null);
+    } finally { setSaving(false); }
+  };
+
+  const inCls = 'w-full border border-gray-200 rounded px-2 py-1 text-xs text-gray-800 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30';
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
       <div className="bg-white w-full max-w-sm h-full shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
@@ -425,17 +450,63 @@ function HistoryCanvas({ n, label, instAmount, partialData, onClose, onDelete, d
           {list.length === 0 ? (
             <p className="text-center text-sm text-gray-300 mt-10">No partial payments yet</p>
           ) : list.map((p, i) => (
-            <div key={p.id} className="flex items-start gap-3 bg-gray-50 rounded-xl p-3 border border-gray-100">
-              <div className="w-6 h-6 rounded-full bg-[#875A7B]/10 flex items-center justify-center text-[10px] font-bold text-[#875A7B] shrink-0">{i + 1}</div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-gray-800">₹{Number(p.amount).toLocaleString('en-IN')}</p>
-                <p className="text-[10px] text-gray-400">{fmtDate(p.date)}{p.payment_mode ? ` · ${p.payment_mode}` : ''}</p>
-                {p.details && <p className="text-[10px] text-gray-500 mt-0.5 truncate">{p.details}</p>}
-              </div>
-              <button onClick={() => onDelete(p.id)} disabled={deleting === p.id}
-                className="text-[10px] text-red-400 hover:text-red-600 shrink-0 px-1 py-0.5 rounded hover:bg-red-50 transition">
-                {deleting === p.id ? '…' : 'Del'}
-              </button>
+            <div key={p.id} className="bg-gray-50 rounded-xl border border-gray-100 overflow-hidden">
+              {editId === p.id ? (
+                <div className="p-3 space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <p className="text-[9px] text-gray-400 mb-1">Amount (₹)</p>
+                      <input type="number" value={editForm.amount} onChange={e => setEditForm(f => ({ ...f, amount: e.target.value }))} className={inCls} />
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-gray-400 mb-1">Date</p>
+                      <input type="date" value={editForm.date} onChange={e => setEditForm(f => ({ ...f, date: e.target.value }))} className={inCls} />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[9px] text-gray-400 mb-1">Payment Mode</p>
+                    <select value={editForm.payment_mode} onChange={e => setEditForm(f => ({ ...f, payment_mode: e.target.value }))} className={inCls}>
+                      <option value="">Select mode</option>
+                      {['Cash','Cheque','Online','NEFT','RTGS','UPI','Bank Transfer','Other'].map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <p className="text-[9px] text-gray-400 mb-1">Details</p>
+                    <input type="text" value={editForm.details} onChange={e => setEditForm(f => ({ ...f, details: e.target.value }))} placeholder="Ref, note…" className={inCls} />
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <button onClick={handleSave} disabled={saving}
+                      className="flex-1 h-7 text-xs rounded-lg text-white font-semibold transition" style={{ backgroundColor: '#875A7B' }}>
+                      {saving ? 'Saving…' : 'Save'}
+                    </button>
+                    <button onClick={() => setEditId(null)}
+                      className="flex-1 h-7 text-xs rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 transition">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start gap-3 p-3">
+                  <div className="w-6 h-6 rounded-full bg-[#875A7B]/10 flex items-center justify-center text-[10px] font-bold text-[#875A7B] shrink-0">{i + 1}</div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-gray-800">₹{Number(p.amount).toLocaleString('en-IN')}</p>
+                    <p className="text-[10px] text-gray-400">{fmtDate(p.date)}{p.payment_mode ? ` · ${p.payment_mode}` : ''}</p>
+                    {p.details && <p className="text-[10px] text-gray-500 mt-0.5 truncate">{p.details}</p>}
+                  </div>
+                  {canEdit && (
+                    <div className="flex flex-col gap-1 shrink-0">
+                      <button onClick={() => startEdit(p)}
+                        className="text-[10px] text-[#875A7B] hover:text-[#6d4a63] px-1.5 py-0.5 rounded hover:bg-[#875A7B]/10 transition">
+                        Edit
+                      </button>
+                      <button onClick={() => onDelete(p.id)} disabled={deleting === p.id}
+                        className="text-[10px] text-red-400 hover:text-red-600 px-1.5 py-0.5 rounded hover:bg-red-50 transition">
+                        {deleting === p.id ? '…' : 'Del'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -524,6 +595,15 @@ function InstallmentPanel({ saleId, canEdit, onTotalPaidChange }) {
       load();
     } catch { /* ignore */ }
     finally { setDeleting(null); }
+  };
+
+  const handleUpdatePartial = async (partialId, data) => {
+    const n = historyCanvas.n;
+    try {
+      const d = await apiPatch(`/sales/${saleId}/installments/${n}/partial/${partialId}`, data);
+      setPartials(prev => ({ ...prev, [n]: { list: d.partials, total: d.total, balance: d.balance } }));
+      load();
+    } catch { /* ignore */ }
   };
 
   const remaining  = netAmt - totalPaid;
@@ -653,8 +733,10 @@ function InstallmentPanel({ saleId, canEdit, onTotalPaidChange }) {
           instAmount={form[`inst_${historyCanvas.n}_amount`]}
           partialData={partials[historyCanvas.n]}
           deleting={deleting}
+          canEdit={canEdit}
           onClose={() => setHistoryCanvas(null)}
           onDelete={handleDeletePartial}
+          onUpdate={handleUpdatePartial}
         />
       )}
 
@@ -2495,12 +2577,10 @@ export default function SaleDetailPage() {
               />
             )}
 
-            {/* Tab: Installments */}
-            {tab === 'installments' && (
-              <div className="p-5">
-                <InstallmentPanel saleId={params.id} canEdit={canEditInstallment} onTotalPaidChange={setTotalInstPaid} />
-              </div>
-            )}
+            {/* Tab: Installments — always mounted so total_paid updates on page load */}
+            <div className={tab === 'installments' ? 'p-5' : 'hidden'}>
+              <InstallmentPanel saleId={params.id} canEdit={canEditInstallment} onTotalPaidChange={setTotalInstPaid} />
+            </div>
 
             {/* Tab: Financials */}
             {tab === 'financials' && (

@@ -58,6 +58,37 @@ async function getPartials(req, res) {
   res.json({ partials, total, balance: Math.max(0, instAmt - total) });
 }
 
+async function updatePartial(req, res) {
+  const sale_id = Number(req.params.sale_id);
+  const n = Number(req.params.n);
+  const id = Number(req.params.id);
+  const { amount, date, payment_mode, details } = req.body;
+
+  if (!amount || !date) return res.status(400).json({ error: 'amount and date are required' });
+
+  await prisma.installmentPartial.update({
+    where: { id },
+    data: {
+      amount: parseFloat(amount),
+      date: new Date(date),
+      payment_mode: payment_mode || null,
+      details: details || null,
+    },
+  });
+
+  const sale = await prisma.sale.findUnique({ where: { id: sale_id }, select: { sale_code: true } });
+  auditLog({
+    req,
+    action: 'UPDATE',
+    entity: 'installment_partial',
+    entityId: id,
+    entityCode: `${sale?.sale_code || sale_id}#inst${n}`,
+  });
+
+  const result = await recomputePaid(sale_id, n);
+  res.json(result);
+}
+
 async function deletePartial(req, res) {
   const sale_id = Number(req.params.sale_id);
   const n = Number(req.params.n);
@@ -78,4 +109,4 @@ async function deletePartial(req, res) {
   res.json(result);
 }
 
-module.exports = { addPartial, getPartials, deletePartial };
+module.exports = { addPartial, getPartials, updatePartial, deletePartial };

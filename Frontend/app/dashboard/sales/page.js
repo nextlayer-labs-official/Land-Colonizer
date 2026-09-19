@@ -29,18 +29,25 @@ async function dlXlsx(rows, sheet, name) {
 import NProgress from 'nprogress';
 import Pagination from '@/components/Pagination';
 
-function effBalance(r) {
-  const actual  = Number(r.actual_price    || 0);
-  const advance = Number(r.advance_payment || 0);
-  const bk      = Number(r.booking_amount  || 0);
-  let instPaid  = 0;
+function instPaidAmt(r) {
+  let total = 0;
   if (r.installment) {
     for (let n = 1; n <= 24; n++) {
-      if (r.installment[`inst_${n}_paid`]) instPaid += Number(r.installment[`inst_${n}_amount`] || 0);
+      if (r.installment[`inst_${n}_paid`]) total += Number(r.installment[`inst_${n}_amount`] || 0);
     }
   }
-  const bal = actual - advance - (r.booking_in_received !== false ? bk : 0);
-  return Math.max(0, bal - instPaid);
+  return total;
+}
+
+function effReceived(r) {
+  const advance = Number(r.advance_payment || 0);
+  const bk      = Number(r.booking_amount  || 0);
+  return (r.booking_in_received !== false ? bk : 0) + advance + instPaidAmt(r);
+}
+
+function effBalance(r) {
+  const actual = Number(r.actual_price || 0);
+  return Math.max(0, actual - effReceived(r));
 }
 
 function ConfirmModal({ title, message, confirmLabel, confirmClass, item, onClose, onConfirm, busy }) {
@@ -129,7 +136,7 @@ export default function SalesPage() {
     const data  = await apiGet(`/sales?${q}`);
     const items = data.sales || [];
     const date  = new Date().toISOString().slice(0, 10);
-    const HEADERS = ['Sale Code','Type','Inventory','Project','Customer','Phone','Broker','Actual Price','Booking','Balance','Possession','Status','Sale Date'];
+    const HEADERS = ['Sale Code','Type','Inventory','Project','Customer','Phone','Broker','Actual Price','Received','Balance','Possession','Status','Sale Date'];
     const toRow   = r => [
       r.sale_code || `SAL-${String(r.id).padStart(4,'0')}`,
       TYPE_LABEL[r.type] || r.type || '',
@@ -139,7 +146,7 @@ export default function SalesPage() {
       r.customer?.phone || '',
       r.broker?.name || r.broker_name || '',
       r.actual_price || 0,
-      r.booking_amount || 0,
+      effReceived(r),
       effBalance(r),
       POSS_LABEL[r.possession] || r.possession || '',
       r.status || '',
@@ -277,7 +284,7 @@ export default function SalesPage() {
         <table className="w-full text-sm border-collapse">
           <thead className="sticky top-0 z-10 bg-white">
             <tr className="border-b border-gray-200 bg-white">
-              {['Sale Code', 'Inventory', 'Project', 'Customer', 'Broker', 'Actual Price', 'Balance', 'Possession', 'Status', 'Date', ''].map(h => (
+              {['Sale Code', 'Inventory', 'Project', 'Customer', 'Broker', 'Actual Price', 'Received', 'Balance', 'Possession', 'Status', 'Date', ''].map(h => (
                 <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
               ))}
             </tr>
@@ -293,7 +300,7 @@ export default function SalesPage() {
               ))
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={11} className="px-4 py-20 text-center">
+                <td colSpan={12} className="px-4 py-20 text-center">
                   <div className="flex flex-col items-center gap-3 text-gray-400">
                     <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" /></svg>
                     <p className="text-sm font-medium text-gray-500">{showArchived ? 'No archived sales' : 'No sales found'}</p>
@@ -327,7 +334,8 @@ export default function SalesPage() {
                 </td>
                 <td className="px-3 py-2.5 text-gray-600">{row.broker?.name || row.broker_name || '—'}</td>
                 <td className="px-3 py-2.5 font-semibold text-gray-900">{fmtINR(row.actual_price || 0)}</td>
-                <td className="px-3 py-2.5 text-gray-700">{fmtINR(Math.max(0, effBalance(row)))}</td>
+                <td className="px-3 py-2.5 text-emerald-700 font-medium">{fmtINR(effReceived(row))}</td>
+                <td className="px-3 py-2.5 text-gray-700">{fmtINR(effBalance(row))}</td>
                 <td className="px-3 py-2.5">
                   <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ring-1 ${POSS_COLOR[row.possession] || 'bg-gray-50 text-gray-500 ring-gray-200'}`}>
                     {POSS_LABEL[row.possession] || row.possession || '—'}
