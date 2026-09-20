@@ -13,6 +13,15 @@ const SC = {
 };
 const DC = { bg: '#f9fafb', bg2: '#f3f4f6', bd: '#9ca3af', tx: '#6b7280', lb: '—' };
 
+function mkPalette(hex, label) {
+  const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+  const mix = (c, a) => Math.round(c * a + 255 * (1 - a)).toString(16).padStart(2, '0');
+  const bg  = `#${mix(r, 0.15)}${mix(g, 0.15)}${mix(b, 0.15)}`;
+  const bg2 = `#${mix(r, 0.28)}${mix(g, 0.28)}${mix(b, 0.28)}`;
+  const tx  = `#${Math.round(r * 0.45).toString(16).padStart(2, '0')}${Math.round(g * 0.45).toString(16).padStart(2, '0')}${Math.round(b * 0.45).toString(16).padStart(2, '0')}`;
+  return { bg, bg2, bd: hex, tx, lb: label };
+}
+
 const snapTo   = (v, g) => Math.round(v / g) * g;
 const mkId       = () => Math.random().toString(36).slice(2, 9);
 const mkLayId    = () => `lay_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
@@ -50,14 +59,14 @@ function DimV({ x, y1, y2, label, anchor = 'end' }) {
 }
 
 // ── Plot content ──────────────────────────────────────────────────────────────
-function PlotContent({ item, unit, isSel, hideFlags = {}, viewMode = 'status', isHighlighted = false }) {
+function PlotContent({ item, unit, isSel, hideFlags = {}, viewMode = 'status', isHighlighted = false, palette = SC, highlightColor = '#f59e0b' }) {
   let c;
   if (viewMode === 'sold') {
-    if (unit?.status === 'AVAILABLE') c = SC.AVAILABLE;
-    else if (unit?.status === 'RESERVED') c = SC.RESERVED;
-    else c = SC.SOLD;
+    if (unit?.status === 'AVAILABLE') c = palette.AVAILABLE;
+    else if (unit?.status === 'RESERVED') c = palette.RESERVED;
+    else c = palette.SOLD;
   } else {
-    c = SC[unit?.status] || DC;
+    c = palette[unit?.status] || DC;
   }
   const W   = item.w, H = item.h;
   const gid = `pg-${item.id}`;
@@ -67,12 +76,14 @@ function PlotContent({ item, unit, isSel, hideFlags = {}, viewMode = 'status', i
   const dimUnit  = unit?.front_area_details || '';
   const frontDim = unit?.front_area ? `${unit.front_area}${dimUnit}` : null;
   const backDim  = unit?.back_area  ? `${unit.back_area}${dimUnit}`  : null;
-  const cx = W / 2, inner_y1 = DIM_INSET + 4, inner_y2 = H - DIM_INSET - 4, innerH = inner_y2 - inner_y1;
+  const cx = W / 2;
+  const inset = Math.min(DIM_INSET, Math.floor(H * 0.15));
+  const inner_y1 = inset + 4, inner_y2 = Math.max(inner_y1 + 20, H - inset - 4), innerH = inner_y2 - inner_y1;
   const noStr = String(no);
-  const ovalRx = Math.min(Math.max(12, noStr.length * 4.5 + 4), W / 2 - 8);
-  const ovalRy = Math.min(10, innerH * 0.28);
-  const ovalCy = inner_y1 + ovalRy + 2, areaY1 = ovalCy + ovalRy + 6;
-  const fontSize = Math.min(11, (inner_y2 - areaY1) * 0.55), smallFont = Math.min(8, (inner_y2 - areaY1) * 0.35);
+  const ovalRx = Math.min(Math.max(10, noStr.length * 4 + 4), W / 2 - 6);
+  const ovalRy = Math.min(10, Math.max(6, innerH * 0.22));
+  const ovalCy = inner_y1 + ovalRy + 2, areaY1 = ovalCy + ovalRy + 5;
+  const fontSize = Math.min(11, Math.max(6, (inner_y2 - areaY1) * 0.55)), smallFont = Math.min(8, Math.max(5, (inner_y2 - areaY1) * 0.35));
   return (
     <>
       <defs>
@@ -80,8 +91,7 @@ function PlotContent({ item, unit, isSel, hideFlags = {}, viewMode = 'status', i
           <stop offset="0%" stopColor={c.bg2}/><stop offset="100%" stopColor={c.bg}/>
         </linearGradient>
       </defs>
-      {isHighlighted && <rect x={-5} y={-5} width={W + 10} height={H + 10} fill="none" stroke="#f59e0b" strokeWidth="3" strokeDasharray="6 3" rx="6"/>}
-      {isSel && <rect x={-3} y={-3} width={W + 6} height={H + 6} fill="none" stroke={PRI} strokeWidth="2" strokeDasharray="5 2.5" rx="5"/>}
+      {isHighlighted && <rect x={-5} y={-5} width={W + 10} height={H + 10} fill="none" stroke={highlightColor} strokeWidth="3" strokeDasharray="6 3" rx="6"/>}
       <rect x={0} y={0} width={W} height={H} fill={`url(#${gid})`} stroke={isSel ? PRI : c.bd} strokeWidth={isSel ? 2.5 : 1.8} rx="3"/>
       {!hideFlags.plotNo && (
         <>
@@ -151,19 +161,31 @@ const inp = { width: '100%', height: 28, background: '#fff', border: '1px solid 
 // front_area is the frontage (width); depth is derived from total area ÷ frontage.
 // Area unit conversion: if area is in Sq Yds, convert to sq ft before dividing by ft frontage.
 const PX_PER_FT = 5; // canvas pixels per foot
+const MIN_W = 60, MIN_H = 60, MAX_W = 600, MAX_H = 800;
+
+function toSqFt(area, unitStr) {
+  const u = (unitStr || '').toLowerCase().trim();
+  if (u === 'gaj' || u.includes('yard') || u.includes('yd') || u === 'sq yd' || u === 'sq.yd' || u === 'sq.yds' || u === 'sq.yds.')
+    return area * 9;            // 1 gaj / sq yd = 9 sq ft
+  if (u === 'marla') return area * 272.25;   // 1 marla = 272.25 sq ft
+  if (u === 'kanal') return area * 5445;     // 1 kanal = 20 marla
+  if (u === 'bigha') return area * 27000;    // 1 bigha ≈ 27000 sq ft (North India)
+  if (u === 'acres' || u === 'acre') return area * 43560;
+  return area; // assume sq ft
+}
+
 function inferPlotSize(unit) {
-  const fa   = Number(unit?.front_area  || 0);
-  const area = Number(unit?.area        || 0);
+  const fa   = Number(unit?.front_area || 0);
+  const area = Number(unit?.area       || 0);
   if (!fa) return { w: 100, h: 70 };
-  const w = Math.max(40, Math.round(fa * PX_PER_FT));
+  const w = Math.min(MAX_W, Math.max(MIN_W, Math.round(fa * PX_PER_FT)));
   let h;
   if (area) {
-    const au = (unit?.area_unit || '').toLowerCase();
-    const areaSqFt = (au.includes('yard') || au.includes('yd')) ? area * 9 : area;
+    const areaSqFt = toSqFt(area, unit?.area_unit);
     const depth = areaSqFt / fa;
-    h = Math.max(30, Math.round(depth * PX_PER_FT));
+    h = Math.min(MAX_H, Math.max(MIN_H, Math.round(depth * PX_PER_FT)));
   } else {
-    h = Math.round(w * 0.7);
+    h = Math.min(MAX_H, Math.max(MIN_H, Math.round(w * 1.5)));
   }
   return { w, h };
 }
@@ -178,7 +200,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   const toolRef     = useRef('select');
   const selRef      = useRef(null);
   const itemsRef    = useRef([]);
-  const zoomRef     = useRef(0.5);
+  const zoomRef     = useRef(0.85);
   const panRef      = useRef({ x: 40, y: 40 });
   const spaceRef    = useRef(false);
 
@@ -198,7 +220,8 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   const [editLabel,   setEditLabel]   = useState(null);
   const [startPin,    setStartPin]    = useState(null);
   const [endPin,      setEndPin]      = useState(null);
-  const [zoom,        setZoom]        = useState(0.5);
+  const [zoom,        setZoom]        = useState(0.85);
+  const [zoomInput,   setZoomInput]   = useState('85');
   const [pan,         setPan]         = useState({ x: 40, y: 40 });
   const [spaceDown,   setSpaceDown]   = useState(false);
 
@@ -227,6 +250,14 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   const [rightTab,            setRightTab]            = useState('controls');
   // Project picker
   const [showProjectModal,    setShowProjectModal]    = useState(false);
+  // Customisable status colours & search highlight
+  const [statusColors, setStatusColors] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('ams-layout-sc') || 'null') || {}; } catch { return {}; }
+  });
+  const [searchColor, setSearchColor] = useState(() => {
+    try { return localStorage.getItem('ams-layout-search-color') || '#f59e0b'; } catch { return '#f59e0b'; }
+  });
+  const colorPickerRefs = useRef({});
   const [allProjects,         setAllProjects]         = useState([]);
   const [allProjectsLoading,  setAllProjectsLoading]  = useState(false);
   const [projectSearch,       setProjectSearch]       = useState('');
@@ -247,9 +278,36 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   useEffect(() => { layoutsRef.current        = layouts;        }, [layouts]);
   useEffect(() => { layoutProjectsRef.current = layoutProjects; }, [layoutProjects]);
 
+  // Load saved colours from backend on mount
+  useEffect(() => {
+    apiGet('/settings').then(s => {
+      if (!s?.layout_colors) return;
+      try {
+        const saved = JSON.parse(s.layout_colors);
+        if (saved.status) setStatusColors(saved.status);
+        if (saved.search) setSearchColor(saved.search);
+        try {
+          if (saved.status) localStorage.setItem('ams-layout-sc', JSON.stringify(saved.status));
+          if (saved.search) localStorage.setItem('ams-layout-search-color', saved.search);
+        } catch {}
+      } catch {}
+    }).catch(() => {});
+  }, []);
+
+  // Save colours to backend whenever they change (debounced 600ms)
+  const colorSaveTimer = useRef(null);
+  useEffect(() => {
+    clearTimeout(colorSaveTimer.current);
+    colorSaveTimer.current = setTimeout(() => {
+      apiPut('/settings/layout-colors', { layout_colors: { status: statusColors, search: searchColor } }).catch(() => {});
+    }, 600);
+    return () => clearTimeout(colorSaveTimer.current);
+  }, [statusColors, searchColor]);
+
   const applyZoom = useCallback((newZ, newPx, newPy) => {
     zoomRef.current = newZ; panRef.current = { x: newPx, y: newPy };
     setZoom(newZ); setPan({ x: newPx, y: newPy });
+    setZoomInput(String(Math.round(newZ * 100)));
   }, []);
 
   const applyPan = useCallback((x, y) => {
@@ -338,14 +396,13 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
     }).catch(() => { initMultiLayouts(null, null); }).finally(() => setLoading(false));
   }, [purchaseId]);
 
-  // Fit to screen on first load after loading
+  // On first load: start at 85% zoom, centered
   useEffect(() => {
     if (loading) return;
     const el = canvasRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    const zX = rect.width / canvasW, zY = rect.height / canvasH;
-    const z = Math.min(zX, zY) * 0.88;
+    const z = 0.85;
     const px = (rect.width  - canvasW * z) / 2;
     const py = (rect.height - canvasH * z) / 2;
     applyZoom(z, px, py);
@@ -380,13 +437,22 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
       if (e.code === 'Space' && document.activeElement?.tagName !== 'INPUT') {
         e.preventDefault(); spaceRef.current = true; setSpaceDown(true);
       }
-      if (document.activeElement?.tagName === 'INPUT') return;
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
       if ((e.key === 'Delete' || e.key === 'Backspace') && selRef.current) {
         if (layout?.locked || !canEdit) return;
         setItems(prev => prev.filter(i => i.id !== selRef.current));
         setSelected(null);
       }
       if (e.key === 'Escape') { setSelected(null); setEditLabel(null); }
+      // Arrow keys: move selected item by snap grid (Shift = 5× step)
+      if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key) && selRef.current) {
+        if (layout?.locked || !canEdit) return;
+        e.preventDefault();
+        const step = e.shiftKey ? snapRef.current : 1;
+        const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+        const dy = e.key === 'ArrowUp'   ? -step : e.key === 'ArrowDown'  ? step : 0;
+        setItems(prev => prev.map(i => i.id === selRef.current ? { ...i, x: i.x + dx, y: i.y + dy } : i));
+      }
     };
     const up = (e) => { if (e.code === 'Space') { spaceRef.current = false; setSpaceDown(false); } };
     window.addEventListener('keydown', down);
@@ -835,6 +901,12 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
 
   const Sep = () => <div style={{ width: 1, height: 24, background: '#e5e7eb', margin: '0 4px' }}/>;
 
+  const effectiveSC = {};
+  for (const [key, def] of Object.entries(SC)) {
+    const hex = statusColors[key];
+    effectiveSC[key] = hex ? mkPalette(hex, def.lb) : def;
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#f4f5f7', color: '#111827', fontFamily: 'system-ui,-apple-system,sans-serif', overflow: 'hidden' }}>
 
@@ -903,9 +975,31 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
         <div style={{ flex: 1 }}/>
 
         {/* Zoom */}
-        <button onClick={() => stepZoom(-1)} style={{ height: 28, width: 28, border: '1px solid #e5e7eb', borderRadius: 5, background: '#f9fafb', color: '#6b7280', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>−</button>
-        <button onClick={fitScreen} style={{ height: 28, padding: '0 8px', border: '1px solid #e5e7eb', borderRadius: 5, background: '#f9fafb', color: '#6b7280', cursor: 'pointer', fontSize: 11, minWidth: 48, textAlign: 'center', flexShrink: 0 }}>{Math.round(zoom * 100)}%</button>
-        <button onClick={() => stepZoom(1)} style={{ height: 28, width: 28, border: '1px solid #e5e7eb', borderRadius: 5, background: '#f9fafb', color: '#6b7280', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>+</button>
+        <button onClick={() => stepZoom(-1)} style={{ height: 28, width: 28, border: '1px solid #e5e7eb', borderRadius: 5, background: '#f9fafb', color: '#374151', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>−</button>
+        <div style={{ display: 'flex', alignItems: 'center', height: 28, border: '1px solid #e5e7eb', borderRadius: 5, background: '#fff', overflow: 'hidden', flexShrink: 0 }}>
+          <input
+            type="number"
+            value={zoomInput}
+            onChange={e => setZoomInput(e.target.value)}
+            onBlur={() => {
+              const v = parseInt(zoomInput, 10);
+              if (!isNaN(v) && v >= 5 && v <= 2000) {
+                const el = canvasRef.current; if (!el) return;
+                const rect = el.getBoundingClientRect();
+                const cx = rect.width / 2, cy = rect.height / 2;
+                const newZ = clampZoom(v / 100);
+                const ratio = newZ / zoomRef.current;
+                applyZoom(newZ, cx - ratio * (cx - panRef.current.x), cy - ratio * (cy - panRef.current.y));
+              } else {
+                setZoomInput(String(Math.round(zoomRef.current * 100)));
+              }
+            }}
+            onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
+            style={{ width: 44, height: '100%', border: 'none', outline: 'none', fontSize: 11, textAlign: 'center', color: '#374151', background: 'transparent', fontWeight: 600, MozAppearance: 'textfield' }}
+          />
+          <span style={{ fontSize: 11, color: '#9ca3af', paddingRight: 6, lineHeight: 1 }}>%</span>
+        </div>
+        <button onClick={() => stepZoom(1)} style={{ height: 28, width: 28, border: '1px solid #e5e7eb', borderRadius: 5, background: '#f9fafb', color: '#374151', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>+</button>
 
         <Sep/>
 
@@ -1073,7 +1167,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                             )}
                             {proj.inventory.map(unit => {
                               const isPlaced = placedIds.has(unit.id);
-                              const sc = SC[unit.status] || DC;
+                              const sc = effectiveSC[unit.status] || DC;
                               return (
                                 <div key={unit.id}
                                   draggable={!isPlaced && canEdit && !locked}
@@ -1139,7 +1233,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                   <div key={item.id} data-item={item.id}
                     style={{ ...basePos, touchAction: 'none', cursor: !locked && canEdit && !item.item_locked ? 'move' : 'default' }}>
                     <svg width={item.w} height={item.h} style={{ overflow: 'visible', display: 'block' }}>
-                      <PlotContent item={item} unit={unit} isSel={isSel} hideFlags={hideFlags} viewMode={viewMode} isHighlighted={isHighlighted}/>
+                      <PlotContent item={item} unit={unit} isSel={isSel} hideFlags={hideFlags} viewMode={viewMode} isHighlighted={isHighlighted} palette={effectiveSC} highlightColor={searchColor}/>
                     </svg>
                     {item.id === startPin && <div style={{ position: 'absolute', top: 2, left: 2, background: '#059669', color: 'white', fontSize: 7, fontWeight: 900, padding: '1px 4px', borderRadius: 3, pointerEvents: 'none', lineHeight: 1.4 }}>START</div>}
                     {item.id === endPin   && <div style={{ position: 'absolute', top: 2, right: 2, background: '#ea580c', color: 'white', fontSize: 7, fontWeight: 900, padding: '1px 4px', borderRadius: 3, pointerEvents: 'none', lineHeight: 1.4 }}>END</div>}
@@ -1536,7 +1630,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                   {[...items].reverse().map((item) => {
                     const isSel = selected === item.id;
                     const unit  = item.type === 'plot' ? unitFor(item.inventory_id) : null;
-                    const sc    = unit ? (SC[unit.status] || DC) : DC;
+                    const sc    = unit ? (effectiveSC[unit.status] || DC) : DC;
                     const name  = item.type === 'plot'   ? (unit ? (unit.plot_no || unit.sl_no || `#${unit.id}`) : `Plot`)
                                 : item.type === 'road'   ? (item.label || 'Road')
                                 : item.type === 'open'   ? (item.label || 'Garden')
@@ -1622,12 +1716,31 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
           <span style={{ color: '#b45309' }}>🔒 {items.filter(i => i.type === 'plot' && i.item_locked).length} locked</span>
         )}
         <div style={{ width: 1, height: 12, background: '#e5e7eb', flexShrink: 0 }}/>
-        {Object.values(SC).map(c => (
-          <div key={c.lb} style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-            <span style={{ width: 8, height: 8, borderRadius: 2, background: c.bd, flexShrink: 0 }}/>
+        {Object.entries(effectiveSC).map(([key, c]) => (
+          <label key={key} title={`Click to change ${c.lb} color`}
+            style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, cursor: 'pointer', userSelect: 'none' }}>
+            <span style={{ width: 8, height: 8, borderRadius: 2, background: c.bd, border: '1px solid rgba(0,0,0,0.1)', flexShrink: 0 }}/>
             <span style={{ color: '#6b7280' }}>{c.lb}</span>
-          </div>
+            <input type="color" value={statusColors[key] || SC[key].bd}
+              onChange={e => {
+                const nc = { ...statusColors, [key]: e.target.value };
+                setStatusColors(nc);
+                try { localStorage.setItem('ams-layout-sc', JSON.stringify(nc)); } catch {}
+              }}
+              style={{ width: 0, height: 0, opacity: 0, border: 0, padding: 0, overflow: 'hidden', display: 'block' }}/>
+          </label>
         ))}
+        <label title="Click to change search highlight color"
+          style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, cursor: 'pointer', userSelect: 'none' }}>
+          <span style={{ width: 8, height: 8, borderRadius: 2, border: `2px dashed ${searchColor}`, background: 'transparent', flexShrink: 0 }}/>
+          <span style={{ color: '#6b7280' }}>Search</span>
+          <input type="color" value={searchColor}
+            onChange={e => {
+              setSearchColor(e.target.value);
+              try { localStorage.setItem('ams-layout-search-color', e.target.value); } catch {}
+            }}
+            style={{ width: 0, height: 0, opacity: 0, border: 0, padding: 0, overflow: 'hidden', display: 'block' }}/>
+        </label>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
           <span style={{ width: 8, height: 8, borderRadius: 2, background: '#0369a1', flexShrink: 0 }}/>
           <span style={{ color: '#6b7280' }}>Road</span>

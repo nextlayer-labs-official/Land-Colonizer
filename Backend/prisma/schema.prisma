@@ -116,6 +116,7 @@ model CompanySettings {
   sale_prefix          String   @default("SAL")
   customer_prefix      String   @default("CUS")
   broker_prefix        String   @default("BRK")
+  layout_colors        String?  @db.Text
   created_at           DateTime @default(now())
   updated_at           DateTime @updatedAt
 }
