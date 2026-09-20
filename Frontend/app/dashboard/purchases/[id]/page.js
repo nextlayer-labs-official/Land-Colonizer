@@ -59,7 +59,7 @@ function FTextarea({ label, value, onChange, placeholder, rows = 2, readOnly }) 
       {readOnly
         ? <p className="text-sm text-gray-800 font-medium whitespace-pre-wrap min-h-[1.5rem]">{(value && value !== 'null') ? value : <span className="text-gray-300">—</span>}</p>
         : <textarea value={value ?? ''} onChange={onChange} placeholder={placeholder} rows={rows}
-            className="w-full border border-gray-200 rounded px-3 py-1.5 text-sm text-gray-800 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30 transition resize-none placeholder:text-gray-300" />}
+            className="w-full border border-gray-200 rounded px-3 py-1.5 text-sm text-gray-800 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30 transition resize-y placeholder:text-gray-300" />}
     </div>
   );
 }
@@ -1289,6 +1289,7 @@ export default function PurchaseRecordPage() {
             </Card>
 
             {/* ── Row 2: Seller & Broker | Additional Costs | Registration ── */}
+            <div className="lg:col-span-3 grid grid-cols-1 lg:grid-cols-[1fr_2fr_1fr] gap-4 items-start">
 
             {/* Seller & Broker */}
             <Card title="Seller &amp; Broker">
@@ -1329,13 +1330,13 @@ export default function PurchaseRecordPage() {
             <Card title="Additional Costs">
               <div className="grid grid-cols-2 gap-x-5 gap-y-4">
                 <FInput label="Brokerage (₹)" value={form.brokerage} onChange={set('brokerage')} type="number" placeholder="0" readOnly={!editing} />
-                <FTextarea label="Brokerage Details" value={form.brokerage_details} onChange={set('brokerage_details')} placeholder="Notes" rows={2} readOnly={!editing} />
+                <FTextarea label="Brokerage Details" value={form.brokerage_details} onChange={set('brokerage_details')} placeholder="Notes" rows={4} readOnly={!editing} />
                 <FInput label="Extra Expenses (₹)" value={form.extra_expenses} onChange={set('extra_expenses')} type="number" placeholder="0" readOnly={!editing} />
-                <FTextarea label="Extra Expenses Details" value={form.extra_expenses_details} onChange={set('extra_expenses_details')} placeholder="Notes" rows={2} readOnly={!editing} />
+                <FTextarea label="Extra Expenses Details" value={form.extra_expenses_details} onChange={set('extra_expenses_details')} placeholder="Notes" rows={4} readOnly={!editing} />
                 <FInput label="Reg. Charges (₹)" value={form.registration_charges} onChange={set('registration_charges')} type="number" placeholder="0" readOnly={!editing} />
-                <FTextarea label="Reg. Charges Details" value={form.registration_charges_details} onChange={set('registration_charges_details')} placeholder="Notes" rows={2} readOnly={!editing} />
+                <FTextarea label="Reg. Charges Details" value={form.registration_charges_details} onChange={set('registration_charges_details')} placeholder="Notes" rows={4} readOnly={!editing} />
                 <FInput label="Extra Income (₹)" value={form.extra_income} onChange={set('extra_income')} type="number" placeholder="0" readOnly={!editing} />
-                <FTextarea label="Extra Income Details" value={form.extra_income_details} onChange={set('extra_income_details')} placeholder="Notes" rows={2} readOnly={!editing} />
+                <FTextarea label="Extra Income Details" value={form.extra_income_details} onChange={set('extra_income_details')} placeholder="Notes" rows={4} readOnly={!editing} />
               </div>
               <div className="mt-4 rounded-lg border border-amber-100 bg-amber-50/60 px-4 py-3 flex items-center justify-between">
                 <div>
@@ -1396,6 +1397,8 @@ export default function PurchaseRecordPage() {
                 <FTextarea label="Other Details" value={form.other_details} onChange={set('other_details')} placeholder="Any additional notes..." rows={4} readOnly={!editing} />
               </Card>
             </div>
+
+            </div>{/* end row-2 sub-grid */}
 
             {/* ── Row 3: Installment Schedule (full width, conditional) ── */}
             {form.remaining_paid && (
