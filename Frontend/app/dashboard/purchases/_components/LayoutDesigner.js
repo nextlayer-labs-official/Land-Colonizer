@@ -13,6 +13,14 @@ const SC = {
 };
 const DC = { bg: '#f9fafb', bg2: '#f3f4f6', bd: '#9ca3af', tx: '#6b7280', lb: '—' };
 
+function fmtFt(val) {
+  if (val == null || val === '') return null;
+  const str = String(val);
+  const dot = str.indexOf('.');
+  if (dot === -1) return `${str}'`;
+  return `${str.slice(0, dot)}'-${str.slice(dot + 1)}"`;
+}
+
 function mkPalette(hex, label) {
   const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
   const mix = (c, a) => Math.round(c * a + 255 * (1 - a)).toString(16).padStart(2, '0');
@@ -73,9 +81,8 @@ function PlotContent({ item, unit, isSel, hideFlags = {}, viewMode = 'status', i
   const no  = unit ? (unit.plot_no || unit.sl_no || `#${unit.id}`) : '?';
   let areaNum = '', areaUnit = '';
   if (unit?.area) { areaNum = Number(unit.area).toFixed(2); areaUnit = unit.area_unit || 'Sq.Yds.'; }
-  const dimUnit  = unit?.front_area_details || '';
-  const frontDim = unit?.front_area ? `${unit.front_area}${dimUnit}` : null;
-  const backDim  = unit?.back_area  ? `${unit.back_area}${dimUnit}`  : null;
+  const frontDim = fmtFt(unit?.front_area);
+  const backDim  = fmtFt(unit?.back_area);
   const cx = W / 2;
   const inset = Math.min(DIM_INSET, Math.floor(H * 0.15));
   const inner_y1 = inset + 4, inner_y2 = Math.max(inner_y1 + 20, H - inset - 4), innerH = inner_y2 - inner_y1;
@@ -257,7 +264,14 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   const [searchColor, setSearchColor] = useState(() => {
     try { return localStorage.getItem('ams-layout-search-color') || '#f59e0b'; } catch { return '#f59e0b'; }
   });
+  const [elementColors, setElementColors] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('ams-layout-ec') || 'null') || {}; } catch { return {}; }
+  });
   const colorPickerRefs = useRef({});
+  // Canvas filters
+  const [filterProject,   setFilterProject]   = useState('ALL');
+  const [filterStatus,    setFilterStatus]    = useState('ALL');
+  const [filterSubStatus, setFilterSubStatus] = useState('ALL');
   const [allProjects,         setAllProjects]         = useState([]);
   const [allProjectsLoading,  setAllProjectsLoading]  = useState(false);
   const [projectSearch,       setProjectSearch]       = useState('');
@@ -284,11 +298,13 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
       if (!s?.layout_colors) return;
       try {
         const saved = JSON.parse(s.layout_colors);
-        if (saved.status) setStatusColors(saved.status);
-        if (saved.search) setSearchColor(saved.search);
+        if (saved.status)   setStatusColors(saved.status);
+        if (saved.search)   setSearchColor(saved.search);
+        if (saved.elements) setElementColors(saved.elements);
         try {
-          if (saved.status) localStorage.setItem('ams-layout-sc', JSON.stringify(saved.status));
-          if (saved.search) localStorage.setItem('ams-layout-search-color', saved.search);
+          if (saved.status)   localStorage.setItem('ams-layout-sc', JSON.stringify(saved.status));
+          if (saved.search)   localStorage.setItem('ams-layout-search-color', saved.search);
+          if (saved.elements) localStorage.setItem('ams-layout-ec', JSON.stringify(saved.elements));
         } catch {}
       } catch {}
     }).catch(() => {});
@@ -299,10 +315,10 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   useEffect(() => {
     clearTimeout(colorSaveTimer.current);
     colorSaveTimer.current = setTimeout(() => {
-      apiPut('/settings/layout-colors', { layout_colors: { status: statusColors, search: searchColor } }).catch(() => {});
+      apiPut('/settings/layout-colors', { layout_colors: { status: statusColors, search: searchColor, elements: elementColors } }).catch(() => {});
     }, 600);
     return () => clearTimeout(colorSaveTimer.current);
-  }, [statusColors, searchColor]);
+  }, [statusColors, searchColor, elementColors]);
 
   const applyZoom = useCallback((newZ, newPx, newPy) => {
     zoomRef.current = newZ; panRef.current = { x: newPx, y: newPy };
@@ -907,6 +923,21 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
     effectiveSC[key] = hex ? mkPalette(hex, def.lb) : def;
   }
 
+  const EC_DEFAULTS = { road: '#38bdf8', garden: '#4ade80', dotted: '#6b7280', text: '#111827' };
+  const ec = {
+    road:   mkPalette(elementColors.road   || EC_DEFAULTS.road,   'Road'),
+    garden: mkPalette(elementColors.garden || EC_DEFAULTS.garden, 'Garden'),
+    dotted: elementColors.dotted || EC_DEFAULTS.dotted,
+    text:   elementColors.text   || EC_DEFAULTS.text,
+  };
+
+  const unitProjectMap = {};
+  (currentLayoutId ? (layoutProjects[currentLayoutId] || []) : []).forEach(proj => {
+    proj.inventory.forEach(u => { unitProjectMap[u.id] = proj.id; });
+  });
+  const SOLD_STATUSES = ['SOLD', 'REGISTERED', 'ATTORNEY', 'FULL_FINAL'];
+  const filterActive = filterProject !== 'ALL' || filterStatus !== 'ALL';
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#f4f5f7', color: '#111827', fontFamily: 'system-ui,-apple-system,sans-serif', overflow: 'hidden' }}>
 
@@ -1229,9 +1260,16 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                   String(unit.plot_no || '').toLowerCase().includes(srch) ||
                   String(unit.sl_no   || '').toLowerCase().includes(srch)
                 );
+                const projMatch = filterProject === 'ALL' || unitProjectMap[unit.id] == filterProject;
+                let statusMatch = true;
+                if (filterStatus === 'AVAILABLE') statusMatch = unit.status === 'AVAILABLE';
+                else if (filterStatus === 'RESERVED') statusMatch = unit.status === 'RESERVED';
+                else if (filterStatus === 'SOLD') statusMatch = filterSubStatus === 'ALL' ? SOLD_STATUSES.includes(unit.status) : unit.status === filterSubStatus;
+                const filterMatch = !filterActive || (projMatch && statusMatch);
+                const dimmed = (srch.length > 0 && !isHighlighted) || !filterMatch;
                 return (
                   <div key={item.id} data-item={item.id}
-                    style={{ ...basePos, touchAction: 'none', cursor: !locked && canEdit && !item.item_locked ? 'move' : 'default' }}>
+                    style={{ ...basePos, touchAction: 'none', cursor: !locked && canEdit && !item.item_locked ? 'move' : 'default', zIndex: isHighlighted ? 10 : 1, opacity: dimmed ? 0.2 : 1, filter: dimmed ? 'grayscale(1)' : 'none', transition: 'opacity 0.2s, filter 0.2s' }}>
                     <svg width={item.w} height={item.h} style={{ overflow: 'visible', display: 'block' }}>
                       <PlotContent item={item} unit={unit} isSel={isSel} hideFlags={hideFlags} viewMode={viewMode} isHighlighted={isHighlighted} palette={effectiveSC} highlightColor={searchColor}/>
                     </svg>
@@ -1247,10 +1285,10 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                 return (
                   <div key={item.id} data-item={item.id}
                     onDoubleClick={e => { e.stopPropagation(); setEditLabel({ id: item.id, value: item.label || '' }); }}
-                    style={{ ...basePos, backgroundColor: '#bae6fd', border: `2px solid ${isSel ? PRI : '#7dd3fc'}`, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none', cursor: !locked && canEdit ? 'move' : 'default', outline: isSel ? `2px solid ${PRI}` : 'none', outlineOffset: 2 }}>
+                    style={{ ...basePos, backgroundColor: ec.road.bg, border: `2px solid ${isSel ? PRI : ec.road.bd}`, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none', cursor: !locked && canEdit ? 'move' : 'default', outline: isSel ? `2px solid ${PRI}` : 'none', outlineOffset: 2 }}>
                     {editLabel?.id === item.id
-                      ? <input autoFocus value={editLabel.value} onChange={e => setEditLabel(p => ({ ...p, value: e.target.value }))} onBlur={commitEdit} onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditLabel(null); }} onClick={e => e.stopPropagation()} style={{ border: 'none', background: 'transparent', textAlign: 'center', fontSize: 11, fontWeight: 900, color: '#0c4a6e', textTransform: 'uppercase', letterSpacing: '0.08em', width: '92%', outline: 'none' }}/>
-                      : <span style={{ fontSize: 11, fontWeight: 900, color: '#0c4a6e', textTransform: 'uppercase', letterSpacing: '0.08em', pointerEvents: 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '0 8px' }}>{item.label || '7.50 MT WIDE ROAD'}</span>
+                      ? <input autoFocus value={editLabel.value} onChange={e => setEditLabel(p => ({ ...p, value: e.target.value }))} onBlur={commitEdit} onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditLabel(null); }} onClick={e => e.stopPropagation()} style={{ border: 'none', background: 'transparent', textAlign: 'center', fontSize: 11, fontWeight: 900, color: ec.road.tx, textTransform: 'uppercase', letterSpacing: '0.08em', width: '92%', outline: 'none' }}/>
+                      : <span style={{ fontSize: 11, fontWeight: 900, color: ec.road.tx, textTransform: 'uppercase', letterSpacing: '0.08em', pointerEvents: 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '0 8px' }}>{item.label || '7.50 MT WIDE ROAD'}</span>
                     }
                     {isSel && !locked && canEdit && <ResizeHandles id={item.id}/>}
                     {isSel && !locked && canEdit && <RotationHandle id={item.id}/>}
@@ -1262,11 +1300,11 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                 return (
                   <div key={item.id} data-item={item.id}
                     onDoubleClick={e => { e.stopPropagation(); setEditLabel({ id: item.id, value: item.label || '' }); }}
-                    style={{ ...basePos, backgroundColor: '#bbf7d0', border: `2px solid ${isSel ? PRI : '#4ade80'}`, borderRadius: 6, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, touchAction: 'none', cursor: !locked && canEdit ? 'move' : 'default', outline: isSel ? `2px solid ${PRI}` : 'none', outlineOffset: 2 }}>
+                    style={{ ...basePos, backgroundColor: ec.garden.bg, border: `2px solid ${isSel ? PRI : ec.garden.bd}`, borderRadius: 6, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, touchAction: 'none', cursor: !locked && canEdit ? 'move' : 'default', outline: isSel ? `2px solid ${PRI}` : 'none', outlineOffset: 2 }}>
                     <span style={{ fontSize: Math.min(item.h / 3, 22), lineHeight: 1, pointerEvents: 'none' }}>🌿</span>
                     {editLabel?.id === item.id
-                      ? <input autoFocus value={editLabel.value} onChange={e => setEditLabel(p => ({ ...p, value: e.target.value }))} onBlur={commitEdit} onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditLabel(null); }} onClick={e => e.stopPropagation()} style={{ border: 'none', background: 'transparent', textAlign: 'center', fontSize: 9, fontWeight: 700, color: '#14532d', width: '90%', outline: 'none' }}/>
-                      : <span style={{ fontSize: 9, fontWeight: 700, color: '#14532d', textAlign: 'center', pointerEvents: 'none', padding: '0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{item.label || 'Garden'}</span>
+                      ? <input autoFocus value={editLabel.value} onChange={e => setEditLabel(p => ({ ...p, value: e.target.value }))} onBlur={commitEdit} onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditLabel(null); }} onClick={e => e.stopPropagation()} style={{ border: 'none', background: 'transparent', textAlign: 'center', fontSize: 9, fontWeight: 700, color: ec.garden.tx, width: '90%', outline: 'none' }}/>
+                      : <span style={{ fontSize: 9, fontWeight: 700, color: ec.garden.tx, textAlign: 'center', pointerEvents: 'none', padding: '0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{item.label || 'Garden'}</span>
                     }
                     {isSel && !locked && canEdit && <ResizeHandles id={item.id}/>}
                     {isSel && !locked && canEdit && <RotationHandle id={item.id}/>}
@@ -1279,8 +1317,8 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                     onDoubleClick={e => { e.stopPropagation(); setEditLabel({ id: item.id, value: item.label || '' }); }}
                     style={{ ...basePos, display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none', cursor: !locked && canEdit ? 'move' : 'default', outline: isSel ? `2px solid ${PRI}` : 'none', outlineOffset: 2 }}>
                     {editLabel?.id === item.id
-                      ? <input autoFocus value={editLabel.value} onChange={e => setEditLabel(p => ({ ...p, value: e.target.value }))} onBlur={commitEdit} onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditLabel(null); }} onClick={e => e.stopPropagation()} style={{ border: 'none', background: 'transparent', textAlign: 'center', fontSize: 13, fontWeight: 700, color: '#111827', width: '92%', outline: 'none' }}/>
-                      : <span style={{ fontSize: 13, fontWeight: 700, color: '#111827', textAlign: 'center', pointerEvents: 'none', padding: '0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{item.label || 'Text Label'}</span>
+                      ? <input autoFocus value={editLabel.value} onChange={e => setEditLabel(p => ({ ...p, value: e.target.value }))} onBlur={commitEdit} onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditLabel(null); }} onClick={e => e.stopPropagation()} style={{ border: 'none', background: 'transparent', textAlign: 'center', fontSize: 13, fontWeight: 700, color: ec.text, width: '92%', outline: 'none' }}/>
+                      : <span style={{ fontSize: 13, fontWeight: 700, color: ec.text, textAlign: 'center', pointerEvents: 'none', padding: '0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{item.label || 'Text Label'}</span>
                     }
                     {isSel && !locked && canEdit && <ResizeHandles id={item.id}/>}
                     {isSel && !locked && canEdit && <RotationHandle id={item.id}/>}
@@ -1293,7 +1331,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                   <div key={item.id} data-item={item.id}
                     style={{ ...basePos, display: 'flex', alignItems: 'center', touchAction: 'none', cursor: !locked && canEdit ? 'move' : 'default', outline: isSel ? `2px solid ${PRI}` : 'none', outlineOffset: 2 }}>
                     <svg width={item.w} height={item.h} style={{ display: 'block', overflow: 'visible' }}>
-                      <line x1={0} y1={item.h / 2} x2={item.w} y2={item.h / 2} stroke="#6b7280" strokeWidth="2" strokeDasharray="8 5"/>
+                      <line x1={0} y1={item.h / 2} x2={item.w} y2={item.h / 2} stroke={ec.dotted} strokeWidth="2" strokeDasharray="8 5"/>
                     </svg>
                     {isSel && !locked && canEdit && <ResizeHandles id={item.id}/>}
                     {isSel && !locked && canEdit && <RotationHandle id={item.id}/>}
@@ -1471,7 +1509,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                       ↺ Rotate
                     </button>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 12 }}>
-                      <button onClick={() => setStartPin(p => p === selected ? null : selected)}
+                      <button onClick={() => { setStartPin(p => p === selected ? null : selected); if (startPin !== selected) setEndPin(null); }}
                         style={{ height: 28, background: startPin === selected ? '#dcfce7' : '#f9fafb', border: `1px solid ${startPin === selected ? '#059669' : '#e5e7eb'}`, borderRadius: 5, color: startPin === selected ? '#059669' : '#6b7280', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
                         ▶ Start
                       </button>
@@ -1544,6 +1582,54 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
               {/* Filter tab */}
               {rightTab === 'filter' && (
                 <div style={{ flex: 1, padding: 12, overflowY: 'auto' }}>
+
+                  {/* Status Filters */}
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Status Filters</div>
+
+                  <div style={{ marginBottom: 8 }}>
+                    <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 600, marginBottom: 4 }}>Project</div>
+                    <select value={filterProject} onChange={e => setFilterProject(e.target.value)}
+                      style={{ width: '100%', height: 32, border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 11, color: '#374151', background: '#fff', padding: '0 8px', cursor: 'pointer', outline: 'none' }}>
+                      <option value="ALL">All Projects</option>
+                      {(currentLayoutId ? (layoutProjects[currentLayoutId] || []) : []).map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div style={{ marginBottom: 8 }}>
+                    <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 600, marginBottom: 4 }}>Status</div>
+                    <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setFilterSubStatus('ALL'); }}
+                      style={{ width: '100%', height: 32, border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 11, color: '#374151', background: '#fff', padding: '0 8px', cursor: 'pointer', outline: 'none' }}>
+                      <option value="ALL">All Status</option>
+                      <option value="AVAILABLE">Available</option>
+                      <option value="RESERVED">Reserved</option>
+                      <option value="SOLD">Sold</option>
+                    </select>
+                  </div>
+
+                  {filterStatus === 'SOLD' && (
+                    <div style={{ marginBottom: 8 }}>
+                      <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 600, marginBottom: 4 }}>Sold Type</div>
+                      <select value={filterSubStatus} onChange={e => setFilterSubStatus(e.target.value)}
+                        style={{ width: '100%', height: 32, border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 11, color: '#374151', background: '#fff', padding: '0 8px', cursor: 'pointer', outline: 'none' }}>
+                        <option value="ALL">All Sold</option>
+                        <option value="REGISTERED">Registered</option>
+                        <option value="ATTORNEY">Attorney</option>
+                        <option value="FULL_FINAL">Full &amp; Final</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {filterActive && (
+                    <button onClick={() => { setFilterProject('ALL'); setFilterStatus('ALL'); setFilterSubStatus('ALL'); }}
+                      style={{ width: '100%', height: 28, border: '1px solid #e5e7eb', borderRadius: 6, background: '#f9fafb', color: '#6b7280', fontSize: 11, cursor: 'pointer', fontWeight: 500, marginBottom: 14 }}>
+                      Clear Filters
+                    </button>
+                  )}
+
+                  <div style={{ height: 1, background: '#f3f4f6', margin: '14px 0' }}/>
+
                   <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Display Options</div>
                   {[
                     ['plotNo',     'Hide Plot Number'],
@@ -1741,14 +1827,20 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
             }}
             style={{ width: 0, height: 0, opacity: 0, border: 0, padding: 0, overflow: 'hidden', display: 'block' }}/>
         </label>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-          <span style={{ width: 8, height: 8, borderRadius: 2, background: '#0369a1', flexShrink: 0 }}/>
-          <span style={{ color: '#6b7280' }}>Road</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-          <span style={{ width: 8, height: 8, borderRadius: 2, background: '#22c55e', flexShrink: 0 }}/>
-          <span style={{ color: '#6b7280' }}>Garden</span>
-        </div>
+        {[['road','Road',ec.road.bd],['garden','Garden',ec.garden.bd],['dotted','Dotted',ec.dotted],['text','Text Label',ec.text]].map(([key, lb, cur]) => (
+          <label key={key} title={`Click to change ${lb} color`}
+            style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, cursor: 'pointer', userSelect: 'none' }}>
+            <span style={{ width: 8, height: 8, borderRadius: key === 'dotted' ? 0 : 2, background: key === 'dotted' ? 'transparent' : cur, border: key === 'dotted' ? `2px dashed ${cur}` : key === 'text' ? `2px solid ${cur}` : '1px solid rgba(0,0,0,0.1)', flexShrink: 0 }}/>
+            <span style={{ color: '#6b7280' }}>{lb}</span>
+            <input type="color" value={cur}
+              onChange={e => {
+                const nc = { ...elementColors, [key]: e.target.value };
+                setElementColors(nc);
+                try { localStorage.setItem('ams-layout-ec', JSON.stringify(nc)); } catch {}
+              }}
+              style={{ width: 0, height: 0, opacity: 0, border: 0, padding: 0, overflow: 'hidden', display: 'block' }}/>
+          </label>
+        ))}
         {locked && <span style={{ color: '#b45309', fontWeight: 600, flexShrink: 0 }}>● Locked</span>}
         <span style={{ marginLeft: 'auto', flexShrink: 0 }}>{Math.round(zoom * 100)}% · Snap {snapG}px</span>
       </div>
