@@ -29,6 +29,8 @@ const salesReport = async (req, res) => {
     where.attorney_completed   = false;
     where.OR = [{ registration_completed: true }, { date_of_registration: { not: null } }];
   }
+  else if (status === 'reserved')  where.inventory = { ...(where.inventory || {}), status: 'RESERVED' };
+  else if (status === 'sold')      where.inventory = { ...(where.inventory || {}), status: 'SOLD' };
   else if (status === 'active')   { where.status = 'ACTIVE';   where.full_final_completed = false; where.attorney_completed = false; where.registration_completed = false; }
   else if (status === 'inactive') { where.status = 'INACTIVE'; }
 

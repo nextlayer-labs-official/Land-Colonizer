@@ -234,7 +234,7 @@ function PayBar({ received, total }) {
 }
 
 // ── Single installment card ───────────────────────────────────────────────────
-function InstCard({ n, label, form, editing, setF, partialData, onAddPartial, onViewHistory }) {
+function InstCard({ n, label, form, editing, setF, partialData, onAddPartial, onViewHistory, onViewDetail }) {
   const amt = form[`inst_${n}_amount`];
   const dt  = form[`inst_${n}_date`];
   const pd  = form[`inst_${n}_paid`];
@@ -279,7 +279,7 @@ function InstCard({ n, label, form, editing, setF, partialData, onAddPartial, on
         : 'border-gray-100 bg-gray-50';
 
   return (
-    <div className={`rounded-xl border-2 p-3 ${cardCls}`}>
+    <div className={`rounded-xl border-2 p-3 ${cardCls} ${onViewDetail ? 'cursor-pointer' : ''}`} onClick={() => onViewDetail?.(n)}>
       <div className="flex items-start justify-between mb-1.5">
         <span className={`text-[10px] font-bold uppercase tracking-wide ${pd ? 'text-emerald-600' : hasPartials ? 'text-blue-600' : hasData ? 'text-amber-600' : 'text-gray-300'}`}>
           {label}
@@ -313,12 +313,12 @@ function InstCard({ n, label, form, editing, setF, partialData, onAddPartial, on
       {/* Action buttons */}
       {hasData && !pd && (
         <div className="flex gap-1 mt-2">
-          <button onClick={() => onAddPartial(n)}
+          <button onClick={e => { e.stopPropagation(); onAddPartial(n); }}
             className="flex-1 text-[9px] font-bold py-1 rounded-md bg-[#875A7B] text-white hover:bg-[#714B67] transition">
             + Partial
           </button>
           {hasPartials && (
-            <button onClick={() => onViewHistory(n)}
+            <button onClick={e => { e.stopPropagation(); onViewHistory(n); }}
               className="flex items-center gap-0.5 text-[9px] font-bold py-1 px-1.5 rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200 transition">
               <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
               {partialData.list.length}
@@ -327,12 +327,116 @@ function InstCard({ n, label, form, editing, setF, partialData, onAddPartial, on
         </div>
       )}
       {hasData && pd && hasPartials && (
-        <button onClick={() => onViewHistory(n)}
+        <button onClick={e => { e.stopPropagation(); onViewHistory(n); }}
           className="w-full mt-2 flex items-center justify-center gap-0.5 text-[9px] font-bold py-1 rounded-md bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition">
           <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
           History ({partialData.list.length})
         </button>
       )}
+    </div>
+  );
+}
+
+// ── Installment Detail Modal ──────────────────────────────────────────────────
+function InstDetailModal({ n, label, form, partialData, onClose }) {
+  const amt  = form[`inst_${n}_amount`];
+  const dt   = form[`inst_${n}_date`];
+  const pd   = form[`inst_${n}_paid`];
+  const pay  = form[`inst_${n}_payment_details`];
+  const { list = [], total: partialTotal = 0, balance = 0 } = partialData || {};
+  const hasPartials = list.length > 0;
+
+  const statusBadge = pd
+    ? <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">Paid</span>
+    : hasPartials
+      ? <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">Partial</span>
+      : amt
+        ? <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">Due</span>
+        : <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Not Set</span>;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-bold text-gray-800">{label}</h3>
+            {statusBadge}
+          </div>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 text-lg">✕</button>
+        </div>
+
+        <div className="px-5 py-4 space-y-3">
+
+          {/* Amount */}
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500">Amount</span>
+            <span className="text-sm font-bold text-gray-900">
+              {amt ? `₹${Number(amt).toLocaleString('en-IN')}` : '—'}
+            </span>
+          </div>
+
+          {/* Due Date */}
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500">Due Date</span>
+            <span className="text-sm text-gray-700">{dt ? fmtDate(dt) : '—'}</span>
+          </div>
+
+          {/* Payment Details */}
+          {pay && (
+            <div className="flex items-start justify-between gap-4">
+              <span className="text-xs text-gray-500 shrink-0">Payment Details</span>
+              <span className="text-xs text-gray-700 text-right">{pay}</span>
+            </div>
+          )}
+
+          {/* Partial summary */}
+          {hasPartials && (
+            <>
+              <div className="border-t border-gray-100 pt-3">
+                <div className="grid grid-cols-3 gap-2 mb-3">
+                  {[
+                    { l: 'Total',   v: `₹${Number(amt || 0).toLocaleString('en-IN')}`,    c: 'text-gray-700' },
+                    { l: 'Paid',    v: `₹${Number(partialTotal).toLocaleString('en-IN')}`, c: 'text-emerald-600' },
+                    { l: 'Balance', v: `₹${Number(balance).toLocaleString('en-IN')}`,      c: balance > 0 ? 'text-red-500' : 'text-emerald-600' },
+                  ].map(({ l, v, c }) => (
+                    <div key={l} className="text-center bg-gray-50 rounded-lg py-2">
+                      <p className="text-[9px] text-gray-400 uppercase tracking-wide">{l}</p>
+                      <p className={`text-xs font-bold ${c}`}>{v}</p>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Payments</p>
+                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                  {list.map((p, idx) => (
+                    <div key={p.id || idx} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                      <div>
+                        <p className="text-xs font-semibold text-gray-800">₹{Number(p.amount).toLocaleString('en-IN')}</p>
+                        {p.payment_mode && <p className="text-[10px] text-gray-400">{p.payment_mode}</p>}
+                        {p.details && <p className="text-[10px] text-gray-400">{p.details}</p>}
+                      </div>
+                      <p className="text-[10px] text-gray-400 shrink-0 ml-2">{p.date ? fmtDate(p.date) : '—'}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Fully paid — no partials */}
+          {pd && !hasPartials && (
+            <div className="bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3 text-center">
+              <svg className="w-5 h-5 text-emerald-500 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
+              <p className="text-xs font-semibold text-emerald-700">Fully Paid</p>
+            </div>
+          )}
+        </div>
+
+        <div className="px-5 pb-4">
+          <button onClick={onClose} className="w-full h-9 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 font-medium">Close</button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -530,6 +634,7 @@ function InstallmentPanel({ saleId, canEdit, onTotalPaidChange }) {
   const [partialModal,  setPartialModal]  = useState(null); // { n }
   const [partialSaving, setPartialSaving] = useState(false);
   const [historyCanvas, setHistoryCanvas] = useState(null); // { n }
+  const [detailModal,   setDetailModal]   = useState(null); // { n }
   const [deleting,      setDeleting]      = useState(null); // partial id
 
   const load = useCallback(async () => {
@@ -709,6 +814,7 @@ function InstallmentPanel({ saleId, canEdit, onTotalPaidChange }) {
             partialData={partials[i + 1]}
             onAddPartial={(n) => setPartialModal({ n })}
             onViewHistory={(n) => setHistoryCanvas({ n })}
+            onViewDetail={editing ? null : (n) => setDetailModal({ n })}
           />
         ))}
       </div>
@@ -737,6 +843,17 @@ function InstallmentPanel({ saleId, canEdit, onTotalPaidChange }) {
           onClose={() => setHistoryCanvas(null)}
           onDelete={handleDeletePartial}
           onUpdate={handleUpdatePartial}
+        />
+      )}
+
+      {/* ── Installment Detail Modal ── */}
+      {detailModal && (
+        <InstDetailModal
+          n={detailModal.n}
+          label={ORDINALS[detailModal.n - 1]}
+          form={form}
+          partialData={partials[detailModal.n]}
+          onClose={() => setDetailModal(null)}
         />
       )}
 
@@ -2315,6 +2432,17 @@ export default function SaleDetailPage() {
                     <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2 flex-wrap">
                       {form.sale_code || `Sale #${params.id}`}
                       {editing && <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"/>Editing</span>}
+                      {(() => {
+                        if (form.full_final_completed)
+                          return <span className="text-[10px] font-semibold text-violet-700 bg-violet-50 border border-violet-200 px-2 py-0.5 rounded-full">Current Status: Full &amp; Final Settlement</span>;
+                        if (form.attorney_completed)
+                          return <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">Current Status: Attorney Completed</span>;
+                        if (form.registration_completed)
+                          return <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">Current Status: Registration Completed</span>;
+                        if (form.payment_due_date)
+                          return <span className="text-[10px] font-semibold text-orange-700 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-full">Current Status: Payment Due {fmtDate(form.payment_due_date)}</span>;
+                        return null;
+                      })()}
                     </h1>
                     <p className="text-xs text-gray-400 mt-0.5">{form.sale_date ? `Sale date: ${fmtDate(form.sale_date)}` : 'No sale date'}</p>
                   </div>

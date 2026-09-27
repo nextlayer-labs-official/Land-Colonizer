@@ -174,6 +174,8 @@ function SalesReport() {
               <option value="">All</option>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
+              <option value="reserved">Reserved</option>
+              <option value="sold">Sold</option>
               <option value="registered">Registered</option>
               <option value="attorney">Attorney</option>
               <option value="full_final">Full &amp; Final</option>
@@ -836,7 +838,7 @@ function InstalmentsReport() {
   const [expandS, setExpandS] = useState({});
   const [projects, setProjects] = useState([]);
   const [projectId, setProjectId] = useState('');
-  const [instTab, setInstTab] = useState('seller');
+  const [instTab, setInstTab] = useState('customer');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo,   setDateTo]   = useState('');
 

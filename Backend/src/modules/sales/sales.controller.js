@@ -68,6 +68,7 @@ function sanitize(body) {
     electricity_meter_paid:    num(body.electricity_meter_paid),
     electricity_meter_details: str(body.electricity_meter_details),
     payment_due_date:          dt(body.payment_due_date),
+    payment_due_details:       str(body.payment_due_details),
     registration_area:         num(body.registration_area),
     discount:                  num(body.discount),
     discount_details:          str(body.discount_details),

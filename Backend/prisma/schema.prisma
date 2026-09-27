@@ -116,6 +116,7 @@ model CompanySettings {
   sale_prefix          String   @default("SAL")
   customer_prefix      String   @default("CUS")
   broker_prefix        String   @default("BRK")
+  layout_colors        String?  @db.Text
   created_at           DateTime @default(now())
   updated_at           DateTime @updatedAt
 }
@@ -218,6 +219,7 @@ model Sale {
   electricity_meter_paid    Decimal?         @db.Decimal(10, 2)
   electricity_meter_details String?
   payment_due_date          DateTime?
+  payment_due_details       String?          @db.Text
   registration_area         Decimal?         @db.Decimal(10, 2)
   discount                  Decimal?         @db.Decimal(10, 2)
   discount_details          String?          @db.Text

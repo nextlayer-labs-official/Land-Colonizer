@@ -655,6 +655,7 @@ export default function PurchasesPage() {
                 ['Area', 'text-right'],
                 ['Rate', 'text-right'],
                 ['Total Amount', 'text-right'],
+                ['Advance Paid', 'text-right'],
                 ['Balance', 'text-right'],
                 ['% Paid', ''],
                 ['Reg. Date', ''],
@@ -672,7 +673,7 @@ export default function PurchasesPage() {
               Array(7).fill(0).map((_, i) => (
                 <tr key={i} className="border-b border-gray-100">
                   <td className="px-3 py-3" />
-                  {Array(12).fill(0).map((__, j) => (
+                  {Array(13).fill(0).map((__, j) => (
                     <td key={j} className="px-3 py-3">
                       <div className="h-4 bg-gray-100 rounded animate-pulse" style={{ width: `${60 + Math.random() * 40}%` }} />
                     </td>
@@ -681,7 +682,7 @@ export default function PurchasesPage() {
               ))
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={15} className="px-4 py-20 text-center">
+                <td colSpan={16} className="px-4 py-20 text-center">
                   <div className="flex flex-col items-center gap-3 text-gray-400">
                     <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -736,6 +737,7 @@ export default function PurchasesPage() {
                     </td>
                     <td className="px-3 py-2.5 text-right text-gray-700">{nn(row.rate) ? fmtINR(row.rate) : '—'}</td>
                     <td className="px-3 py-2.5 text-right font-semibold text-gray-900">{fmtINR(row.total_amount)}</td>
+                    <td className="px-3 py-2.5 text-right text-gray-700">{nn(row.advance_paid) ? fmtINR(row.advance_paid) : '—'}</td>
                     <td className="px-3 py-2.5 text-right text-gray-700">{fmtINR(row.effective_balance ?? row.balance_to_pay)}</td>
                     <td className="px-3 py-2.5 min-w-[120px]">
                       <div className="flex items-center gap-2">

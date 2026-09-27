@@ -97,4 +97,17 @@ const deleteUser = async (req, res) => {
   res.json({ message: 'User deleted successfully' });
 };
 
-module.exports = { getUsers, getUserById, createUser, updateUser, deleteUser };
+const resetPassword = async (req, res) => {
+  const id = Number(req.params.id);
+  const { password } = req.body;
+  if (!password || String(password).length < 6)
+    return res.status(400).json({ message: 'Password must be at least 6 characters' });
+  const exists = await prisma.user.findUnique({ where: { id } });
+  if (!exists) return res.status(404).json({ message: 'User not found' });
+  const hashed = await bcrypt.hash(String(password), 10);
+  await prisma.user.update({ where: { id }, data: { password: hashed } });
+  auditLog({ req, action: 'RESET_PASSWORD', entity: 'user', entityId: id, entityCode: exists.email });
+  res.json({ message: 'Password reset successfully' });
+};
+
+module.exports = { getUsers, getUserById, createUser, updateUser, deleteUser, resetPassword };

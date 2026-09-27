@@ -318,12 +318,14 @@ export default function SaleFormBody({ form, set, setForm, readOnly = false, sho
 
         <SectionDivider title="Other Financial" />
 
-        {/* Payment Due Date — left col, right col empty */}
         <div>
           <FieldLabel>Payment Due Date</FieldLabel>
           <FInput type="date" value={form.payment_due_date?.split?.('T')?.[0] ?? form.payment_due_date ?? ''} onChange={set('payment_due_date')} readOnly={readOnly} />
         </div>
-        <div />
+        <div>
+          <FieldLabel>Payment Due Details</FieldLabel>
+          <FInput value={form.payment_due_details ?? ''} onChange={set('payment_due_details')} readOnly={readOnly} placeholder="Details…" />
+        </div>
 
         {/* Discount */}
         <div>

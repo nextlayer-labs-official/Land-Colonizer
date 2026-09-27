@@ -1151,6 +1151,17 @@ export default function PurchaseRecordPage() {
                   {form.status === 'ACTIVE' ? 'Active' : 'Inactive'}
                 </span>
                 {editing && <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-50 text-amber-700 ring-1 ring-amber-200">Editing</span>}
+                {(() => {
+                  if (form.full_final_completed)
+                    return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-violet-50 text-violet-700 ring-1 ring-violet-200">Current Status: Full &amp; Final Settlement</span>;
+                  if (form.attorney_completed)
+                    return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200">Current Status: Attorney Completed</span>;
+                  if (form.registration_completed)
+                    return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 ring-1 ring-blue-200">Current Status: Registration Completed</span>;
+                  if (form.registration_date)
+                    return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-50 text-orange-700 ring-1 ring-orange-200">Current Status: Registered {fmtDate(form.registration_date)}</span>;
+                  return null;
+                })()}
               </div>
             </div>
             {/* Mobile pipeline */}

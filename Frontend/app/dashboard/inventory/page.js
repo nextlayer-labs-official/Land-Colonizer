@@ -101,9 +101,7 @@ export default function InventoryPage() {
   const [statusFilter,   setStatusFilter]   = useState('');
   const [typeFilter,     setTypeFilter]     = useState('');
   const [projectFilter,  setProjectFilter]  = useState('');
-  const [showFilter,     setShowFilter]     = useState(false);
   const [projects,       setProjects]       = useState([]);
-  const filterRef = useRef(null);
 
   const [limit, setLimit] = useState(15);
 
@@ -126,12 +124,6 @@ export default function InventoryPage() {
 
   useEffect(() => {
     apiGet('/lookup/projects?limit=500').then(d => setProjects(d || [])).catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    const h = (e) => { if (filterRef.current && !filterRef.current.contains(e.target)) setShowFilter(false); };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
   }, []);
 
   const handleDelete = async () => {
@@ -186,83 +178,44 @@ export default function InventoryPage() {
       <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-center gap-2 flex-wrap">
         <div className="w-px h-5 bg-gray-200 mx-1 hidden sm:block" />
 
-        {/* Filters */}
-        <div className="relative" ref={filterRef}>
-          <button
-            onClick={() => setShowFilter(v => !v)}
-            className={`flex items-center gap-1 text-sm h-8 px-3 rounded border transition-colors ${activeFilters ? 'bg-[#875A7B]/10 border-[#875A7B]/30 text-[#875A7B] font-medium' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
-          >
-            Filters {activeFilters > 0 && `(${activeFilters})`}
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-          </button>
-          {showFilter && (
-            <div className="absolute left-0 top-full mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-30 py-1 max-h-96 overflow-y-auto">
-              <p className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</p>
-              {[['', 'All'], ['AVAILABLE', 'Available'], ['RESERVED', 'Reserved'], ['SOLD', 'Sold'], ['REGISTERED', 'Registered'], ['ATTORNEY', 'Attorney'], ['FULL_FINAL', 'Full & Final']].map(([v, label]) => (
-                <button key={v} onClick={() => setStatusFilter(v)}
-                  className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${statusFilter === v ? 'text-[#875A7B] font-medium' : 'text-gray-700'}`}>
-                  {label}
-                  {statusFilter === v && <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
-                </button>
-              ))}
-              <div className="border-t border-gray-100 my-1" />
-              <p className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Unit Type</p>
-              {[['', 'All Types'], ['PLOT', 'Plot'], ['SHOP', 'Shop'], ['LAND', 'Land'], ['FLAT', 'Flat'], ['PLOT_WIRE', 'Plot Wire'], ['SHOP_WIRE', 'Shop Wire']].map(([v, label]) => (
-                <button key={v} onClick={() => setTypeFilter(v)}
-                  className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${typeFilter === v ? 'text-[#875A7B] font-medium' : 'text-gray-700'}`}>
-                  {label}
-                  {typeFilter === v && <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
-                </button>
-              ))}
-              <div className="border-t border-gray-100 my-1" />
-              <p className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Project</p>
-              <button onClick={() => setProjectFilter('')}
-                className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${!projectFilter ? 'text-[#875A7B] font-medium' : 'text-gray-700'}`}>
-                All Projects
-                {!projectFilter && <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
-              </button>
-              {projects.map(p => (
-                <button key={p.id} onClick={() => setProjectFilter(String(p.id))}
-                  className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${projectFilter === String(p.id) ? 'text-[#875A7B] font-medium' : 'text-gray-700'}`}>
-                  <span className="truncate pr-2">{p.name}</span>
-                  {projectFilter === String(p.id) && <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
-                </button>
-              ))}
-              {activeFilters > 0 && (
-                <>
-                  <div className="border-t border-gray-100 my-1" />
-                  <button onClick={() => { setStatusFilter(''); setTypeFilter(''); setProjectFilter(''); setShowFilter(false); }}
-                    className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-50">Clear All Filters</button>
-                </>
-              )}
-            </div>
-          )}
-        </div>
+        {/* Status filter */}
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+          className={`h-8 text-sm border rounded px-2 outline-none cursor-pointer ${statusFilter ? 'border-[#875A7B]/40 text-[#875A7B] bg-[#875A7B]/5 font-medium' : 'border-gray-200 text-gray-600 bg-white'}`}>
+          <option value="">All Status</option>
+          <option value="AVAILABLE">Available</option>
+          <option value="RESERVED">Reserved</option>
+          <option value="SOLD">Sold</option>
+          <option value="REGISTERED">Registered</option>
+          <option value="ATTORNEY">Attorney</option>
+          <option value="FULL_FINAL">Full &amp; Final</option>
+        </select>
 
-        {/* Active filter chips */}
-        {statusFilter && (
-          <span className="inline-flex items-center gap-1 bg-[#875A7B]/10 text-[#875A7B] text-xs font-medium px-2 py-1 rounded-full">
-            Status: {statusFilter}
-            <button onClick={() => setStatusFilter('')} className="hover:opacity-70">
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-          </span>
-        )}
-        {typeFilter && (
-          <span className="inline-flex items-center gap-1 bg-[#875A7B]/10 text-[#875A7B] text-xs font-medium px-2 py-1 rounded-full">
-            Type: {typeFilter}
-            <button onClick={() => setTypeFilter('')} className="hover:opacity-70">
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-          </span>
-        )}
-        {projectFilter && (
-          <span className="inline-flex items-center gap-1 bg-[#875A7B]/10 text-[#875A7B] text-xs font-medium px-2 py-1 rounded-full">
-            Project: {projects.find(p => String(p.id) === projectFilter)?.name || projectFilter}
-            <button onClick={() => setProjectFilter('')} className="hover:opacity-70">
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-          </span>
+        {/* Type filter */}
+        <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
+          className={`h-8 text-sm border rounded px-2 outline-none cursor-pointer ${typeFilter ? 'border-[#875A7B]/40 text-[#875A7B] bg-[#875A7B]/5 font-medium' : 'border-gray-200 text-gray-600 bg-white'}`}>
+          <option value="">All Types</option>
+          <option value="PLOT">Plot</option>
+          <option value="SHOP">Shop</option>
+          <option value="LAND">Land</option>
+          <option value="FLAT">Flat</option>
+          <option value="PLOT_WIRE">Plot Wire</option>
+          <option value="SHOP_WIRE">Shop Wire</option>
+        </select>
+
+        {/* Project filter */}
+        <select value={projectFilter} onChange={e => setProjectFilter(e.target.value)}
+          className={`h-8 text-sm border rounded px-2 outline-none cursor-pointer ${projectFilter ? 'border-[#875A7B]/40 text-[#875A7B] bg-[#875A7B]/5 font-medium' : 'border-gray-200 text-gray-600 bg-white'}`}>
+          <option value="">All Projects</option>
+          {projects.map(p => (
+            <option key={p.id} value={String(p.id)}>{p.name}</option>
+          ))}
+        </select>
+
+        {activeFilters > 0 && (
+          <button onClick={() => { setStatusFilter(''); setTypeFilter(''); setProjectFilter(''); }}
+            className="h-8 px-2 text-xs text-red-500 border border-red-200 rounded hover:bg-red-50 transition-colors">
+            Clear
+          </button>
         )}
 
         {/* Export dropdown */}
