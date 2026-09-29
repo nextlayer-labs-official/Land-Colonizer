@@ -207,7 +207,9 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   const toolRef     = useRef('select');
   const selRef      = useRef(null);
   const itemsRef    = useRef([]);
-  const zoomRef     = useRef(0.85);
+  const historyRef  = useRef([]);
+  const handleSaveRef = useRef(null);
+  const zoomRef     = useRef(1.0);
   const panRef      = useRef({ x: 40, y: 40 });
   const spaceRef    = useRef(false);
 
@@ -215,6 +217,8 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   const [loading,     setLoading]     = useState(true);
   const [saving,      setSaving]      = useState(false);
   const [saved,       setSaved]       = useState(false);
+  const [autoSave,    setAutoSave]    = useState(() => { try { return localStorage.getItem('ams-layout-autosave') === '1'; } catch { return false; } });
+  const [autoSaveStatus, setAutoSaveStatus] = useState('idle'); // 'idle' | 'saving' | 'saved'
   const [items,       setItems]       = useState([]);
   const [inventory,   setInventory]   = useState(inventoryProp);
   const [snapG,       setSnapG]       = useState(10);
@@ -227,8 +231,8 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   const [editLabel,   setEditLabel]   = useState(null);
   const [startPin,    setStartPin]    = useState(null);
   const [endPin,      setEndPin]      = useState(null);
-  const [zoom,        setZoom]        = useState(0.85);
-  const [zoomInput,   setZoomInput]   = useState('85');
+  const [zoom,        setZoom]        = useState(1.0);
+  const [zoomInput,   setZoomInput]   = useState('100');
   const [pan,         setPan]         = useState({ x: 40, y: 40 });
   const [spaceDown,   setSpaceDown]   = useState(false);
 
@@ -284,6 +288,9 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
 
   useEffect(() => { itemsRef.current    = items;          }, [items]);
   useEffect(() => { snapRef.current     = snapG;          }, [snapG]);
+  const pushHistory = useCallback(() => {
+    historyRef.current = [...historyRef.current.slice(-49), [...itemsRef.current]];
+  }, []);
   useEffect(() => { toolRef.current     = tool;           }, [tool]);
   useEffect(() => { selRef.current      = selected;       }, [selected]);
   useEffect(() => { drawPrevRef.current = drawPreview;    }, [drawPreview]);
@@ -319,6 +326,24 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
     }, 600);
     return () => clearTimeout(colorSaveTimer.current);
   }, [statusColors, searchColor, elementColors]);
+
+  // Auto-save (debounced 2s) when items/canvas size change
+  const autoSaveTimer = useRef(null);
+  const autoSaveRef   = useRef(autoSave);
+  useEffect(() => { autoSaveRef.current = autoSave; }, [autoSave]);
+  useEffect(() => {
+    if (loading) return;
+    if (!autoSaveRef.current) return;
+    clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(async () => {
+      if (!autoSaveRef.current) return;
+      setAutoSaveStatus('saving');
+      await handleSaveRef.current?.();
+      setAutoSaveStatus('saved');
+      setTimeout(() => setAutoSaveStatus('idle'), 2500);
+    }, 2000);
+    return () => clearTimeout(autoSaveTimer.current);
+  }, [items, canvasW, canvasH]);
 
   const applyZoom = useCallback((newZ, newPx, newPy) => {
     zoomRef.current = newZ; panRef.current = { x: newPx, y: newPy };
@@ -412,13 +437,13 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
     }).catch(() => { initMultiLayouts(null, null); }).finally(() => setLoading(false));
   }, [purchaseId]);
 
-  // On first load: start at 85% zoom, centered
+  // On first load: start at 100% zoom, centered
   useEffect(() => {
     if (loading) return;
     const el = canvasRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    const z = 0.85;
+    const z = 1.0;
     const px = (rect.width  - canvasW * z) / 2;
     const py = (rect.height - canvasH * z) / 2;
     applyZoom(z, px, py);
@@ -453,9 +478,18 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
       if (e.code === 'Space' && document.activeElement?.tagName !== 'INPUT') {
         e.preventDefault(); spaceRef.current = true; setSpaceDown(true);
       }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        if (historyRef.current.length > 0) {
+          const prev = historyRef.current.pop();
+          setItems(prev);
+        }
+        return;
+      }
       if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
       if ((e.key === 'Delete' || e.key === 'Backspace') && selRef.current) {
         if (layout?.locked || !canEdit) return;
+        pushHistory();
         setItems(prev => prev.filter(i => i.id !== selRef.current));
         setSelected(null);
       }
@@ -467,6 +501,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
         const step = e.shiftKey ? snapRef.current : 1;
         const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
         const dy = e.key === 'ArrowUp'   ? -step : e.key === 'ArrowDown'  ? step : 0;
+        pushHistory();
         setItems(prev => prev.map(i => i.id === selRef.current ? { ...i, x: i.x + dx, y: i.y + dy } : i));
       }
     };
@@ -482,7 +517,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
       window.removeEventListener('keyup', up);
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [layout, canEdit]);
+  }, [layout, canEdit, pushHistory]);
 
   const locked    = layout?.locked || false;
   const placedIds = new Set(items.filter(i => i.type === 'plot').map(i => i.inventory_id));
@@ -527,6 +562,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
       const cx = (item.x + item.w / 2) * zoomRef.current + panRef.current.x + rect2.left;
       const cy = (item.y + item.h / 2) * zoomRef.current + panRef.current.y + rect2.top;
       const startAngle = Math.atan2(e.clientY - cy, e.clientX - cx) * 180 / Math.PI;
+      pushHistory();
       interactRef.current = { type: 'rotate', id, cx, cy, startAngle, startRotation: item.rotation || 0 };
       el.setPointerCapture(e.pointerId);
       e.preventDefault(); e.stopPropagation(); return;
@@ -538,6 +574,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
       const corner = cornerEl.dataset.corner, id = cornerEl.dataset.id;
       const item = itemsRef.current.find(i => i.id === id);
       if (!item || item.item_locked) return;
+      pushHistory();
       interactRef.current = { type: 'resize', id, corner, sx: pos.x, sy: pos.y, ox: item.x, oy: item.y, ow: item.w, oh: item.h };
       el.setPointerCapture(e.pointerId);
       e.preventDefault(); e.stopPropagation(); return;
@@ -549,6 +586,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
       if (!item || toolRef.current !== 'select') return;
       setSelected(id); setEditLabel(null);
       if (item.item_locked) { el.setPointerCapture(e.pointerId); return; } // select only, no drag
+      pushHistory();
       interactRef.current = { type: 'drag', id, ox: pos.x - item.x, oy: pos.y - item.y };
       el.setPointerCapture(e.pointerId); return;
     }
@@ -560,7 +598,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
       setDrawPreview({ tool: t, x: pos.x, y: pos.y, w: 0, h: 0 });
       el.setPointerCapture(e.pointerId);
     }
-  }, [locked, canEdit, getPos]);
+  }, [locked, canEdit, getPos, pushHistory]);
 
   const onPointerMove = useCallback((e) => {
     const intr = interactRef.current;
@@ -603,12 +641,13 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
       const dp = drawPrevRef.current;
       if (dp && dp.w > 15 && dp.h > 10) {
         const g = snapRef.current;
+        pushHistory();
         setItems(prev => [...prev, { id: mkId(), type: intr.tool, x: snapTo(dp.x, g), y: snapTo(dp.y, g), w: snapTo(dp.w, g), h: snapTo(dp.h, g), label: intr.tool === 'road' ? '7.50 MT WIDE ROAD' : 'C.O.P. (Garden)' }]);
       }
       setDrawPreview(null);
     }
     interactRef.current = null;
-  }, []);
+  }, [pushHistory]);
 
   const onSidebarDragStart = (e, inventoryId) => {
     if (locked || !canEdit) { e.preventDefault(); return; }
@@ -623,6 +662,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
     if (!inventoryId) return;
     const pos = getPos(e), g = snapRef.current;
     const { w, h } = inferPlotSize(unitFor(inventoryId));
+    pushHistory();
     setItems(prev => [
       ...prev.filter(i => !(i.type === 'plot' && i.inventory_id === inventoryId)),
       { id: mkId(), type: 'plot', inventory_id: inventoryId, x: snapTo(pos.x - w / 2, g), y: snapTo(pos.y - h / 2, g), w, h },
@@ -631,13 +671,15 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
 
   const commitEdit = () => {
     if (!editLabel) return;
+    pushHistory();
     setItems(prev => prev.map(i => i.id === editLabel.id ? { ...i, label: editLabel.value } : i));
     setEditLabel(null);
   };
 
   const rotateItem = useCallback((id) => {
+    pushHistory();
     setItems(prev => prev.map(i => i.id === id ? { ...i, w: i.h, h: i.w, rotated: !i.rotated } : i));
-  }, []);
+  }, [pushHistory]);
 
   const buildMultiPayload = (activeId, activeItems, activeCW, activeCH) => {
     const lays = layoutsRef.current;
@@ -669,6 +711,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
       setSaved(true); setTimeout(() => setSaved(false), 2500);
     } catch {} finally { setSaving(false); }
   };
+  handleSaveRef.current = handleSave;
 
   // ── Multi-layout helpers ───────────────────────────────────────────────────
   const isCurrentUnsaved = () => {
@@ -799,10 +842,13 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
     try {
       const data = await apiGet(`/inventory?project_id=${project.id}&limit=500`);
       const inv = Array.isArray(data) ? data : (data?.inventory || data?.data || []);
-      setLayoutProjects(prev => ({
-        ...prev,
-        [currentLayoutId]: [...(prev[currentLayoutId] || []), { id: project.id, name: project.name, inventory: inv, open: true }],
-      }));
+      const newLp = {
+        ...layoutProjectsRef.current,
+        [currentLayoutId]: [...(layoutProjectsRef.current[currentLayoutId] || []), { id: project.id, name: project.name, inventory: inv, open: true }],
+      };
+      layoutProjectsRef.current = newLp;
+      setLayoutProjects(newLp);
+      handleSave();
     } catch {}
   };
 
@@ -818,10 +864,13 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
 
   const handleRemoveProject = (projectId) => {
     if (!currentLayoutId) return;
-    setLayoutProjects(prev => ({
-      ...prev,
-      [currentLayoutId]: (prev[currentLayoutId] || []).filter(p => p.id !== projectId),
-    }));
+    const newLp = {
+      ...layoutProjectsRef.current,
+      [currentLayoutId]: (layoutProjectsRef.current[currentLayoutId] || []).filter(p => p.id !== projectId),
+    };
+    layoutProjectsRef.current = newLp;
+    setLayoutProjects(newLp);
+    handleSave();
   };
 
   const toggleItemVisibility = (id) => {
@@ -1038,6 +1087,11 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
           style={{ height: 32, padding: '0 16px', fontSize: 12, fontWeight: 600, borderRadius: 7, border: 'none', cursor: saving ? 'wait' : 'pointer', background: saved ? '#059669' : PRI, color: '#fff', transition: 'background 0.15s', whiteSpace: 'nowrap', flexShrink: 0 }}>
           {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save Layout'}
         </button>
+        <button onClick={() => setAutoSave(v => { const n = !v; try { localStorage.setItem('ams-layout-autosave', n ? '1' : '0'); } catch {} return n; })}
+          title={autoSave ? 'Auto Save is ON — click to disable' : 'Auto Save is OFF — click to enable'}
+          style={{ height: 32, padding: '0 10px', fontSize: 11, fontWeight: 600, borderRadius: 7, border: `1px solid ${autoSave ? '#059669' : '#e5e7eb'}`, cursor: 'pointer', background: autoSave ? '#dcfce7' : '#f9fafb', color: autoSave ? '#059669' : '#9ca3af', whiteSpace: 'nowrap', flexShrink: 0, marginLeft: 4 }}>
+          {autoSave ? '⟳ Auto' : '⟳ Auto'}
+        </button>
         {canEdit && purchaseId && (
           <button onClick={() => setLockConfirm(true)}
             style={{ height: 32, padding: '0 12px', fontSize: 12, borderRadius: 7, border: '1px solid #e5e7eb', cursor: 'pointer', background: '#f9fafb', color: locked ? '#b45309' : '#6b7280', marginLeft: 4, flexShrink: 0 }}>
@@ -1239,6 +1293,18 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
           onDragOver={onCanvasDragOver}
           onDrop={onCanvasDrop}>
 
+          {/* Auto-save status badge */}
+          {autoSave && autoSaveStatus !== 'idle' && (
+            <div style={{ position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)', zIndex: 30, pointerEvents: 'none',
+              background: autoSaveStatus === 'saved' ? '#dcfce7' : '#eff6ff',
+              border: `1px solid ${autoSaveStatus === 'saved' ? '#86efac' : '#bfdbfe'}`,
+              color: autoSaveStatus === 'saved' ? '#15803d' : '#2563eb',
+              borderRadius: 20, padding: '4px 14px', fontSize: 11, fontWeight: 600,
+              display: 'flex', alignItems: 'center', gap: 5, boxShadow: '0 2px 8px rgba(0,0,0,0.10)' }}>
+              {autoSaveStatus === 'saving' ? <>⟳ Auto saving…</> : <>✓ Auto saved</>}
+            </div>
+          )}
+
           {/* Transformed canvas */}
           <div ref={innerRef} style={{
             position: 'absolute', top: 0, left: 0, width: canvasW, height: canvasH,
@@ -1274,7 +1340,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                       <PlotContent item={item} unit={unit} isSel={isSel} hideFlags={hideFlags} viewMode={viewMode} isHighlighted={isHighlighted} palette={effectiveSC} highlightColor={searchColor}/>
                     </svg>
                     {item.id === startPin && <div style={{ position: 'absolute', top: 2, left: 2, background: '#059669', color: 'white', fontSize: 7, fontWeight: 900, padding: '1px 4px', borderRadius: 3, pointerEvents: 'none', lineHeight: 1.4 }}>START</div>}
-                    {item.id === endPin   && <div style={{ position: 'absolute', top: 2, right: 2, background: '#ea580c', color: 'white', fontSize: 7, fontWeight: 900, padding: '1px 4px', borderRadius: 3, pointerEvents: 'none', lineHeight: 1.4 }}>END</div>}
+                    {item.id === endPin   && <div style={{ position: 'absolute', bottom: 2, left: 2, background: '#ea580c', color: 'white', fontSize: 7, fontWeight: 900, padding: '1px 4px', borderRadius: 3, pointerEvents: 'none', lineHeight: 1.4 }}>END</div>}
                     {item.item_locked && !hideFlags.lockSymbol && <div style={{ position: 'absolute', bottom: 3, right: 4, fontSize: 9, lineHeight: 1, pointerEvents: 'none', opacity: 0.75 }}>🔒</div>}
                     {isSel && !locked && canEdit && !item.item_locked && <ResizeHandles id={item.id}/>}
                   </div>
@@ -1430,27 +1496,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                 }
               }
 
-              if (!isVert) {
-                const xi = rowPlots.findIndex(i => i.id === selected);
-                if (xi <= 0) return null;
-                const cum = rowPlots.slice(0, xi).reduce((s, p) => s + hDimVal(p), 0);
-                if (!cum) return null;
-                const refY = barBelow ? sel.y + sel.h : sel.y;
-                const barY = barBelow ? refY + 26 : refY - 26;
-                return (<svg key="cd" style={{ position: 'absolute', top: 0, left: 0, width: canvasW, height: canvasH, pointerEvents: 'none', overflow: 'visible' }}>
-                  <HBar x1={rowPlots[0].x} x2={sel.x} barY={barY} refY={refY} color={PRI} label={fmt(cum)}/>
-                </svg>);
-              } else {
-                const xi = colPlots.findIndex(i => i.id === selected);
-                if (xi <= 0) return null;
-                const cum = colPlots.slice(0, xi).reduce((s, p) => s + vDimVal(p), 0);
-                if (!cum) return null;
-                const refX = barLeft ? sel.x : sel.x + sel.w;
-                const barX = barLeft ? refX - 26 : refX + 26;
-                return (<svg key="cd" style={{ position: 'absolute', top: 0, left: 0, width: canvasW, height: canvasH, pointerEvents: 'none', overflow: 'visible' }}>
-                  <VBar y1={colPlots[0].y} y2={sel.y} barX={barX} refX={refX} color={PRI} label={fmt(cum)}/>
-                </svg>);
-              }
+              return null;
             })()}
 
             {drawPreview && drawPreview.w > 5 && drawPreview.h > 5 && (
@@ -1509,11 +1555,11 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                       ↺ Rotate
                     </button>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 12 }}>
-                      <button onClick={() => { setStartPin(p => p === selected ? null : selected); if (startPin !== selected) setEndPin(null); }}
+                      <button onClick={() => { if (startPin === selected) { setStartPin(null); setEndPin(null); } else { setStartPin(selected); setEndPin(null); } }}
                         style={{ height: 28, background: startPin === selected ? '#dcfce7' : '#f9fafb', border: `1px solid ${startPin === selected ? '#059669' : '#e5e7eb'}`, borderRadius: 5, color: startPin === selected ? '#059669' : '#6b7280', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
                         ▶ Start
                       </button>
-                      <button onClick={() => setEndPin(p => p === selected ? null : selected)}
+                      <button onClick={() => { if (endPin === selected) { setEndPin(null); setStartPin(null); } else { setEndPin(selected); } }}
                         style={{ height: 28, background: endPin === selected ? '#fff7ed' : '#f9fafb', border: `1px solid ${endPin === selected ? '#ea580c' : '#e5e7eb'}`, borderRadius: 5, color: endPin === selected ? '#ea580c' : '#6b7280', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
                         End ◀
                       </button>
@@ -1574,6 +1620,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                     <div><b style={{ color: '#6b7280' }}>Place</b> — Drag unit from left panel</div>
                     <div><b style={{ color: '#6b7280' }}>Select</b> — Click item to edit props</div>
                     <div><b style={{ color: '#6b7280' }}>Delete</b> — Select item, press Del</div>
+                    <div><b style={{ color: '#6b7280' }}>Undo</b> — Ctrl+Z (up to 50 steps)</div>
                     <div><b style={{ color: '#6b7280' }}>Fit</b> — Click % button in toolbar</div>
                   </div>
                 </div>
