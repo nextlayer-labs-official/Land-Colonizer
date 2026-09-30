@@ -191,6 +191,21 @@ const updateDriveSettings = async (req, res) => {
   res.json(safeSettings(updated));
 };
 
+// ── Update layout canvas colours ──────────────────────────────────────────────
+const updateLayoutColors = async (req, res) => {
+  const { layout_colors } = req.body;
+  if (typeof layout_colors !== 'object' || layout_colors === null) {
+    return res.status(400).json({ message: 'layout_colors must be an object' });
+  }
+  let settings = await prisma.companySettings.findFirst();
+  if (!settings) settings = await prisma.companySettings.create({ data: {} });
+  const updated = await prisma.companySettings.update({
+    where: { id: settings.id },
+    data: { layout_colors: JSON.stringify(layout_colors) },
+  });
+  res.json({ layout_colors: updated.layout_colors });
+};
+
 // ── Upload Google Drive service account JSON ───────────────────────────────────
 const updateDriveJson = async (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'No JSON file provided' });
@@ -246,6 +261,7 @@ module.exports = {
   updatePrefixSettings,
   updateDriveSettings,
   updateDriveJson,
+  updateLayoutColors,
   testEmail,
   uploadLogo,
 };

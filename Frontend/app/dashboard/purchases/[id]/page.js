@@ -1535,6 +1535,7 @@ export default function PurchaseRecordPage() {
             )}
           </div>
 
+
           {/* ── Sticky edit save bar ── */}
           {editing && (
             <div className="sticky bottom-4 flex justify-center">

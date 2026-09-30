@@ -595,7 +595,7 @@ function BrokerReport() {
           'Purchase Code': p.purchase_code || `PUR-${String(p.id).padStart(4,'0')}`,
           'Plot No':       p.plot_no || '',
           Location:        p.location || '',
-          Area:            p.purchased_area ? `${p.purchased_area} ${p.purchased_area_details || ''}` : '',
+          Area:            p.purchased_area ? `${p.purchased_area} ${p.purchased_area_details || p.area_unit || ''}` : '',
           'Per Sq. Y':     pArea > 0 ? parseFloat((pBrok / pArea).toFixed(2)) : '',
           Brokerage:       fmtNum(p.brokerage),
         });
@@ -606,6 +606,8 @@ function BrokerReport() {
       `broker_report_${new Date().toISOString().slice(0,10)}.xlsx`
     );
   };
+
+  const COLS = 7;
 
   return (
     <div>
@@ -667,6 +669,7 @@ function BrokerReport() {
             <SummaryCard label="Total Purchases" value={result.summary.total_purchases} />
             <SummaryCard label="Total Brokerage" value={'₹ ' + fmt(result.summary.total_brokerage)} />
           </div>
+
 
           {/* ── Sales tab ── */}
           {brokerTab === 'sales' && (
