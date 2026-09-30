@@ -1172,7 +1172,7 @@ export default function PurchaseRecordPage() {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {[
               { label: 'Total Amount',  value: fmtINR(c.total_amount),   sub: 'Rate × Area',      color: 'text-gray-900',    bg: 'bg-white' },
-              { label: 'Advance Paid',  value: fmtINR(c.total_amount - c.balance_to_pay), sub: 'Amount paid',  color: 'text-[#875A7B]', bg: 'bg-white' },
+              { label: 'Total Paid (Adv + Inst)', value: fmtINR(Number(form.advance_paid || 0) + totalInstPaid), sub: 'Advance + instalments paid', color: 'text-[#875A7B]', bg: 'bg-white' },
               { label: 'Balance to Pay',value: fmtINR(effectiveBalance), sub: 'After advance & instalments', color: 'text-amber-600', bg: 'bg-white' },
               { label: '% Paid',        value: `${pct.toFixed(1)}%`,     sub: 'Payment progress',  color: pct >= 100 ? 'text-emerald-600' : 'text-gray-900', bg: 'bg-white' },
               { label: 'Total Cost',    value: fmtINR(effectiveTotalCost), sub: 'Adv+Inst+Brok+Exp−Inc', color: 'text-slate-700', bg: 'bg-white' },

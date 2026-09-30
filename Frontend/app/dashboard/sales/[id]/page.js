@@ -926,8 +926,8 @@ function SaleDetailView({ form, linkedProject }) {
       {/* Pricing */}
       <Section title="Pricing">
         <Cell label={form._inventory ? 'Plot Rate · from unit' : 'Plot Rate'} value={money(form.plot_rate)} money />
-        <Cell label="Total Value"  value={money(form.total_value  ?? c.total_value)}  money />
         <Cell label="Selling Rate" value={money(form.selling_rate)} money />
+        <Cell label="Total Value"  value={money(form.total_value  ?? c.total_value)}  money />
         <Cell label="Actual Price" value={money(form.actual_price ?? c.actual_price)} money accent />
       </Section>
 
@@ -1100,8 +1100,8 @@ function FinancialsTab({ form, instPaid = 0 }) {
         {form.registration_area && <Row label="Registration Area" value={`${form.registration_area}`} />}
         <Hdr>Pricing{form._inventory ? ' · Plot Rate from unit' : ''}</Hdr>
         <Row label="Plot Rate"    value={form.plot_rate    ? fmtINR(form.plot_rate)    : '—'} sub="/unit" />
-        <Row label="Total Value"  value={total_v  ? fmtINR(total_v)  : '—'} sub="Total Area × Plot Rate" />
         <Row label="Selling Rate" value={form.selling_rate ? fmtINR(form.selling_rate) : '—'} sub="/unit" />
+        <Row label="Total Value"  value={total_v  ? fmtINR(total_v)  : '—'} sub="Total Area × Plot Rate" />
         <Row label="Actual Price" value={actual  ? fmtINR(actual)  : '—'} sub="Total Area × Selling Rate" accent />
       </div>
 
@@ -1866,7 +1866,7 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
 }
 
 // ── PDF Report Generator ──────────────────────────────────────────────────────
-function generateSaleReportHTML(form, effectiveInstPaid, effectiveBalance, companyName = 'Company', opts = { additionalCosts: true, otherCharges: true }) {
+function generateSaleReportHTML(form, effectiveInstPaid, effectiveBalance, companyName = 'Company', opts = { additionalCosts: true, otherCharges: true }, partials = {}) {
   const f = (n) => n != null && n !== '' ? `&#8377;${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '&mdash;';
   const d = (v) => v ? new Date(v).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '&mdash;';
   const s = (v) => (v && String(v).trim()) ? String(v).trim() : '&mdash;';
@@ -2085,15 +2085,44 @@ ${instRows.length > 0 ? `
       <th style="padding:5px 10px;text-align:right;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Amount</th>
       <th style="padding:5px 10px;text-align:left;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Due Date</th>
       <th style="padding:5px 10px;text-align:center;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Status</th>
+      <th style="padding:5px 10px;text-align:right;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Partial Paid</th>
+      <th style="padding:5px 10px;text-align:right;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Balance</th>
     </tr>
-    ${instRows.map(r =>
-      `<tr style="${r.pd ? `background:#f0fdf4;` : ''}">
-        <td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;color:#6b7280;">${r.n}</td>
-        <td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;text-align:right;font-family:monospace;font-weight:600;">${f(r.amt)}</td>
-        <td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;color:#374151;">${d(r.dt)}</td>
-        <td style="padding:5px 10px;border-bottom:1px solid #f3f4f6;text-align:center;font-weight:700;color:${r.pd ? '#059669' : '#f59e0b'};">${r.pd ? '&#10003; Paid' : 'Pending'}</td>
-      </tr>`
-    ).join('')}
+    ${instRows.map(r => {
+      const pd = partials[r.n];
+      const pList = pd?.list || [];
+      const pTotal = pd?.total ?? 0;
+      const pBal   = pd?.balance ?? (r.pd ? 0 : r.amt);
+      const hasP   = pList.length > 0;
+      return `<tr style="${r.pd ? 'background:#f0fdf4;' : hasP ? 'background:#eff6ff;' : ''}">
+        <td style="padding:5px 10px;border-bottom:${hasP ? 'none' : '1px solid #f3f4f6'};color:#6b7280;">${r.n}</td>
+        <td style="padding:5px 10px;border-bottom:${hasP ? 'none' : '1px solid #f3f4f6'};text-align:right;font-family:monospace;font-weight:600;">${f(r.amt)}</td>
+        <td style="padding:5px 10px;border-bottom:${hasP ? 'none' : '1px solid #f3f4f6'};color:#374151;">${d(r.dt)}</td>
+        <td style="padding:5px 10px;border-bottom:${hasP ? 'none' : '1px solid #f3f4f6'};text-align:center;font-weight:700;color:${r.pd ? '#059669' : hasP ? '#2563eb' : '#f59e0b'};">${r.pd ? '&#10003; Paid' : hasP ? 'Partial' : 'Pending'}</td>
+        <td style="padding:5px 10px;border-bottom:${hasP ? 'none' : '1px solid #f3f4f6'};text-align:right;font-family:monospace;color:#2563eb;">${hasP ? f(pTotal) : '&mdash;'}</td>
+        <td style="padding:5px 10px;border-bottom:${hasP ? 'none' : '1px solid #f3f4f6'};text-align:right;font-family:monospace;color:${pBal > 0 ? '#dc2626' : '#059669'};">${hasP ? f(pBal) : '&mdash;'}</td>
+      </tr>${hasP ? `
+      <tr style="background:#eff6ff;">
+        <td colspan="6" style="padding:0 0 0 24px;border-bottom:1px solid #f3f4f6;">
+          <table style="width:100%;border-collapse:collapse;font-size:10px;margin:4px 0 6px;">
+            <tr>
+              <th style="padding:3px 8px;text-align:left;color:#60a5fa;font-size:9px;font-weight:600;">#</th>
+              <th style="padding:3px 8px;text-align:left;color:#60a5fa;font-size:9px;font-weight:600;">Date</th>
+              <th style="padding:3px 8px;text-align:right;color:#60a5fa;font-size:9px;font-weight:600;">Amount</th>
+              <th style="padding:3px 8px;text-align:left;color:#60a5fa;font-size:9px;font-weight:600;">Mode</th>
+              <th style="padding:3px 8px;text-align:left;color:#60a5fa;font-size:9px;font-weight:600;">Details</th>
+            </tr>
+            ${pList.map((p, i) => `<tr>
+              <td style="padding:3px 8px;color:#6b7280;">${i + 1}</td>
+              <td style="padding:3px 8px;color:#374151;">${d(p.date)}</td>
+              <td style="padding:3px 8px;text-align:right;font-family:monospace;font-weight:600;color:#1d4ed8;">${f(p.amount)}</td>
+              <td style="padding:3px 8px;color:#374151;">${p.payment_mode || '&mdash;'}</td>
+              <td style="padding:3px 8px;color:#6b7280;">${p.details || '&mdash;'}</td>
+            </tr>`).join('')}
+          </table>
+        </td>
+      </tr>` : ''}`;
+    }).join('')}
   </table>
 </div>` : ''}
 
@@ -2273,7 +2302,7 @@ export default function SaleDetailPage() {
       const s = await apiGet('/settings/public');
       if (s?.company_name) companyName = s.company_name;
     } catch { /* use default */ }
-    const html = generateSaleReportHTML(form, effectiveInstPaid, effectiveBalance, companyName, opts);
+    const html = generateSaleReportHTML(form, effectiveInstPaid, effectiveBalance, companyName, opts, partials);
     const w = window.open('', '_blank');
     if (!w) return;
     w.document.write(html);
