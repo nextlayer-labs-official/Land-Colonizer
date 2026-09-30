@@ -2004,18 +2004,31 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                   <div style={{ padding: '28px', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>No projects found</div>
                 );
                 return filtered.map(p => {
-                  const already = (layoutProjects[currentLayoutId] || []).some(lp => lp.id === p.id);
+                  const inCurrent = (layoutProjects[currentLayoutId] || []).some(lp => lp.id === p.id);
+                  const inOther   = !inCurrent ? (() => {
+                    for (const [lid, projs] of Object.entries(layoutProjects)) {
+                      if (lid !== currentLayoutId && projs.some(lp => lp.id === p.id)) {
+                        return layouts.find(l => l.id === lid) || { name: 'another layout' };
+                      }
+                    }
+                    return null;
+                  })() : null;
+                  const blocked = inCurrent || !!inOther;
                   return (
-                    <button key={p.id} onClick={() => !already && handleSelectProject(p)} disabled={already}
-                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: `1px solid ${already ? '#f3f4f6' : '#e5e7eb'}`, borderRadius: 9, background: already ? '#fafafa' : '#fff', cursor: already ? 'default' : 'pointer', textAlign: 'left', transition: 'all 0.1s', opacity: already ? 0.6 : 1 }}>
-                      <div style={{ width: 34, height: 34, borderRadius: 9, background: already ? '#e5e7eb' : PRI, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 14, flexShrink: 0 }}>
+                    <button key={p.id} onClick={() => !blocked && handleSelectProject(p)} disabled={blocked}
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', border: `1px solid ${blocked ? '#f3f4f6' : '#e5e7eb'}`, borderRadius: 9, background: blocked ? '#fafafa' : '#fff', cursor: blocked ? 'default' : 'pointer', textAlign: 'left', transition: 'all 0.1s', opacity: blocked ? 0.55 : 1 }}>
+                      <div style={{ width: 34, height: 34, borderRadius: 9, background: blocked ? '#e5e7eb' : PRI, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 14, flexShrink: 0 }}>
                         {(p.name || '?')[0].toUpperCase()}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
-                        {p.location && <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.location}</div>}
+                        <div style={{ fontSize: 13, fontWeight: 600, color: blocked ? '#9ca3af' : '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                        {inOther
+                          ? <div style={{ fontSize: 11, color: '#f59e0b', marginTop: 1 }}>Already in: {inOther.name}</div>
+                          : p.location && <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.location}</div>
+                        }
                       </div>
-                      {already && <span style={{ fontSize: 10, color: '#059669', fontWeight: 700, background: '#d1fae5', borderRadius: 6, padding: '2px 7px', flexShrink: 0 }}>Added</span>}
+                      {inCurrent && <span style={{ fontSize: 10, color: '#059669', fontWeight: 700, background: '#d1fae5', borderRadius: 6, padding: '2px 7px', flexShrink: 0 }}>Added</span>}
+                      {inOther   && <span style={{ fontSize: 10, color: '#d97706', fontWeight: 700, background: '#fef3c7', borderRadius: 6, padding: '2px 7px', flexShrink: 0 }}>In Use</span>}
                     </button>
                   );
                 });
