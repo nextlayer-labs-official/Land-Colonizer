@@ -1881,7 +1881,7 @@ function generateSaleReportHTML(form, effectiveInstPaid, effectiveBalance, compa
   const actualAmt   = Number(form.actual_price      || 0);
   const totalV      = Number(form.total_value       || 0);
 
-  // Installment rows
+  // Installment rows — pre-compute partials here to avoid deep template literal scoping
   const instRec = form.installment || null;
   const instRows = [];
   if (instRec) {
@@ -1890,7 +1890,12 @@ function generateSaleReportHTML(form, effectiveInstPaid, effectiveBalance, compa
       const dt  = instRec[`inst_${n}_date`];
       const pd  = instRec[`inst_${n}_paid`];
       if (amt != null && Number(amt) > 0) {
-        instRows.push({ n, amt: Number(amt), dt, pd });
+        const pData  = partials[n] || null;
+        const pList  = pData ? (pData.list || []) : [];
+        const pTotal = pData ? (pData.total || 0) : 0;
+        const pBal   = pData ? (pData.balance != null ? pData.balance : (pd ? 0 : Number(amt))) : 0;
+        const hasP   = pList.length > 0;
+        instRows.push({ n, amt: Number(amt), dt, pd, pList, pTotal, pBal, hasP });
       }
     }
   }
@@ -2089,11 +2094,7 @@ ${instRows.length > 0 ? `
       <th style="padding:5px 10px;text-align:right;color:#6b7280;font-size:9px;text-transform:uppercase;border-bottom:1px solid #e5e7eb;">Balance</th>
     </tr>
     ${instRows.map(r => {
-      const pd = partials[r.n];
-      const pList = pd?.list || [];
-      const pTotal = pd?.total ?? 0;
-      const pBal   = pd?.balance ?? (r.pd ? 0 : r.amt);
-      const hasP   = pList.length > 0;
+      const { pList, pTotal, pBal, hasP } = r;
       return `<tr style="${r.pd ? 'background:#f0fdf4;' : hasP ? 'background:#eff6ff;' : ''}">
         <td style="padding:5px 10px;border-bottom:${hasP ? 'none' : '1px solid #f3f4f6'};color:#6b7280;">${r.n}</td>
         <td style="padding:5px 10px;border-bottom:${hasP ? 'none' : '1px solid #f3f4f6'};text-align:right;font-family:monospace;font-weight:600;">${f(r.amt)}</td>
