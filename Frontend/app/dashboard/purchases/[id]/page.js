@@ -970,12 +970,12 @@ export default function PurchaseRecordPage() {
 
   const doExportPDF = async (opts) => {
     setShowPdfModal(false);
+    const w = window.open('', '_blank');
+    if (!w) return;
     let companyName = 'Company';
     try { const s = await apiGet('/settings/public'); if (s?.company_name) companyName = s.company_name; } catch { /* default */ }
     const snap = computed(form);
     const html = generatePurchaseReportHTML(form, snap, totalInstPaid, inventory, companyName, opts);
-    const w = window.open('', '_blank');
-    if (!w) return;
     w.document.write(html);
     w.document.close();
   };

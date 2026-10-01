@@ -2297,14 +2297,14 @@ export default function SaleDetailPage() {
 
   const doExportPDF = async (opts) => {
     setShowPdfModal(false);
+    const w = window.open('', '_blank');
+    if (!w) return;
     let companyName = 'Company';
     try {
       const s = await apiGet('/settings/public');
       if (s?.company_name) companyName = s.company_name;
     } catch { /* use default */ }
     const html = generateSaleReportHTML(form, effectiveInstPaid, effectiveBalance, companyName, opts, partials);
-    const w = window.open('', '_blank');
-    if (!w) return;
     w.document.write(html);
     w.document.close();
   };
