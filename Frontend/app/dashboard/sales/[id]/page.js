@@ -2538,19 +2538,21 @@ export default function SaleDetailPage() {
                     </div>
                   )}
 
-                  {/* Plot Rate */}
-                  {form.plot_rate && (
-                    <div>
-                      <p className="text-[9px] text-gray-400 uppercase tracking-wide mb-1">Plot Rate</p>
-                      <p className="text-sm font-semibold text-[#875A7B]">{fmtINR(form.plot_rate)}<span className="text-[10px] font-normal text-gray-400 ml-1">/unit</span></p>
-                    </div>
-                  )}
-
-                  {/* Selling Rate */}
-                  {form.selling_rate && (
-                    <div>
-                      <p className="text-[9px] text-gray-400 uppercase tracking-wide mb-1">Selling Rate</p>
-                      <p className="text-sm font-semibold text-[#875A7B]">{fmtINR(form.selling_rate)}<span className="text-[10px] font-normal text-gray-400 ml-1">/unit</span></p>
+                  {/* Plot Rate + Selling Rate stacked */}
+                  {(form.plot_rate || form.selling_rate) && (
+                    <div className="flex flex-col gap-1">
+                      {form.plot_rate && (
+                        <div>
+                          <p className="text-[9px] text-gray-400 uppercase tracking-wide mb-0.5">Plot Rate</p>
+                          <p className="text-sm font-semibold text-[#875A7B]">{fmtINR(form.plot_rate)}<span className="text-[10px] font-normal text-gray-400 ml-1">/unit</span></p>
+                        </div>
+                      )}
+                      {form.selling_rate && (
+                        <div>
+                          <p className="text-[9px] text-gray-400 uppercase tracking-wide mb-0.5">Selling Rate</p>
+                          <p className="text-sm font-semibold text-[#875A7B]">{fmtINR(form.selling_rate)}<span className="text-[10px] font-normal text-gray-400 ml-1">/unit</span></p>
+                        </div>
+                      )}
                     </div>
                   )}
 
