@@ -2304,9 +2304,16 @@ export default function SaleDetailPage() {
       const s = await apiGet('/settings/public');
       if (s?.company_name) companyName = s.company_name;
     } catch { /* use default */ }
-    const html = generateSaleReportHTML(form, effectiveInstPaid, effectiveBalance, companyName, opts, partials);
-    w.document.write(html);
-    w.document.close();
+    try {
+      const html = generateSaleReportHTML(form, effectiveInstPaid, effectiveBalance, companyName, opts, partials);
+      w.document.open('text/html', 'replace');
+      w.document.write(html);
+      w.document.close();
+    } catch (e) {
+      w.document.open('text/html', 'replace');
+      w.document.write(`<pre style="color:red;padding:20px">${e.message}\n\n${e.stack}</pre>`);
+      w.document.close();
+    }
   };
 
   const confirmed = !!form.sale_confirmed;
