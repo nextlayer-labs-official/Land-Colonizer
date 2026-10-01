@@ -620,7 +620,7 @@ function HistoryCanvas({ n, label, instAmount, partialData, onClose, onDelete, o
 }
 
 // ── Installment Panel (tab content) ──────────────────────────────────────────
-function InstallmentPanel({ saleId, canEdit, onTotalPaidChange }) {
+function InstallmentPanel({ saleId, canEdit, onTotalPaidChange, partialsRef }) {
   const [form,          setForm]          = useState(emptyInst());
   const [loading,       setLoading]       = useState(true);
   const [editing,       setEditing]       = useState(false);
@@ -636,6 +636,8 @@ function InstallmentPanel({ saleId, canEdit, onTotalPaidChange }) {
   const [historyCanvas, setHistoryCanvas] = useState(null); // { n }
   const [detailModal,   setDetailModal]   = useState(null); // { n }
   const [deleting,      setDeleting]      = useState(null); // partial id
+
+  useEffect(() => { if (partialsRef) partialsRef.current = partials; }, [partials, partialsRef]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -2181,6 +2183,7 @@ export default function SaleDetailPage() {
   const [projectSaving, setProjectSaving] = useState(false);
   const [showPdfModal,  setShowPdfModal]  = useState(false);
   const [pdfOpts,       setPdfOpts]       = useState({ additionalCosts: true, otherCharges: true });
+  const partialsRef = useRef({});
 
   const canEdit             = can('SALE_EDIT')               || me?.is_system;
   const canDelete           = can('SALE_DELETE')             || me?.is_system;
@@ -2293,14 +2296,15 @@ export default function SaleDetailPage() {
       if (s?.company_name) companyName = s.company_name;
     } catch { /* use default */ }
     try {
-      // Build enriched installment rows here where partials state is in scope
+      // Build enriched installment rows using partialsRef (shared ref from InstallmentPanel)
       const instRec = form.installment || null;
       const enrichedRows = [];
+      const pMap = partialsRef.current || {};
       if (instRec) {
         for (let n = 1; n <= 24; n++) {
           const amt = instRec[`inst_${n}_amount`];
           if (amt != null && Number(amt) > 0) {
-            const pData  = partials[n] || null;
+            const pData  = pMap[n] || null;
             const pList  = pData ? (pData.list  || []) : [];
             const pTotal = pData ? (pData.total  || 0) : 0;
             const pBal   = pData ? (pData.balance != null ? pData.balance : (instRec[`inst_${n}_paid`] ? 0 : Number(amt))) : 0;
@@ -2746,7 +2750,7 @@ export default function SaleDetailPage() {
 
             {/* Tab: Installments — always mounted so total_paid updates on page load */}
             <div className={tab === 'installments' ? 'p-5' : 'hidden'}>
-              <InstallmentPanel saleId={params.id} canEdit={canEditInstallment} onTotalPaidChange={setTotalInstPaid} />
+              <InstallmentPanel saleId={params.id} canEdit={canEditInstallment} onTotalPaidChange={setTotalInstPaid} partialsRef={partialsRef} />
             </div>
 
             {/* Tab: Financials */}
