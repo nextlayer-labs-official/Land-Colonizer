@@ -2546,6 +2546,14 @@ export default function SaleDetailPage() {
                     </div>
                   )}
 
+                  {/* Selling Rate */}
+                  {form.selling_rate && (
+                    <div>
+                      <p className="text-[9px] text-gray-400 uppercase tracking-wide mb-1">Selling Rate</p>
+                      <p className="text-sm font-semibold text-[#875A7B]">{fmtINR(form.selling_rate)}<span className="text-[10px] font-normal text-gray-400 ml-1">/unit</span></p>
+                    </div>
+                  )}
+
                   {/* Customer */}
                   {form._customer && (
                     <div>
