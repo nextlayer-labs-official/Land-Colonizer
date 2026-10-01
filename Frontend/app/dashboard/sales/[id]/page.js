@@ -1866,7 +1866,10 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
 }
 
 // ── PDF Report Generator ──────────────────────────────────────────────────────
-function generateSaleReportHTML(form, effectiveInstPaid, effectiveBalance, companyName = 'Company', opts = { additionalCosts: true, otherCharges: true }, partials = {}) {
+function generateSaleReportHTML(form, effectiveInstPaid, effectiveBalance, companyName, opts, enrichedRows) {
+  if (!companyName) companyName = 'Company';
+  if (!opts) opts = { additionalCosts: true, otherCharges: true };
+  if (!enrichedRows) enrichedRows = [];
   const f = (n) => n != null && n !== '' ? `&#8377;${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '&mdash;';
   const d = (v) => v ? new Date(v).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '&mdash;';
   const s = (v) => (v && String(v).trim()) ? String(v).trim() : '&mdash;';
@@ -1881,24 +1884,8 @@ function generateSaleReportHTML(form, effectiveInstPaid, effectiveBalance, compa
   const actualAmt   = Number(form.actual_price      || 0);
   const totalV      = Number(form.total_value       || 0);
 
-  // Installment rows — pre-compute partials here to avoid deep template literal scoping
-  const instRec = form.installment || null;
-  const instRows = [];
-  if (instRec) {
-    for (let n = 1; n <= 24; n++) {
-      const amt = instRec[`inst_${n}_amount`];
-      const dt  = instRec[`inst_${n}_date`];
-      const pd  = instRec[`inst_${n}_paid`];
-      if (amt != null && Number(amt) > 0) {
-        const pData  = partials[n] || null;
-        const pList  = pData ? (pData.list || []) : [];
-        const pTotal = pData ? (pData.total || 0) : 0;
-        const pBal   = pData ? (pData.balance != null ? pData.balance : (pd ? 0 : Number(amt))) : 0;
-        const hasP   = pList.length > 0;
-        instRows.push({ n, amt: Number(amt), dt, pd, pList, pTotal, pBal, hasP });
-      }
-    }
-  }
+  // Use pre-enriched installment rows (built at call site where partials state is in scope)
+  const instRows = enrichedRows;
 
   // Additional costs
   const addlRows = [
@@ -2306,7 +2293,22 @@ export default function SaleDetailPage() {
       if (s?.company_name) companyName = s.company_name;
     } catch { /* use default */ }
     try {
-      const html = generateSaleReportHTML(form, effectiveInstPaid, effectiveBalance, companyName, opts, partials);
+      // Build enriched installment rows here where partials state is in scope
+      const instRec = form.installment || null;
+      const enrichedRows = [];
+      if (instRec) {
+        for (let n = 1; n <= 24; n++) {
+          const amt = instRec[`inst_${n}_amount`];
+          if (amt != null && Number(amt) > 0) {
+            const pData  = partials[n] || null;
+            const pList  = pData ? (pData.list  || []) : [];
+            const pTotal = pData ? (pData.total  || 0) : 0;
+            const pBal   = pData ? (pData.balance != null ? pData.balance : (instRec[`inst_${n}_paid`] ? 0 : Number(amt))) : 0;
+            enrichedRows.push({ n, amt: Number(amt), dt: instRec[`inst_${n}_date`], pd: instRec[`inst_${n}_paid`], pList, pTotal, pBal, hasP: pList.length > 0 });
+          }
+        }
+      }
+      const html = generateSaleReportHTML(form, effectiveInstPaid, effectiveBalance, companyName, opts, enrichedRows);
       w.document.open('text/html', 'replace');
       w.document.write(html);
       w.document.close();
