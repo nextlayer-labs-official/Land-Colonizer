@@ -58,7 +58,7 @@ export async function apiPut(endpoint, body) {
       body: JSON.stringify(body),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Something went wrong');
+    if (!res.ok) throw Object.assign(new Error(data.message || 'Something went wrong'), { status: res.status });
     return data;
   } finally { stopBar(); }
 }

@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const prisma = require('../../lib/prisma');
 const { sendMail } = require('../../lib/mailer');
 const { auditLog, diff } = require('../../lib/audit');
@@ -239,22 +240,32 @@ const updateDriveJson = async (req, res) => {
 };
 
 // ── Global layout (cross-browser) ─────────────────────────────────────────────
+// `rev` is a hash of the stored JSON; saves must send the rev they started from
+// so a stale tab or browser cannot overwrite newer changes.
+const layoutRev = (raw) => crypto.createHash('sha1').update(raw || '').digest('hex');
+
 const getGlobalLayout = async (req, res) => {
   const settings = await prisma.companySettings.findFirst();
-  if (!settings?.global_layout) return res.json(null);
-  try { res.json(JSON.parse(settings.global_layout)); } catch { res.json(null); }
+  const raw = settings?.global_layout || null;
+  const rev = layoutRev(raw);
+  if (!raw) return res.json({ items: null, rev });
+  let data;
+  try { data = JSON.parse(raw); } catch { return res.status(500).json({ message: 'Saved layout data is unreadable' }); }
+  res.json({ ...data, rev });
 };
 
 const saveGlobalLayout = async (req, res) => {
-  const { global_layout } = req.body;
+  const { global_layout, base_rev } = req.body;
   if (global_layout === undefined) return res.status(400).json({ message: 'global_layout is required' });
   let settings = await prisma.companySettings.findFirst();
   if (!settings) settings = await prisma.companySettings.create({ data: {} });
-  await prisma.companySettings.update({
-    where: { id: settings.id },
-    data: { global_layout: global_layout === null ? null : JSON.stringify(global_layout) },
-  });
-  res.json({ ok: true });
+  const currentRev = layoutRev(settings.global_layout);
+  if (base_rev !== undefined && base_rev !== currentRev) {
+    return res.status(409).json({ message: 'This layout was changed in another tab or browser. Reload to get the latest version.', rev: currentRev });
+  }
+  const raw = global_layout === null ? null : JSON.stringify(global_layout);
+  await prisma.companySettings.update({ where: { id: settings.id }, data: { global_layout: raw } });
+  res.json({ ok: true, rev: layoutRev(raw) });
 };
 
 // ── Public: company name + drive status (no auth required) ────────────────────

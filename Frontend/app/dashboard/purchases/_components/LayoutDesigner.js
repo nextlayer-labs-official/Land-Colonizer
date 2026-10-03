@@ -219,6 +219,13 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   const [saved,       setSaved]       = useState(false);
   const [autoSave,    setAutoSave]    = useState(() => { try { return localStorage.getItem('ams-layout-autosave') === '1'; } catch { return false; } });
   const [autoSaveStatus, setAutoSaveStatus] = useState('idle'); // 'idle' | 'saving' | 'saved'
+  const [loadError,   setLoadError]   = useState('');
+  const [saveError,   setSaveError]   = useState('');
+  const [conflict,    setConflict]    = useState(false);
+  const revRef          = useRef(undefined);
+  const conflictRef     = useRef(false);
+  const saveChainRef    = useRef(Promise.resolve());
+  const migrateLegacyRef = useRef(false);
   const [items,       setItems]       = useState([]);
   const [inventory,   setInventory]   = useState(inventoryProp);
   const [snapG,       setSnapG]       = useState(10);
@@ -341,10 +348,11 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
     clearTimeout(autoSaveTimer.current);
     autoSaveTimer.current = setTimeout(async () => {
       if (!autoSaveRef.current) return;
+      if (conflictRef.current) return;
       setAutoSaveStatus('saving');
-      await handleSaveRef.current?.();
-      setAutoSaveStatus('saved');
-      setTimeout(() => setAutoSaveStatus('idle'), 2500);
+      const ok = await handleSaveRef.current?.();
+      setAutoSaveStatus(ok ? 'saved' : 'idle');
+      if (ok) setTimeout(() => setAutoSaveStatus('idle'), 2500);
     }, 2000);
     return () => clearTimeout(autoSaveTimer.current);
   }, [items, canvasW, canvasH]);
@@ -361,6 +369,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
 
   // ── Multi-layout init helper ────────────────────────────────────────────────
   const initMultiLayouts = useCallback((rawItems, fallbackGrid) => {
+    historyRef.current = [];
     if (rawItems?.__multi) {
       const lays = rawItems.layouts || [];
       const activeId = rawItems.activeId || lays[0]?.id;
@@ -416,12 +425,21 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   useEffect(() => {
     if (!purchaseId) {
       apiGet('/settings/global-layout').then(data => {
+        revRef.current = data?.rev;
         if (data?.items) {
           initMultiLayouts(data.items, { cols: data.grid_cols, rows: data.grid_rows });
+          return;
+        }
+        // Layouts saved before server storage existed live only in this browser — upload them
+        let legacy = null;
+        try { legacy = JSON.parse(localStorage.getItem('global-layout') || 'null'); } catch {}
+        if (legacy?.items) {
+          initMultiLayouts(legacy.items, { cols: legacy.grid_cols, rows: legacy.grid_rows });
+          migrateLegacyRef.current = true;
         } else {
           initMultiLayouts(null, null);
         }
-      }).catch(() => initMultiLayouts(null, null)).finally(() => setLoading(false));
+      }).catch(e => setLoadError(e?.message || 'Could not load the layout')).finally(() => setLoading(false));
       return;
     }
     Promise.all([
@@ -435,8 +453,14 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
         initMultiLayouts(null, null);
       }
       if (purchaseData?.inventory) setInventory(purchaseData.inventory);
-    }).catch(() => { initMultiLayouts(null, null); }).finally(() => setLoading(false));
+    }).catch(e => setLoadError(e?.message || 'Could not load the layout')).finally(() => setLoading(false));
   }, [purchaseId]);
+
+  useEffect(() => {
+    if (loading || !migrateLegacyRef.current) return;
+    migrateLegacyRef.current = false;
+    handleSaveRef.current?.();
+  }, [loading]);
 
   // On first load: start at 100% zoom, centered
   useEffect(() => {
@@ -479,6 +503,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
       if (e.code === 'Space' && document.activeElement?.tagName !== 'INPUT') {
         e.preventDefault(); spaceRef.current = true; setSpaceDown(true);
       }
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
         e.preventDefault();
         if (historyRef.current.length > 0) {
@@ -487,7 +512,6 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
         }
         return;
       }
-      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
       if ((e.key === 'Delete' || e.key === 'Backspace') && multiSelRef.current.size > 0) {
         if (layout?.locked || !canEdit) return;
         pushHistory();
@@ -758,22 +782,36 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
     return { __multi: true, layouts: allLays, activeId };
   };
 
-  const handleSave = async () => {
-    setSaving(true); setSaved(false);
-    const activeId = activeLayIdRef.current;
-    const payload  = buildMultiPayload(activeId, itemsRef.current, canvasW, canvasH);
+  const doSave = async () => {
+    if (conflictRef.current) return false;
+    setSaving(true); setSaved(false); setSaveError('');
+    const activeId    = activeLayIdRef.current;
+    const activeItems = itemsRef.current;
+    const payload  = buildMultiPayload(activeId, activeItems, canvasW, canvasH);
     const newJson  = JSON.stringify({ layouts: payload.layouts, activeId });
     try {
       if (!purchaseId) {
-        await apiPut('/settings/global-layout', { global_layout: { grid_rows: canvasH, grid_cols: canvasW, items: payload } });
+        const r = await apiPut('/settings/global-layout', { global_layout: { grid_rows: canvasH, grid_cols: canvasW, items: payload }, base_rev: revRef.current });
+        revRef.current = r?.rev;
       } else {
         const d = await apiPut(`/purchases/${purchaseId}/layout`, { grid_rows: canvasH, grid_cols: canvasW, items: payload });
         setLayout(d);
       }
       setSavedJson(newJson);
-      setLayoutData(prev => ({ ...prev, [activeId]: { items: itemsRef.current, canvasW, canvasH } }));
+      setLayoutData(prev => ({ ...prev, [activeId]: { items: activeItems, canvasW, canvasH } }));
       setSaved(true); setTimeout(() => setSaved(false), 2500);
-    } catch {} finally { setSaving(false); }
+      return true;
+    } catch (e) {
+      if (e?.status === 409) { conflictRef.current = true; setConflict(true); }
+      else setSaveError(`Layout not saved: ${e?.message || 'network error'}. Your changes are still on screen — try saving again.`);
+      return false;
+    } finally { setSaving(false); }
+  };
+  // Saves run one at a time so each sends the revision returned by the previous one
+  const handleSave = () => {
+    const run = saveChainRef.current.then(doSave);
+    saveChainRef.current = run.catch(() => {});
+    return run;
   };
   handleSaveRef.current = handleSave;
 
@@ -792,6 +830,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
     setLayoutData(prev => ({ ...prev, [activeId]: { items: itemsRef.current, canvasW, canvasH } }));
     // Load target
     const target = layoutDataRef.current[targetId] || { items: [], canvasW: CANVAS_W, canvasH: CANVAS_H };
+    historyRef.current = [];
     setItems(target.items);
     setCanvasW(target.canvasW);
     setCanvasH(target.canvasH);
@@ -824,6 +863,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
     setLayoutData(prev => ({ ...prev, [activeId]: { items: itemsRef.current, canvasW, canvasH }, [id]: { items: [], canvasW: CANVAS_W, canvasH: CANVAS_H } }));
     setLayouts(prev => [...prev, { id, name }]);
     setActiveLayoutId(id);
+    historyRef.current = [];
     setItems([]); setCanvasW(CANVAS_W); setCanvasH(CANVAS_H);
     setSelected(null); setMultiSel(new Set()); setStartPin(null); setEndPin(null);
     setShowNewLayoutDlg(false);
@@ -990,6 +1030,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
       const next = remaining[0];
       const nextData = layoutDataRef.current[next.id] || { items: [], canvasW: CANVAS_W, canvasH: CANVAS_H };
       setActiveLayoutId(next.id);
+      historyRef.current = [];
       setItems(nextData.items);
       setCanvasW(nextData.canvasW);
       setCanvasH(nextData.canvasH);
@@ -1001,6 +1042,17 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', background: '#f4f5f7', color: '#9ca3af', fontSize: 13 }}>
       Loading layout…
+    </div>
+  );
+
+  if (loadError) return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, height: '100%', background: '#f4f5f7', padding: 24, textAlign: 'center' }}>
+      <div style={{ fontSize: 14, fontWeight: 600, color: '#b91c1c' }}>The layout could not be loaded</div>
+      <div style={{ fontSize: 12, color: '#6b7280', maxWidth: 420 }}>{loadError}. Editing is disabled so the saved layout is not overwritten.</div>
+      <button onClick={() => window.location.reload()}
+        style={{ height: 32, padding: '0 16px', fontSize: 12, fontWeight: 600, borderRadius: 7, border: 'none', cursor: 'pointer', background: PRI, color: '#fff' }}>
+        Retry
+      </button>
     </div>
   );
 
@@ -1366,6 +1418,26 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
               borderRadius: 20, padding: '4px 14px', fontSize: 11, fontWeight: 600,
               display: 'flex', alignItems: 'center', gap: 5, boxShadow: '0 2px 8px rgba(0,0,0,0.10)' }}>
               {autoSaveStatus === 'saving' ? <>⟳ Auto saving…</> : <>✓ Auto saved</>}
+            </div>
+          )}
+
+          {(conflict || saveError) && (
+            <div style={{ position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)', zIndex: 31, maxWidth: 'calc(100% - 40px)',
+              background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: 8, padding: '8px 12px', fontSize: 12, fontWeight: 600,
+              display: 'flex', alignItems: 'center', gap: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.10)' }}
+              onPointerDown={e => e.stopPropagation()}>
+              <span>{conflict ? 'This layout was changed in another tab or browser. Saving is paused so those changes are not overwritten.' : saveError}</span>
+              {conflict ? (
+                <button onClick={() => window.location.reload()}
+                  style={{ height: 26, padding: '0 10px', fontSize: 11, fontWeight: 700, borderRadius: 6, border: 'none', cursor: 'pointer', background: '#b91c1c', color: '#fff', whiteSpace: 'nowrap' }}>
+                  Reload latest
+                </button>
+              ) : (
+                <button onClick={() => setSaveError('')}
+                  style={{ height: 26, padding: '0 8px', fontSize: 11, fontWeight: 700, borderRadius: 6, border: '1px solid #fecaca', cursor: 'pointer', background: '#fff', color: '#b91c1c' }}>
+                  Dismiss
+                </button>
+              )}
             </div>
           )}
 
