@@ -578,7 +578,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
       const item = itemsRef.current.find(i => i.id === id);
       if (!item || item.item_locked) return;
       pushHistory();
-      interactRef.current = { type: 'resize', id, corner, sx: pos.x, sy: pos.y, ox: item.x, oy: item.y, ow: item.w, oh: item.h };
+      interactRef.current = { type: 'resize', id, corner, sx: pos.x, sy: pos.y, ox: item.x, oy: item.y, ow: item.w, oh: item.h, rot: item.rotation || 0 };
       el.setPointerCapture(e.pointerId);
       e.preventDefault(); e.stopPropagation(); return;
     }
@@ -646,7 +646,12 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
         ? { ...i, x: snapTo(pos.x - intr.ox, g), y: snapTo(pos.y - intr.oy, g) } : i));
     }
     if (intr.type === 'resize') {
-      const dx = pos.x - intr.sx, dy = pos.y - intr.sy, c = intr.corner;
+      // Rotate screen-space delta into item-local space so handles work after rotation
+      const rad = (intr.rot || 0) * Math.PI / 180;
+      const sdx = pos.x - intr.sx, sdy = pos.y - intr.sy;
+      const dx = sdx * Math.cos(rad) + sdy * Math.sin(rad);
+      const dy = -sdx * Math.sin(rad) + sdy * Math.cos(rad);
+      const c = intr.corner;
       let x = intr.ox, y = intr.oy, w = intr.ow, h = intr.oh;
       if (c.includes('e')) { w = snapTo(Math.max(60, intr.ow + dx), g); }
       if (c.includes('w')) { const nw = snapTo(Math.max(60, intr.ow - dx), g); x = intr.ox + intr.ow - nw; w = nw; }
