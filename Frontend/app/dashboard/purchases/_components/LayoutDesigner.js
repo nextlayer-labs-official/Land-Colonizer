@@ -411,16 +411,13 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   // Load layout + inventory
   useEffect(() => {
     if (!purchaseId) {
-      try {
-        const saved = localStorage.getItem('global-layout');
-        if (saved) {
-          const data = JSON.parse(saved);
+      apiGet('/settings/global-layout').then(data => {
+        if (data?.items) {
           initMultiLayouts(data.items, { cols: data.grid_cols, rows: data.grid_rows });
         } else {
           initMultiLayouts(null, null);
         }
-      } catch { initMultiLayouts(null, null); }
-      setLoading(false);
+      }).catch(() => initMultiLayouts(null, null)).finally(() => setLoading(false));
       return;
     }
     Promise.all([
@@ -701,7 +698,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
     const newJson  = JSON.stringify({ layouts: payload.layouts, activeId });
     try {
       if (!purchaseId) {
-        localStorage.setItem('global-layout', JSON.stringify({ grid_rows: canvasH, grid_cols: canvasW, items: payload }));
+        await apiPut('/settings/global-layout', { global_layout: { grid_rows: canvasH, grid_cols: canvasW, items: payload } });
       } else {
         const d = await apiPut(`/purchases/${purchaseId}/layout`, { grid_rows: canvasH, grid_cols: canvasW, items: payload });
         setLayout(d);

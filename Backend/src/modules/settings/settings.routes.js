@@ -13,6 +13,8 @@ const {
   updateDriveSettings,
   updateDriveJson,
   updateLayoutColors,
+  getGlobalLayout,
+  saveGlobalLayout,
   testEmail,
   uploadLogo,
 } = require('./settings.controller');
@@ -60,6 +62,8 @@ router.put('/security',          authenticate, updateSecuritySettings);
 router.put('/prefixes',          authenticate, updatePrefixSettings);
 router.put('/drive',             authenticate, updateDriveSettings);
 router.put('/layout-colors',    authenticate, updateLayoutColors);
+router.get('/global-layout',    authenticate, getGlobalLayout);
+router.put('/global-layout',    authenticate, saveGlobalLayout);
 router.post('/drive/json',       authenticate, jsonUpload.single('json'), updateDriveJson);
 router.post('/test-email',       authenticate, testEmail);
 router.post('/logo',             authenticate, logoUpload.single('logo'), uploadLogo);

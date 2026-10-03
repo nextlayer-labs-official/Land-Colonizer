@@ -238,6 +238,25 @@ const updateDriveJson = async (req, res) => {
   res.json({ message: 'Service account JSON saved', client_email: parsed.client_email });
 };
 
+// ── Global layout (cross-browser) ─────────────────────────────────────────────
+const getGlobalLayout = async (req, res) => {
+  const settings = await prisma.companySettings.findFirst();
+  if (!settings?.global_layout) return res.json(null);
+  try { res.json(JSON.parse(settings.global_layout)); } catch { res.json(null); }
+};
+
+const saveGlobalLayout = async (req, res) => {
+  const { global_layout } = req.body;
+  if (global_layout === undefined) return res.status(400).json({ message: 'global_layout is required' });
+  let settings = await prisma.companySettings.findFirst();
+  if (!settings) settings = await prisma.companySettings.create({ data: {} });
+  await prisma.companySettings.update({
+    where: { id: settings.id },
+    data: { global_layout: global_layout === null ? null : JSON.stringify(global_layout) },
+  });
+  res.json({ ok: true });
+};
+
 // ── Public: company name + drive status (no auth required) ────────────────────
 const getPublicSettings = async (req, res) => {
   const settings = await prisma.companySettings.findFirst();
@@ -262,6 +281,8 @@ module.exports = {
   updateDriveSettings,
   updateDriveJson,
   updateLayoutColors,
+  getGlobalLayout,
+  saveGlobalLayout,
   testEmail,
   uploadLogo,
 };
