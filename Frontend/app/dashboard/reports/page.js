@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import useAuth from '@/lib/useAuth';
 import usePermissions from '@/lib/usePermissions';
 import { apiGet } from '@/lib/api';
@@ -547,6 +547,7 @@ function BrokerReport() {
   const [purchases, setPurchases]= useState([]);
   const [brokerTab, setBrokerTab]= useState('sales');
   const [expanded,  setExpanded] = useState({});
+  const [error,     setError]    = useState('');
 
   useEffect(() => {
     apiGet('/lookup/brokers?limit=500').then(d  => setBrokers(d  || [])).catch(() => {});
@@ -555,10 +556,13 @@ function BrokerReport() {
   }, []);
 
   const run = async () => {
-    setLoading(true);
+    setLoading(true); setError('');
     try {
       const q = new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([,v]) => v)));
       setResult(await apiGet(`/reports/brokers?${q}`));
+    } catch (e) {
+      setResult(null);
+      setError(e?.message || 'Failed to load broker report');
     } finally { setLoading(false); }
   };
 
@@ -660,6 +664,10 @@ function BrokerReport() {
         </FilterRow>
       </div>
 
+      {error && (
+        <div className="mb-4 px-4 py-3 rounded-lg border border-red-200 bg-red-50 text-sm text-red-700">{error}</div>
+      )}
+
       {result && (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4 print:hidden">
@@ -697,8 +705,8 @@ function BrokerReport() {
                     const totalArea = b.sales.reduce((s, r) => s + Number(r.total_area || 0), 0);
                     const brokerPerSqY = totalArea > 0 ? b.sales_brokerage / totalArea : null;
                     return (
-                    <>
-                      <tr key={b.id} className="border-b border-gray-100 cursor-pointer hover:bg-gray-50"
+                    <Fragment key={b.id}>
+                      <tr className="border-b border-gray-100 cursor-pointer hover:bg-gray-50"
                         onClick={() => toggle(b.id)}>
                         <td className="px-3 py-2.5">
                           <svg className={`w-4 h-4 text-gray-400 transition-transform ${expanded[b.id] ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -743,7 +751,7 @@ function BrokerReport() {
                           })}
                         </>
                       )}
-                    </>
+                    </Fragment>
                     );
                   })}
                 </tbody>
@@ -777,8 +785,8 @@ function BrokerReport() {
                     const totalArea = b.purchases.reduce((s, p) => s + Number(p.purchased_area || 0), 0);
                     const brokerPerSqY = totalArea > 0 ? b.purchase_brokerage / totalArea : null;
                     return (
-                    <>
-                      <tr key={b.id} className="border-b border-gray-100 cursor-pointer hover:bg-amber-50/20"
+                    <Fragment key={b.id}>
+                      <tr className="border-b border-gray-100 cursor-pointer hover:bg-amber-50/20"
                         onClick={() => toggle(b.id)}>
                         <td className="px-3 py-2.5">
                           <svg className={`w-4 h-4 text-gray-400 transition-transform ${expanded[b.id] ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -821,7 +829,7 @@ function BrokerReport() {
                           })}
                         </>
                       )}
-                    </>
+                    </Fragment>
                     );
                   })}
                 </tbody>

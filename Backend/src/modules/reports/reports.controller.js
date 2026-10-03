@@ -213,58 +213,79 @@ const purchaseReport = async (req, res) => {
 const brokerReport = async (req, res) => {
   const { date_from, date_to, broker_id, project_id, purchase_id } = req.query;
 
-  const dateFilter = {};
+  let range = null;
   if (date_from || date_to) {
-    dateFilter.created_at = {};
-    if (date_from) dateFilter.created_at.gte = new Date(date_from);
-    if (date_to)   dateFilter.created_at.lte = new Date(date_to + 'T23:59:59.999');
+    range = {};
+    if (date_from) range.gte = new Date(date_from);
+    if (date_to)   range.lte = new Date(date_to + 'T23:59:59.999');
   }
 
   const brokerWhere = broker_id ? { id: parseInt(broker_id) } : {};
-
-  // Sales where: optionally filter by project
-  const salesWhere = { ...dateFilter };
-  if (project_id) salesWhere.inventory = { project_id: parseInt(project_id) };
-
-  const brokers = await prisma.broker.findMany({
+  const brokerList = await prisma.broker.findMany({
     where: brokerWhere,
-    include: {
-      sales: {
-        where: salesWhere,
-        select: {
-          id: true, sale_code: true, actual_price: true, brokerage: true, status: true, created_at: true,
-          total_area: true, total_area_details: true,
-          customer:  { select: { name: true } },
-          inventory: {
-            select: {
-              plot_no: true, sl_no: true, front_area: true, back_area: true, area: true, area_unit: true,
-              project: { select: { id: true, name: true } },
-            },
-          },
-        },
-      },
-    },
+    select: { id: true, name: true },
     orderBy: { name: 'asc' },
   });
 
+  const norm = (s) => (s || '').trim().toLowerCase();
+  const ids   = brokerList.map(b => b.id);
+  const names = [...new Set(brokerList.map(b => (b.name || '').trim()).filter(Boolean))];
+  const idByName = new Map();
+  for (const b of brokerList) if (!idByName.has(norm(b.name))) idByName.set(norm(b.name), b.id);
+
+  // Sales may have only a typed broker_name (no broker_id), so match on either
+  const salesWhere = {
+    archived: false,
+    OR: [
+      { broker_id: { in: ids } },
+      { broker_id: null, broker_name: { not: null } },
+    ],
+  };
+  if (range) salesWhere.AND = [{ OR: [{ sale_date: range }, { sale_date: null, created_at: range }] }];
+  if (project_id) salesWhere.inventory = { project_id: parseInt(project_id) };
+
+  const salesList = ids.length === 0 ? [] : await prisma.sale.findMany({
+    where: salesWhere,
+    select: {
+      id: true, sale_code: true, actual_price: true, brokerage: true, status: true, created_at: true, sale_date: true,
+      total_area: true, total_area_details: true, broker_id: true, broker_name: true,
+      customer:  { select: { name: true } },
+      inventory: {
+        select: {
+          plot_no: true, sl_no: true, front_area: true, back_area: true, area: true, area_unit: true,
+          project: { select: { id: true, name: true } },
+        },
+      },
+    },
+    orderBy: { id: 'asc' },
+  });
+
+  const salesByBrokerId = {};
+  for (const s of salesList) {
+    const bid = s.broker_id ?? idByName.get(norm(s.broker_name));
+    if (bid == null) continue;
+    (salesByBrokerId[bid] ||= []).push(s);
+  }
+  const brokers = brokerList.map(b => ({ ...b, sales: salesByBrokerId[b.id] || [] }));
+
   // Purchases store broker as plain name strings — fetch and group by broker name
-  const names = brokers.map(b => b.name).filter(Boolean);
   const purchasesByBroker = {};
   if (names.length > 0) {
     const purchaseFilter = {
+      archived: false,
       OR: [
         { purchase_broker_name: { in: names } },
         { sell_broker_name:     { in: names } },
       ],
     };
-    if (dateFilter.created_at) purchaseFilter.created_at = dateFilter.created_at;
+    if (range) purchaseFilter.created_at = range;
     if (purchase_id) purchaseFilter.id = parseInt(purchase_id);
 
     const purchases = await prisma.purchase.findMany({
       where: purchaseFilter,
       select: {
         id: true, purchase_code: true, plot_no: true, location: true, type: true, status: true,
-        purchased_area: true, purchased_area_details: true, area_unit: true, brokerage: true,
+        purchased_area: true, purchased_area_details: true, brokerage: true,
         purchase_price: true, global_rate: true, rate: true,
         purchase_broker_name: true, sell_broker_name: true, created_at: true,
       },
@@ -272,7 +293,7 @@ const brokerReport = async (req, res) => {
 
     for (const p of purchases) {
       const enriched = { ...p };
-      const matched = new Set([p.purchase_broker_name, p.sell_broker_name].filter(Boolean));
+      const matched = new Set([p.purchase_broker_name, p.sell_broker_name].map(norm).filter(Boolean));
       for (const n of matched) {
         if (!purchasesByBroker[n]) purchasesByBroker[n] = [];
         purchasesByBroker[n].push(enriched);
@@ -281,7 +302,7 @@ const brokerReport = async (req, res) => {
   }
 
   const rows = brokers.map(b => {
-    const purchases         = purchasesByBroker[b.name] || [];
+    const purchases         = purchasesByBroker[norm(b.name)] || [];
     const sales_brokerage   = b.sales.reduce((s, r) => s + Number(r.brokerage    || 0), 0);
     const purchase_brokerage= purchases.reduce((s, p) => s + Number(p.brokerage  || 0), 0);
     return {
