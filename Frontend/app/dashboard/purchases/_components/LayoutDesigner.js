@@ -174,11 +174,11 @@ function RotationHandle({ id }) {
 // ── Shared input style ────────────────────────────────────────────────────────
 const inp = { width: '100%', height: 28, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 5, color: '#111827', fontSize: 12, padding: '0 7px', boxSizing: 'border-box', outline: 'none' };
 
-// Infer canvas pixel dimensions from inventory unit's actual measurements.
-// front_area is the frontage (width); depth is derived from total area ÷ frontage.
-// Area unit conversion: if area is in Sq Yds, convert to sq ft before dividing by ft frontage.
+// Canvas size of a plot from its inventory measurements, at one fixed scale for every plot
+// (no min/max clamping, so neighbouring plots stay in true proportion).
+// front_area = width, back_area = depth; depth falls back to area ÷ front.
 const PX_PER_FT = 5; // canvas pixels per foot
-const MIN_W = 60, MIN_H = 60, MAX_W = 600, MAX_H = 800;
+const DEFAULT_PLOT = { w: 100, h: 70 };
 
 function toSqFt(area, unitStr) {
   const u = (unitStr || '').toLowerCase().trim();
@@ -191,20 +191,14 @@ function toSqFt(area, unitStr) {
   return area; // assume sq ft
 }
 
-function inferPlotSize(unit) {
-  const fa   = Number(unit?.front_area || 0);
-  const area = Number(unit?.area       || 0);
-  if (!fa) return { w: 100, h: 70 };
-  const w = Math.min(MAX_W, Math.max(MIN_W, Math.round(fa * PX_PER_FT)));
-  let h;
-  if (area) {
-    const areaSqFt = toSqFt(area, unit?.area_unit);
-    const depth = areaSqFt / fa;
-    h = Math.min(MAX_H, Math.max(MIN_H, Math.round(depth * PX_PER_FT)));
-  } else {
-    h = Math.min(MAX_H, Math.max(MIN_H, Math.round(w * 1.5)));
-  }
-  return { w, h };
+// Returns null when the unit has no usable measurements; `rotated` swaps width and depth
+function inferPlotSize(unit, rotated = false) {
+  const fa = Number(unit?.front_area || 0);
+  let depth = Number(unit?.back_area || 0);
+  if (!depth && fa && Number(unit?.area)) depth = toSqFt(Number(unit.area), unit?.area_unit) / fa;
+  if (!fa || !depth) return null;
+  const w = Math.max(1, Math.round(fa * PX_PER_FT)), h = Math.max(1, Math.round(depth * PX_PER_FT));
+  return rotated ? { w: h, h: w } : { w, h };
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -565,6 +559,22 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   const projectUnitMap = {};
   Object.values(layoutProjects).forEach(projs => projs.forEach(proj => proj.inventory.forEach(u => { projectUnitMap[u.id] = u; })));
   const unitFor   = id => inventory.find(u => u.id === id) || projectUnitMap[id];
+
+  // Plot size always follows inventory measurements: correct any placed plot whose size differs
+  useEffect(() => {
+    if (loading) return;
+    setItems(prev => {
+      let changed = false;
+      const next = prev.map(i => {
+        if (i.type !== 'plot') return i;
+        const s = inferPlotSize(unitFor(i.inventory_id), i.rotated);
+        if (!s || (s.w === i.w && s.h === i.h)) return i;
+        changed = true;
+        return { ...i, w: s.w, h: s.h };
+      });
+      return changed ? next : prev;
+    });
+  }, [loading, inventory, layoutProjects, activeLayoutId]);
   const selItem   = multiSel.size === 1 ? items.find(i => i.id === [...multiSel][0]) : null;
 
   // Convert screen coords → canvas coords
@@ -769,7 +779,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
     const inventoryId = Number(e.dataTransfer.getData('text/plain'));
     if (!inventoryId) return;
     const pos = getPos(e), g = snapRef.current;
-    const { w, h } = inferPlotSize(unitFor(inventoryId));
+    const { w, h } = inferPlotSize(unitFor(inventoryId)) || DEFAULT_PLOT;
     pushHistory();
     setItems(prev => [
       ...prev.filter(i => !(i.type === 'plot' && i.inventory_id === inventoryId)),
