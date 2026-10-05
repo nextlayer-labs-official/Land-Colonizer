@@ -244,6 +244,37 @@ const updateDriveJson = async (req, res) => {
 // so a stale tab or browser cannot overwrite newer changes.
 const layoutRev = (raw) => crypto.createHash('sha1').update(raw || '').digest('hex');
 
+// Key-order-independent JSON so unchanged layouts compare equal
+const stable = (v) => Array.isArray(v) ? `[${v.map(stable).join(',')}]`
+  : v && typeof v === 'object'
+    ? `{${Object.keys(v).filter(k => v[k] !== undefined).sort().map(k => `${JSON.stringify(k)}:${stable(v[k])}`).join(',')}}`
+    : JSON.stringify(v ?? null);
+
+const layoutsById = (data) => {
+  const it = data?.items;
+  const list = it?.__multi ? (it.layouts || []) : Array.isArray(it) ? [{ id: '__single', items: it }] : [];
+  return new Map(list.map(l => [l.id, l]));
+};
+
+const sameLayout = (a, b) =>
+  (a.name || '') === (b.name || '') &&
+  stable(a.items || []) === stable(b.items || []) &&
+  stable((a.projects || []).map(p => p.id)) === stable((b.projects || []).map(p => p.id)) &&
+  (a.canvasW == null || a.canvasW === b.canvasW) &&
+  (a.canvasH == null || a.canvasH === b.canvasH);
+
+// Which LAYOUT_* permissions a save needs: new layouts → CREATE, changed → EDIT, removed → DELETE
+const requiredLayoutPerms = (before, after) => {
+  const oldL = layoutsById(before), newL = layoutsById(after), need = new Set();
+  for (const [id, l] of newL) {
+    if (!oldL.has(id)) need.add('LAYOUT_CREATE');
+    else if (!sameLayout(oldL.get(id), l)) need.add('LAYOUT_EDIT');
+  }
+  for (const id of oldL.keys()) if (!newL.has(id)) need.add('LAYOUT_DELETE');
+  return [...need];
+};
+const PERM_VERB = { LAYOUT_CREATE: 'create layouts', LAYOUT_EDIT: 'edit layouts', LAYOUT_DELETE: 'delete layouts' };
+
 const getGlobalLayout = async (req, res) => {
   const settings = await prisma.companySettings.findFirst();
   const raw = settings?.global_layout || null;
@@ -262,6 +293,14 @@ const saveGlobalLayout = async (req, res) => {
   const currentRev = layoutRev(settings.global_layout);
   if (base_rev !== undefined && base_rev !== currentRev) {
     return res.status(409).json({ message: 'This layout was changed in another tab or browser. Reload to get the latest version.', rev: currentRev });
+  }
+  if (!req.user.is_system) {
+    let before = null;
+    try { before = settings.global_layout ? JSON.parse(settings.global_layout) : null; } catch {}
+    const missing = requiredLayoutPerms(before, global_layout).filter(p => !req.user.permissions.includes(p));
+    if (missing.length) {
+      return res.status(403).json({ message: `You don't have permission to ${missing.map(p => PERM_VERB[p]).join(' or ')}.` });
+    }
   }
   const raw = global_layout === null ? null : JSON.stringify(global_layout);
   await prisma.companySettings.update({ where: { id: settings.id }, data: { global_layout: raw } });

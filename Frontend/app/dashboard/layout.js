@@ -107,7 +107,7 @@ export default function DashboardLayout({ children }) {
     { label: 'Projects',  href: '/dashboard/projects',  perm: 'PROJECT_VIEW'   },
     { label: 'Reports',   href: '/dashboard/reports',   perm: 'REPORTS_VIEW'   },
     { label: 'Notes',          href: '/dashboard/notes',          perm: 'NOTE_VIEW'      },
-    { label: 'Layout Builder', href: '/dashboard/layout-builder', perm: 'PURCHASE_VIEW'  },
+    { label: 'Layout Builder', href: '/dashboard/layout-builder', perm: 'LAYOUT_VIEW'    },
   ];
 
   const peopleItems = [

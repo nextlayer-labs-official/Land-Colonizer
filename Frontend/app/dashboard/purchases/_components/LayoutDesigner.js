@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { flushSync } from 'react-dom';
 import { apiGet, apiPut, apiPost } from '@/lib/api';
 
 // ── Status colours ────────────────────────────────────────────────────────────
@@ -127,6 +128,15 @@ function PlotContent({ item, unit, isSel, hideFlags = {}, viewMode = 'status', i
   );
 }
 
+const escHtml = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+const UNIT_TYPE_LABEL = { PLOT: 'Plot', SHOP: 'Shop', LAND: 'Land', FLAT: 'Flat', PLOT_WIRE: 'Plot Wire', SHOP_WIRE: 'Shop Wire' };
+const unitListLabel = (unit) => {
+  const no = unit.plot_no || unit.sl_no || `#${unit.id}`;
+  const type = UNIT_TYPE_LABEL[unit.type] || unit.type;
+  return type ? `${no} - ${type}` : no;
+};
+
 // ── 8-handle resize ───────────────────────────────────────────────────────────
 function ResizeHandles({ id }) {
   return (
@@ -198,7 +208,8 @@ function inferPlotSize(unit) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = [], canEdit = true }) {
+export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = [], canEdit = true, canCreateLayout = canEdit, canDeleteLayout = canEdit }) {
+  const canSave = canEdit || canCreateLayout || canDeleteLayout;
   const canvasRef   = useRef(null);  // the container div (overflow:hidden)
   const innerRef    = useRef(null);  // the transformed inner div
   const interactRef = useRef(null);
@@ -228,7 +239,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   const migrateLegacyRef = useRef(false);
   const [items,       setItems]       = useState([]);
   const [inventory,   setInventory]   = useState(inventoryProp);
-  const [snapG,       setSnapG]       = useState(10);
+  const [snapG,       setSnapG]       = useState(1);
   const [canvasW,     setCanvasW]     = useState(CANVAS_W);
   const [canvasH,     setCanvasH]     = useState(CANVAS_H);
   const [tool,        setTool]        = useState('select');
@@ -331,6 +342,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   // Save colours to backend whenever they change (debounced 600ms)
   const colorSaveTimer = useRef(null);
   useEffect(() => {
+    if (!canEdit) return;
     clearTimeout(colorSaveTimer.current);
     colorSaveTimer.current = setTimeout(() => {
       apiPut('/settings/layout-colors', { layout_colors: { status: statusColors, search: searchColor, elements: elementColors } }).catch(() => {});
@@ -433,7 +445,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
         // Layouts saved before server storage existed live only in this browser — upload them
         let legacy = null;
         try { legacy = JSON.parse(localStorage.getItem('global-layout') || 'null'); } catch {}
-        if (legacy?.items) {
+        if (legacy?.items && canCreateLayout) {
           initMultiLayouts(legacy.items, { cols: legacy.grid_cols, rows: legacy.grid_rows });
           migrateLegacyRef.current = true;
         } else {
@@ -506,7 +518,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
       if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
         e.preventDefault();
-        if (historyRef.current.length > 0) {
+        if (canEdit && historyRef.current.length > 0) {
           const prev = historyRef.current.pop();
           setItems(prev);
         }
@@ -520,11 +532,11 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
         setSelected(null); setMultiSel(new Set());
       }
       if (e.key === 'Escape') { setSelected(null); setMultiSel(new Set()); setEditLabel(null); }
-      // Arrow keys: move all selected items by snap grid (Shift = 5× step)
+      // Arrow keys: move selected items 1px (Shift = 10px or the snap grid if larger)
       if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key) && multiSelRef.current.size > 0) {
         if (layout?.locked || !canEdit) return;
         e.preventDefault();
-        const step = e.shiftKey ? snapRef.current : 1;
+        const step = e.shiftKey ? Math.max(10, snapRef.current) : 1;
         const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
         const dy = e.key === 'ArrowUp'   ? -step : e.key === 'ArrowDown'  ? step : 0;
         const ids = multiSelRef.current;
@@ -600,7 +612,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
     if (cornerEl) {
       const corner = cornerEl.dataset.corner, id = cornerEl.dataset.id;
       const item = itemsRef.current.find(i => i.id === id);
-      if (!item || item.item_locked) return;
+      if (!item || item.item_locked || item.type === 'plot') return;
       pushHistory();
       interactRef.current = { type: 'resize', id, corner, sx: pos.x, sy: pos.y, ox: item.x, oy: item.y, ow: item.w, oh: item.h, rot: item.rotation || 0 };
       el.setPointerCapture(e.pointerId);
@@ -676,11 +688,19 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
       const dx = sdx * Math.cos(rad) + sdy * Math.sin(rad);
       const dy = -sdx * Math.sin(rad) + sdy * Math.cos(rad);
       const c = intr.corner;
-      let x = intr.ox, y = intr.oy, w = intr.ow, h = intr.oh;
-      if (c.includes('e')) { w = snapTo(Math.max(60, intr.ow + dx), g); }
-      if (c.includes('w')) { const nw = snapTo(Math.max(60, intr.ow - dx), g); x = intr.ox + intr.ow - nw; w = nw; }
-      if (c.includes('s')) { h = snapTo(Math.max(40, intr.oh + dy), g); }
-      if (c.includes('n')) { const nh = snapTo(Math.max(40, intr.oh - dy), g); y = intr.oy + intr.oh - nh; h = nh; }
+      const minW = Math.max(10, Math.min(60, intr.ow)), minH = Math.max(10, Math.min(40, intr.oh));
+      let w = intr.ow, h = intr.oh;
+      if (c.includes('e')) w = Math.max(minW, snapTo(intr.ow + dx, g));
+      if (c.includes('w')) w = Math.max(minW, snapTo(intr.ow - dx, g));
+      if (c.includes('s')) h = Math.max(minH, snapTo(intr.oh + dy, g));
+      if (c.includes('n')) h = Math.max(minH, snapTo(intr.oh - dy, g));
+      // Items rotate about their centre, so shift the centre along the item's own axes
+      // to keep the edge opposite the dragged handle fixed on screen
+      const shiftX = c.includes('e') ? (w - intr.ow) / 2 : c.includes('w') ? -(w - intr.ow) / 2 : 0;
+      const shiftY = c.includes('s') ? (h - intr.oh) / 2 : c.includes('n') ? -(h - intr.oh) / 2 : 0;
+      const cx = intr.ox + intr.ow / 2 + shiftX * Math.cos(rad) - shiftY * Math.sin(rad);
+      const cy = intr.oy + intr.oh / 2 + shiftX * Math.sin(rad) + shiftY * Math.cos(rad);
+      const x = cx - w / 2, y = cy - h / 2;
       setItems(prev => prev.map(i => i.id === intr.id ? { ...i, x, y, w, h } : i));
     }
     if (intr.type === 'rotate') {
@@ -783,7 +803,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   };
 
   const doSave = async () => {
-    if (conflictRef.current) return false;
+    if (conflictRef.current || !canSave) return false;
     setSaving(true); setSaved(false); setSaveError('');
     const activeId    = activeLayIdRef.current;
     const activeItems = itemsRef.current;
@@ -846,6 +866,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   };
 
   const handleNewLayoutClick = () => {
+    if (!canCreateLayout) return;
     if (isCurrentUnsaved()) { setUnsavedAction({ type: 'new' }); setShowUnsaved(true); }
     else openNewLayoutDialog();
   };
@@ -893,6 +914,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   };
 
   const handleInsertElement = () => {
+    if (!canEdit || locked) return;
     const el = canvasRef.current; if (!el) return;
     const rect = el.getBoundingClientRect();
     const cx = (rect.width  / 2 - panRef.current.x) / zoomRef.current;
@@ -926,7 +948,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
 
   // ── Project modal handlers ───────────────────────────────────────────────────
   const handleAddProject = async () => {
-    if (!isLayoutSelected) return;
+    if (!isLayoutSelected || !canEdit) return;
     setProjectSearch('');
     setShowProjectModal(true);
     if (allProjects.length === 0 && !allProjectsLoading) {
@@ -967,7 +989,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   };
 
   const handleRemoveProject = (projectId) => {
-    if (!currentLayoutId) return;
+    if (!currentLayoutId || !canEdit) return;
     const newLp = {
       ...layoutProjectsRef.current,
       [currentLayoutId]: (layoutProjectsRef.current[currentLayoutId] || []).filter(p => p.id !== projectId),
@@ -978,11 +1000,12 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   };
 
   const toggleItemVisibility = (id) => {
+    if (!canEdit) return;
     setItems(prev => prev.map(i => i.id === id ? { ...i, item_hidden: !i.item_hidden } : i));
   };
 
   const handleLayerReorder = (targetId) => {
-    if (!layerDragId || layerDragId === targetId) { setLayerDragId(null); return; }
+    if (!canEdit || !layerDragId || layerDragId === targetId) { setLayerDragId(null); return; }
     setItems(prev => {
       const from = prev.findIndex(i => i.id === layerDragId);
       const to   = prev.findIndex(i => i.id === targetId);
@@ -996,6 +1019,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   };
 
   const handleStartRename = (layoutId, currentName) => {
+    if (!canEdit) return;
     setRenamingLayoutId(layoutId);
     setRenameValue(currentName);
   };
@@ -1013,7 +1037,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   };
 
   const handleDeleteLayout = (layoutId) => {
-    if (layouts.length <= 1) return;
+    if (!canDeleteLayout || layouts.length <= 1) return;
     const remaining = layouts.filter(l => l.id !== layoutId);
     setLayouts(remaining);
     setLayoutData(prev => {
@@ -1056,8 +1080,9 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
     </div>
   );
 
-  // Grid step: always ≥ 20px visually on screen, snapped to a multiple of snapG
-  const gridStep = Math.max(snapG, Math.ceil(20 / Math.max(zoom, 0.01) / snapG) * snapG);
+  // Grid step: always ≥ 20px visually on screen, a multiple of the snap grid (min 10 so lines stay tidy)
+  const gridBase = Math.max(snapG, 10);
+  const gridStep = Math.max(gridBase, Math.ceil(20 / Math.max(zoom, 0.01) / gridBase) * gridBase);
   // Background grid tile size and position (moves with pan/zoom so dots align to canvas coords)
   const gSize   = gridStep * zoom;
   const bgPosX  = ((pan.x % gSize) + gSize) % gSize;
@@ -1103,6 +1128,102 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   const SOLD_STATUSES = ['SOLD', 'REGISTERED', 'ATTORNEY', 'FULL_FINAL'];
   const filterActive = filterProject !== 'ALL' || filterStatus !== 'ALL';
 
+  // Opens a print-ready copy of the open layout; the browser's "Save as PDF" produces the file
+  const handleExportPdf = () => {
+    const visible = items.filter(i => !i.item_hidden && (i.type !== 'plot' || unitFor(i.inventory_id)));
+    if (visible.length === 0) { setSaveError('Nothing to export: this layout has no items yet.'); return; }
+    const w = window.open('', '_blank'); // opened before any other work so pop-up blockers allow it
+    if (!w) { setSaveError('The PDF window was blocked. Allow pop-ups for this site and try again.'); return; }
+
+    // Render once without selection handles, pins or measurement bars, copy the canvas, then restore
+    const prev = { selected, multiSel, startPin, endPin };
+    flushSync(() => { setSelected(null); setMultiSel(new Set()); setStartPin(null); setEndPin(null); setSelectionRect(null); setDrawPreview(null); });
+    const clone = innerRef.current.cloneNode(true);
+    setSelected(prev.selected); setMultiSel(prev.multiSel); setStartPin(prev.startPin); setEndPin(prev.endPin);
+
+    // Crop to the placed items (rotation-aware)
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const it of visible) {
+      const r = (it.rotation || 0) * Math.PI / 180, cx = it.x + it.w / 2, cy = it.y + it.h / 2;
+      for (const [px, py] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+        const lx = px * it.w / 2, ly = py * it.h / 2;
+        const X = cx + lx * Math.cos(r) - ly * Math.sin(r), Y = cy + lx * Math.sin(r) + ly * Math.cos(r);
+        minX = Math.min(minX, X); minY = Math.min(minY, Y); maxX = Math.max(maxX, X); maxY = Math.max(maxY, Y);
+      }
+    }
+    const pad = 24;
+    minX -= pad; minY -= pad;
+    const bw = maxX + pad - minX, bh = maxY + pad - minY;
+    clone.style.transform = 'none';
+    clone.style.left = `${-minX}px`;
+    clone.style.top  = `${-minY}px`;
+
+    // A4, orientation follows the layout's shape; area left after margins, header and legend
+    const landscape = bw >= bh;
+    const MM = 96 / 25.4;
+    const pageW = (landscape ? 297 : 210) - 20, pageH = (landscape ? 210 : 297) - 20;
+    const availW = pageW * MM, availH = (pageH - 34) * MM;
+    const scale = Math.min(availW / bw, availH / bh, 2);
+
+    // Legend: plot statuses actually placed, coloured as on screen
+    const counts = {};
+    for (const it of visible) {
+      if (it.type !== 'plot') continue;
+      const st = unitFor(it.inventory_id)?.status;
+      const key = viewMode === 'sold' ? (st === 'AVAILABLE' || st === 'RESERVED' ? st : 'SOLD') : st;
+      counts[key] = (counts[key] || 0) + 1;
+    }
+    const swatch = (bg, bd, label, n) =>
+      `<span class="lg"><i style="background:${bg};border-color:${bd}"></i>${escHtml(label)}${n != null ? ` <b>${n}</b>` : ''}</span>`;
+    const legend = [
+      ...Object.keys(SC).filter(k => counts[k]).map(k => swatch(effectiveSC[k].bg, effectiveSC[k].bd, viewMode === 'sold' && k === 'SOLD' ? 'Sold (all)' : effectiveSC[k].lb, counts[k])),
+      ...(counts.undefined ? [swatch(DC.bg, DC.bd, 'Other', counts.undefined)] : []),
+      ...(visible.some(i => i.type === 'road') ? [swatch(ec.road.bg, ec.road.bd, 'Road')] : []),
+      ...(visible.some(i => i.type === 'open') ? [swatch(ec.garden.bg, ec.garden.bd, 'Garden')] : []),
+    ].join('');
+    const plotCount = Object.values(counts).reduce((a, b) => a + b, 0);
+
+    const layoutName = layouts.find(l => l.id === activeLayoutId)?.name || 'Layout';
+    const projectNames = (layoutProjects[activeLayoutId] || []).map(p => p.name).filter(Boolean).join(', ');
+    const dateStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    const font = getComputedStyle(innerRef.current).fontFamily;
+
+    w.document.open();
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escHtml(layoutName)} - Layout</title>
+<style>
+  @page { size: A4 ${landscape ? 'landscape' : 'portrait'}; margin: 10mm; }
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body { margin: 0; background: #fff; color: #111827; font-family: ${font}; }
+  .page { width: ${pageW}mm; margin: 0 auto; }
+  header { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; border-bottom: 2px solid ${PRI}; padding-bottom: 6px; margin-bottom: 8px; }
+  h1 { font-size: 18px; margin: 0; color: ${PRI}; }
+  .sub { font-size: 11px; color: #4b5563; margin-top: 2px; }
+  .meta { font-size: 10px; color: #6b7280; text-align: right; white-space: nowrap; }
+  .fit { width: ${bw * scale}px; height: ${bh * scale}px; margin: 0 auto; border: 1px solid #d1d5db; overflow: hidden; }
+  .board { position: relative; width: ${bw}px; height: ${bh}px; transform: scale(${scale}); transform-origin: 0 0; background: #fff; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 8px; font-size: 10px; color: #374151; }
+  .lg { display: inline-flex; align-items: center; gap: 5px; }
+  .lg i { width: 12px; height: 12px; border: 1.5px solid; border-radius: 2px; display: inline-block; }
+  .tip { font: 13px/1.5 system-ui, sans-serif; background: #f5f3ff; border: 1px solid #ddd6fe; color: #4c1d95; padding: 10px 14px; border-radius: 8px; margin: 12px auto; width: ${pageW}mm; }
+  @media print { .tip { display: none; } }
+</style></head><body>
+<div class="tip">In the print window, choose <b>Save as PDF</b> as the destination to download this layout.</div>
+<div class="page">
+  <header>
+    <div>
+      <h1>${escHtml(layoutName)}</h1>
+      ${projectNames ? `<div class="sub">Projects: ${escHtml(projectNames)}</div>` : ''}
+    </div>
+    <div class="meta">${plotCount} plot${plotCount === 1 ? '' : 's'}${filterActive || searchPlot.trim() ? ' &middot; filtered view' : ''}<br>Exported ${escHtml(dateStr)}</div>
+  </header>
+  <div class="fit"><div class="board">${clone.outerHTML}</div></div>
+  ${legend ? `<div class="legend">${legend}</div>` : ''}
+</div>
+<script>window.onload = function () { setTimeout(function () { window.print(); }, 150); };</script>
+</body></html>`);
+    w.document.close();
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#f4f5f7', color: '#111827', fontFamily: 'system-ui,-apple-system,sans-serif', overflow: 'hidden' }}>
 
@@ -1110,32 +1231,32 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
       <div style={{ height: 52, background: '#fff', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: 6, padding: '0 12px', flexShrink: 0, zIndex: 20, overflowX: 'auto', overflowY: 'hidden' }}>
 
         {/* Settings for Config */}
-        <button onClick={() => setShowConfig(true)} title={isLayoutSelected ? 'Settings for Config' : 'Select a layout first'}
+        {canEdit && <button onClick={() => setShowConfig(true)} title={isLayoutSelected ? 'Settings for Config' : 'Select a layout first'}
           style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, padding: '5px 12px', border: 'none', borderRadius: 7, background: 'transparent', cursor: isLayoutSelected ? 'pointer' : 'not-allowed', flexShrink: 0, transition: 'background 0.12s', opacity: isLayoutSelected ? 1 : 0.35, pointerEvents: isLayoutSelected ? 'auto' : 'none' }}
           onMouseEnter={e => { if (isLayoutSelected) e.currentTarget.style.background='#f3f4f6'; }} onMouseLeave={e => e.currentTarget.style.background='transparent'}>
           <svg width="18" height="18" fill="none" stroke="#6b7280" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3" strokeWidth={1.8}/></svg>
           <span style={{ fontSize: 9, color: '#6b7280', fontWeight: 600, whiteSpace: 'nowrap', letterSpacing: '0.02em' }}>Settings</span>
-        </button>
+        </button>}
 
-        <Sep/>
+        {(canEdit || canCreateLayout) && <Sep/>}
 
         {/* New Layout */}
-        <button onClick={handleNewLayoutClick} title="New Layout"
+        {canCreateLayout && <button onClick={handleNewLayoutClick} title="New Layout"
           style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, padding: '5px 12px', border: 'none', borderRadius: 7, background: 'transparent', cursor: 'pointer', flexShrink: 0, transition: 'background 0.12s' }}
           onMouseEnter={e => e.currentTarget.style.background='#f0fdf4'} onMouseLeave={e => e.currentTarget.style.background='transparent'}>
           <svg width="18" height="18" fill="none" stroke="#16a34a" viewBox="0 0 24 24" strokeWidth={2}><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><line x1="6.5" y1="17.5" x2="9.5" y2="17.5"/><line x1="8" y1="16" x2="8" y2="19"/></svg>
           <span style={{ fontSize: 9, color: '#16a34a', fontWeight: 600, whiteSpace: 'nowrap', letterSpacing: '0.02em' }}>New Layout</span>
-        </button>
+        </button>}
 
         {/* Add Project */}
-        <button onClick={handleAddProject} title={isLayoutSelected ? 'Add Project' : 'Select a layout first'}
+        {canEdit && <button onClick={handleAddProject} title={isLayoutSelected ? 'Add Project' : 'Select a layout first'}
           style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, padding: '5px 12px', border: 'none', borderRadius: 7, background: 'transparent', cursor: isLayoutSelected ? 'pointer' : 'not-allowed', flexShrink: 0, transition: 'background 0.12s', opacity: isLayoutSelected ? 1 : 0.35, pointerEvents: isLayoutSelected ? 'auto' : 'none' }}
           onMouseEnter={e => { if (isLayoutSelected) e.currentTarget.style.background='#eff6ff'; }} onMouseLeave={e => e.currentTarget.style.background='transparent'}>
           <svg width="18" height="18" fill="none" stroke="#2563eb" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/><rect x="3" y="3" width="18" height="18" rx="3" strokeWidth={1.5}/></svg>
           <span style={{ fontSize: 9, color: '#2563eb', fontWeight: 600, whiteSpace: 'nowrap', letterSpacing: '0.02em' }}>Add Project</span>
-        </button>
+        </button>}
 
-        <Sep/>
+        {(canEdit || canCreateLayout) && <Sep/>}
 
         {/* Status Wise / Sold Status toggle */}
         <div style={{ display: 'flex', border: '1px solid #e5e7eb', borderRadius: 6, overflow: 'hidden', flexShrink: 0 }}>
@@ -1199,6 +1320,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
 
         <Sep/>
 
+        {canSave && <>
         <button onClick={handleSave} disabled={saving}
           style={{ height: 32, padding: '0 16px', fontSize: 12, fontWeight: 600, borderRadius: 7, border: 'none', cursor: saving ? 'wait' : 'pointer', background: saved ? '#059669' : PRI, color: '#fff', transition: 'background 0.15s', whiteSpace: 'nowrap', flexShrink: 0 }}>
           {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save Layout'}
@@ -1207,6 +1329,11 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
           title={autoSave ? 'Auto Save is ON — click to disable' : 'Auto Save is OFF — click to enable'}
           style={{ height: 32, padding: '0 10px', fontSize: 11, fontWeight: 600, borderRadius: 7, border: `1px solid ${autoSave ? '#059669' : '#e5e7eb'}`, cursor: 'pointer', background: autoSave ? '#dcfce7' : '#f9fafb', color: autoSave ? '#059669' : '#9ca3af', whiteSpace: 'nowrap', flexShrink: 0, marginLeft: 4 }}>
           {autoSave ? '⟳ Auto' : '⟳ Auto'}
+        </button>
+        </>}
+        <button onClick={handleExportPdf} title="Export this layout as a PDF"
+          style={{ height: 32, padding: '0 12px', fontSize: 12, fontWeight: 600, borderRadius: 7, border: '1px solid #e5e7eb', cursor: 'pointer', background: '#f9fafb', color: '#374151', whiteSpace: 'nowrap', flexShrink: 0, marginLeft: 4 }}>
+          ⤓ Export PDF
         </button>
         {canEdit && purchaseId && (
           <button onClick={() => setLockConfirm(true)}
@@ -1273,7 +1400,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                         <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 1 }}>Layout {idx + 1}</div>
                       </div>
                       {/* Rename button */}
-                      <button
+                      {canEdit && <button
                         onClick={e => { e.stopPropagation(); isRenaming ? handleConfirmRename() : handleStartRename(l.id, l.name); }}
                         title={isRenaming ? 'Save name' : 'Rename layout'}
                         style={{ flexShrink: 0, width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', borderRadius: 4, background: isRenaming ? `${PRI}15` : 'transparent', cursor: 'pointer', padding: 0, transition: 'background 0.12s' }}
@@ -1284,9 +1411,9 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                         ) : (
                           <svg width="11" height="11" fill="none" stroke="#9ca3af" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
                         )}
-                      </button>
+                      </button>}
                       {/* Delete button */}
-                      <button
+                      {canDeleteLayout && <button
                         onClick={e => { e.stopPropagation(); if (canDelete) handleDeleteLayout(l.id); }}
                         title={layouts.length <= 1 ? 'Cannot delete the only layout' : hasPlacedUnits ? 'Remove all placed units from canvas first' : 'Delete layout'}
                         style={{ flexShrink: 0, width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', borderRadius: 4, background: 'transparent', cursor: canDelete ? 'pointer' : 'not-allowed', padding: 0, opacity: canDelete ? 1 : 0.3, transition: 'all 0.12s' }}
@@ -1295,7 +1422,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                         <svg width="11" height="11" fill="none" stroke={canDelete ? '#ef4444' : '#9ca3af'} viewBox="0 0 24 24" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                         </svg>
-                      </button>
+                      </button>}
                     </div>
                   );
                 })}
@@ -1347,7 +1474,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                               </svg>
                               <span style={{ fontSize: 11, fontWeight: 700, color: '#374151', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{proj.name}</span>
                               <span style={{ fontSize: 10, color: '#9ca3af', flexShrink: 0, background: '#e5e7eb', borderRadius: 8, padding: '1px 5px', marginRight: 2 }}>{proj.inventory.length}</span>
-                              <button
+                              {canEdit && <button
                                 onClick={e => { e.stopPropagation(); if (!hasPlaced) handleRemoveProject(proj.id); }}
                                 title={hasPlaced ? 'Remove placed units from canvas first' : 'Remove project from layout'}
                                 style={{ flexShrink: 0, width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', borderRadius: 4, background: 'transparent', cursor: hasPlaced ? 'not-allowed' : 'pointer', opacity: hasPlaced ? 0.3 : 1, padding: 0, transition: 'all 0.12s' }}
@@ -1356,7 +1483,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                                 <svg width="11" height="11" fill="none" stroke={hasPlaced ? '#9ca3af' : '#ef4444'} viewBox="0 0 24 24" strokeWidth={2.5}>
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
                                 </svg>
-                              </button>
+                              </button>}
                             </div>
                           );
                         })()}
@@ -1373,11 +1500,11 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                                 <div key={unit.id}
                                   draggable={!isPlaced && canEdit && !locked}
                                   onDragStart={e => onSidebarDragStart(e, unit.id)}
-                                  title={isPlaced ? 'Already placed on canvas' : `${unit.plot_no || unit.sl_no || ''} — drag to canvas`}
+                                  title={isPlaced ? `${unitListLabel(unit)} — already placed on canvas` : `${unitListLabel(unit)} — drag to canvas`}
                                   style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', borderRadius: 5, background: isPlaced ? '#f9fafb' : sc.bg, border: `1px solid ${isPlaced ? '#f3f4f6' : sc.bd + '60'}`, cursor: isPlaced ? 'default' : canEdit && !locked ? 'grab' : 'default', opacity: isPlaced ? 0.45 : 1, transition: 'opacity 0.12s' }}>
                                   <div style={{ width: 7, height: 7, borderRadius: '50%', background: sc.bd, flexShrink: 0 }}/>
                                   <span style={{ fontSize: 11, fontWeight: 600, color: isPlaced ? '#9ca3af' : sc.tx, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {unit.plot_no || unit.sl_no || `#${unit.id}`}
+                                    {unitListLabel(unit)}
                                   </span>
                                   {isPlaced && (
                                     <svg width="10" height="10" fill="none" stroke="#9ca3af" viewBox="0 0 24 24" strokeWidth={2.5} style={{ flexShrink: 0 }}>
@@ -1478,7 +1605,6 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                     {item.id === startPin && <div style={{ position: 'absolute', top: 2, left: 2, background: '#059669', color: 'white', fontSize: 7, fontWeight: 900, padding: '1px 4px', borderRadius: 3, pointerEvents: 'none', lineHeight: 1.4 }}>START</div>}
                     {item.id === endPin   && <div style={{ position: 'absolute', bottom: 2, left: 2, background: '#ea580c', color: 'white', fontSize: 7, fontWeight: 900, padding: '1px 4px', borderRadius: 3, pointerEvents: 'none', lineHeight: 1.4 }}>END</div>}
                     {item.item_locked && !hideFlags.lockSymbol && <div style={{ position: 'absolute', bottom: 3, right: 4, fontSize: 9, lineHeight: 1, pointerEvents: 'none', opacity: 0.75 }}>🔒</div>}
-                    {isSel && multiSel.size === 1 && !locked && canEdit && !item.item_locked && <ResizeHandles id={item.id}/>}
                   </div>
                 );
               }
@@ -1702,14 +1828,19 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                   </button>
                 )}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12, opacity: selItem.item_locked ? 0.45 : 1 }}>
-                  {[['X','x'],['Y','y'],['W','w'],['H','h']].map(([lbl, key]) => (
-                    <div key={key}>
-                      <PLabel>{lbl}</PLabel>
-                      <input type="number" step={snapG} value={selItem[key]} readOnly={!!(selItem.item_locked)}
-                        onChange={e => { if (!locked && canEdit && !selItem.item_locked) setItems(prev => prev.map(i => i.id === selItem.id ? { ...i, [key]: Number(e.target.value) } : i)); }}
-                        style={{ ...inp, cursor: selItem.item_locked ? 'not-allowed' : undefined }}/>
-                    </div>
-                  ))}
+                  {[['X','x'],['Y','y'],['W','w'],['H','h']].map(([lbl, key]) => {
+                    // Plot size comes from the inventory's front/back measurements and must not be edited
+                    const fixed = !!selItem.item_locked || (selItem.type === 'plot' && (key === 'w' || key === 'h'));
+                    return (
+                      <div key={key}>
+                        <PLabel>{lbl}</PLabel>
+                        <input type="number" step={snapG} value={selItem[key]} readOnly={fixed}
+                          title={selItem.type === 'plot' && (key === 'w' || key === 'h') ? 'Plot size is set from the inventory measurements' : undefined}
+                          onChange={e => { if (!locked && canEdit && !fixed) setItems(prev => prev.map(i => i.id === selItem.id ? { ...i, [key]: Number(e.target.value) } : i)); }}
+                          style={{ ...inp, cursor: fixed ? 'not-allowed' : undefined, ...(fixed && !selItem.item_locked ? { background: '#f3f4f6', color: '#9ca3af' } : {}) }}/>
+                      </div>
+                    );
+                  })}
                 </div>
                 {selItem.type !== 'plot' && !locked && canEdit && !selItem.item_locked && (
                   <div style={{ marginBottom: 12 }}>
@@ -1728,11 +1859,14 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                   </div>
                 )}
                 {selItem.type === 'plot' && !locked && canEdit && !selItem.item_locked && (
+                  <button onClick={() => rotateItem(selItem.id)}
+                    style={{ width: '100%', height: 30, background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6, color: '#374151', fontSize: 12, cursor: 'pointer', marginBottom: 8, fontWeight: 500 }}>
+                    ↺ Rotate
+                  </button>
+                )}
+                {/* Start/End pins only mark plots for measuring, so they stay available on locked plots */}
+                {selItem.type === 'plot' && !locked && canEdit && (
                   <>
-                    <button onClick={() => rotateItem(selItem.id)}
-                      style={{ width: '100%', height: 30, background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6, color: '#374151', fontSize: 12, cursor: 'pointer', marginBottom: 8, fontWeight: 500 }}>
-                      ↺ Rotate
-                    </button>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 12 }}>
                       <button onClick={() => { if (startPin === selItem.id) { setStartPin(null); setEndPin(null); } else { setStartPin(selItem.id); setEndPin(null); } }}
                         style={{ height: 28, background: startPin === selItem.id ? '#dcfce7' : '#f9fafb', border: `1px solid ${startPin === selItem.id ? '#059669' : '#e5e7eb'}`, borderRadius: 5, color: startPin === selItem.id ? '#059669' : '#6b7280', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
@@ -1902,7 +2036,12 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
               )}
 
               {/* Elements tab */}
-              {rightTab === 'elements' && (
+              {rightTab === 'elements' && !(canEdit && !locked) && (
+                <div style={{ flex: 1, padding: 24, fontSize: 12, color: '#9ca3af', textAlign: 'center', lineHeight: 1.6 }}>
+                  {canEdit ? 'This layout is locked.' : 'You have view-only access to the Layout Builder.'}
+                </div>
+              )}
+              {rightTab === 'elements' && canEdit && !locked && (
                 <div style={{ flex: 1, padding: 12, overflowY: 'auto' }}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Insert Element</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -1954,7 +2093,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                     const isDragging = layerDragId === item.id;
                     return (
                       <div key={item.id}
-                        draggable
+                        draggable={canEdit}
                         onDragStart={e => { e.stopPropagation(); setLayerDragId(item.id); }}
                         onDragOver={e => e.preventDefault()}
                         onDrop={e => { e.stopPropagation(); handleLayerReorder(item.id); }}
@@ -1983,7 +2122,8 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                         <span style={{ flex: 1, fontSize: 11, fontWeight: isSel ? 700 : 400, color: isSel ? PRI : '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
                         {/* Lock toggle */}
                         <button
-                          onClick={e => { e.stopPropagation(); setItems(prev => prev.map(i => i.id === item.id ? { ...i, item_locked: !i.item_locked } : i)); }}
+                          onClick={e => { e.stopPropagation(); if (canEdit) setItems(prev => prev.map(i => i.id === item.id ? { ...i, item_locked: !i.item_locked } : i)); }}
+                          disabled={!canEdit}
                           title={item.item_locked ? 'Unlock' : 'Lock position'}
                           style={{ flexShrink: 0, width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, borderRadius: 3, opacity: item.item_locked ? 1 : 0.3 }}
                           onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.background = '#f3f4f6'; }}
@@ -1995,6 +2135,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                         {/* Visibility toggle */}
                         <button
                           onClick={e => { e.stopPropagation(); toggleItemVisibility(item.id); }}
+                          disabled={!canEdit}
                           title={item.item_hidden ? 'Show' : 'Hide'}
                           style={{ flexShrink: 0, width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, borderRadius: 3, opacity: item.item_hidden ? 0.35 : 0.6 }}
                           onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.background = '#f3f4f6'; }}

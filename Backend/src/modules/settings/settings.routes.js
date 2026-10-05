@@ -3,6 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const authenticate = require('../../middleware/authenticate');
+const authorize = require('../../middleware/authorize');
 const {
   getSettings,
   getPublicSettings,
@@ -61,9 +62,10 @@ router.put('/email',             authenticate, updateEmailSettings);
 router.put('/security',          authenticate, updateSecuritySettings);
 router.put('/prefixes',          authenticate, updatePrefixSettings);
 router.put('/drive',             authenticate, updateDriveSettings);
-router.put('/layout-colors',    authenticate, updateLayoutColors);
-router.get('/global-layout',    authenticate, getGlobalLayout);
-router.put('/global-layout',    authenticate, saveGlobalLayout);
+router.put('/layout-colors',    authenticate, authorize('LAYOUT_EDIT'), updateLayoutColors);
+router.get('/global-layout',    authenticate, authorize('LAYOUT_VIEW'), getGlobalLayout);
+// Fine-grained create/edit/delete checks happen in the controller by comparing old and new layouts
+router.put('/global-layout',    authenticate, authorize('LAYOUT_VIEW'), saveGlobalLayout);
 router.post('/drive/json',       authenticate, jsonUpload.single('json'), updateDriveJson);
 router.post('/test-email',       authenticate, testEmail);
 router.post('/logo',             authenticate, logoUpload.single('logo'), uploadLogo);
