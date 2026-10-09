@@ -35,6 +35,8 @@ const snapTo   = (v, g) => Math.round(v / g) * g;
 const mkId       = () => Math.random().toString(36).slice(2, 9);
 const mkLayId    = () => `lay_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 const DIM_INSET = 12;
+// Canvas stacking: items use their list position; these offsets keep highlights, selection and guides on top
+const Z_HIGHLIGHT = 200000, Z_SELECTED = 400000, Z_OVERLAY = 900000;
 const PRI       = '#875A7B';
 const CANVAS_W  = 3000;
 const CANVAS_H  = 3600;
@@ -138,35 +140,103 @@ const unitListLabel = (unit) => {
 };
 
 // ── 8-handle resize ───────────────────────────────────────────────────────────
-function ResizeHandles({ id }) {
+// Axis-aligned bounds of an item as drawn (rotation-aware)
+function itemBounds(it) {
+  const r = (it.rotation || 0) * Math.PI / 180, c = Math.abs(Math.cos(r)), s = Math.abs(Math.sin(r));
+  const hw = (it.w * c + it.h * s) / 2, hh = (it.w * s + it.h * c) / 2, cx = it.x + it.w / 2, cy = it.y + it.h / 2;
+  return { x1: cx - hw, y1: cy - hh, x2: cx + hw, y2: cy + hh };
+}
+const itemsOverlap = (a, b) => {
+  const A = itemBounds(a), B = itemBounds(b);
+  return A.x1 < B.x2 && B.x1 < A.x2 && A.y1 < B.y2 && B.y1 < A.y2;
+};
+
+// Layer order = array order (last = on top). Forward/backward step past the next overlapping item, like Figma.
+function reorderItems(list, selIds, mode) {
+  const isS = i => selIds.has(i.id);
+  if (mode === 'front') return [...list.filter(i => !isS(i)), ...list.filter(isS)];
+  if (mode === 'back')  return [...list.filter(isS), ...list.filter(i => !isS(i))];
+  const a = [...list];
+  const ids = a.filter(isS).map(i => i.id);
+  if (mode === 'forward') {
+    for (const id of ids.reverse()) {
+      const i = a.findIndex(x => x.id === id);
+      let j = -1;
+      for (let k = i + 1; k < a.length; k++) if (!isS(a[k]) && itemsOverlap(a[i], a[k])) { j = k; break; }
+      if (j < 0) continue;
+      const [it] = a.splice(i, 1); a.splice(j, 0, it);
+    }
+  } else {
+    for (const id of ids) {
+      const i = a.findIndex(x => x.id === id);
+      let j = -1;
+      for (let k = i - 1; k >= 0; k--) if (!isS(a[k]) && itemsOverlap(a[i], a[k])) { j = k; break; }
+      if (j < 0) continue;
+      const [it] = a.splice(i, 1); a.splice(j, 0, it);
+    }
+  }
+  return a;
+}
+
+// Resize to w×h while keeping the edge opposite `corner` fixed on screen (items rotate about their centre)
+function resizeKeepingAnchor(it, corner, w, h) {
+  const r = (it.rotation || 0) * Math.PI / 180;
+  const sx = corner.includes('e') ? (w - it.w) / 2 : corner.includes('w') ? -(w - it.w) / 2 : 0;
+  const sy = corner.includes('s') ? (h - it.h) / 2 : corner.includes('n') ? -(h - it.h) / 2 : 0;
+  const cx = it.x + it.w / 2 + sx * Math.cos(r) - sy * Math.sin(r);
+  const cy = it.y + it.h / 2 + sx * Math.sin(r) + sy * Math.cos(r);
+  return { ...it, x: cx - w / 2, y: cy - h / 2, w, h };
+}
+
+// [corner, x fraction, y fraction, outward direction in degrees]
+const HANDLES = [['nw', 0, 0, 225], ['n', 0.5, 0, 270], ['ne', 1, 0, 315], ['w', 0, 0.5, 180],
+                 ['sw', 0, 1, 135], ['s', 0.5, 1, 90], ['se', 1, 1, 45], ['e', 1, 0.5, 0]];
+const RESIZE_CURSORS = ['ew-resize', 'nwse-resize', 'ns-resize', 'nesw-resize'];
+const THIN_PX = 48, TINY_PX = 16; // on-screen pixels
+
+// Canva-style handles: round corners, pills on the sides. They live inside the zoomed canvas,
+// so sizes are divided by zoom to stay constant on screen; being children of the item, they rotate with it.
+function ResizeHandles({ id, zoom = 1, rotation = 0, w = 100, h = 100 }) {
+  const s = 1 / zoom;
+  // Thin items (like roads) drop the corner handles so the end handles stay easy to grab;
+  // very thin ones keep only the two end handles
+  const sh = h * zoom, sw = w * zoom;
+  const list = HANDLES.filter(([c]) => {
+    if (sh < THIN_PX && sw < THIN_PX) return c === 'se';
+    if (sh < THIN_PX) return c === 'e' || c === 'w' || (sh >= TINY_PX && (c === 'n' || c === 's'));
+    if (sw < THIN_PX) return c === 'n' || c === 's' || (sw >= TINY_PX && (c === 'e' || c === 'w'));
+    return true;
+  });
   return (
     <>
-      {[
-        { c: 'nw', s: { top: -4,  left: -4,  cursor: 'nwse-resize' }},
-        { c: 'ne', s: { top: -4,  right: -4, cursor: 'nesw-resize' }},
-        { c: 'sw', s: { bottom: -4, left: -4,  cursor: 'nesw-resize' }},
-        { c: 'se', s: { bottom: -4, right: -4, cursor: 'nwse-resize' }},
-        { c: 'n',  s: { top: -4,  left: 'calc(50% - 4px)', cursor: 'ns-resize' }},
-        { c: 's',  s: { bottom: -4, left: 'calc(50% - 4px)', cursor: 'ns-resize' }},
-        { c: 'w',  s: { top: 'calc(50% - 4px)', left: -4,  cursor: 'ew-resize' }},
-        { c: 'e',  s: { top: 'calc(50% - 4px)', right: -4, cursor: 'ew-resize' }},
-      ].map(h => (
-        <div key={h.c} data-corner={h.c} data-id={id}
-          style={{ position: 'absolute', width: 8, height: 8, backgroundColor: PRI, border: '2px solid white',
-            borderRadius: 2, touchAction: 'none', zIndex: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.25)', ...h.s }}/>
-      ))}
+      {list.map(([c, fx, fy, dir]) => {
+        const side = c.length === 1, vertical = c === 'e' || c === 'w';
+        // visible shape and (larger) grab area, in screen pixels
+        const [vw, vh] = !side ? [12, 12] : vertical ? [7, 20] : [20, 7];
+        const [hw, hh] = !side ? [22, 22] : vertical ? [16, 30] : [30, 16];
+        return (
+          <div key={c} data-corner={c} data-id={id}
+            style={{ position: 'absolute', left: `calc(${fx * 100}% - ${hw * s / 2}px)`, top: `calc(${fy * 100}% - ${hh * s / 2}px)`,
+              width: hw * s, height: hh * s, display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none', zIndex: 10,
+              cursor: RESIZE_CURSORS[Math.round((((dir + rotation) % 360) + 360) % 360 / 45) % 4] }}>
+            <div style={{ width: vw * s, height: vh * s, boxSizing: 'border-box', background: '#fff', border: `${1.5 * s}px solid ${PRI}`,
+              borderRadius: 999, boxShadow: `0 ${s}px ${4 * s}px rgba(0,0,0,0.3)`, pointerEvents: 'none' }}/>
+          </div>
+        );
+      })}
     </>
   );
 }
 
-function RotationHandle({ id }) {
+function RotationHandle({ id, zoom = 1 }) {
+  const s = 1 / zoom;
   return (
-    <div style={{ position: 'absolute', top: -36, left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none', zIndex: 20 }}>
+    <div style={{ position: 'absolute', top: -36 * s, left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none', zIndex: 20 }}>
       <div data-rotate={id}
-        style={{ width: 14, height: 14, borderRadius: '50%', background: '#7c3aed', border: '2px solid white',
+        style={{ width: 14 * s, height: 14 * s, boxSizing: 'border-box', borderRadius: '50%', background: '#7c3aed', border: `${2 * s}px solid white`,
           boxShadow: '0 1px 4px rgba(0,0,0,0.35)', cursor: 'grab', touchAction: 'none', pointerEvents: 'all' }}
         title="Drag to rotate"/>
-      <div style={{ width: 1, height: 22, background: '#7c3aed', opacity: 0.6 }}/>
+      <div style={{ width: s, height: 22 * s, background: '#7c3aed', opacity: 0.6 }}/>
     </div>
   );
 }
@@ -240,6 +310,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   const [selected,      setSelected]      = useState(null);
   const [multiSel,      setMultiSel]      = useState(() => new Set());
   const [selectionRect, setSelectionRect] = useState(null);
+  const [resizeInfo,    setResizeInfo]    = useState(null); // live size badge while dragging a resize handle
   const [drawPreview, setDrawPreview] = useState(null);
   const [lockConfirm, setLockConfirm] = useState(false);
   const [editLabel,   setEditLabel]   = useState(null);
@@ -271,6 +342,10 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   const layoutsRef        = useRef([]);
   const layoutProjectsRef = useRef({});
   const [leftView,     setLeftView]     = useState('layouts'); // 'layouts' | { layoutId, layoutName }
+  // Sidebar unit-type filter (only narrows the left-panel list, not the canvas); empty = all types
+  const [sidebarTypes,   setSidebarTypes]   = useState([]);
+  const [typeFilterOpen, setTypeFilterOpen] = useState(false);
+  const [typeDraft,      setTypeDraft]      = useState([]);
   const filterPopupRef = useRef(null);
   const [rightTab,            setRightTab]            = useState('controls');
   // Project picker
@@ -305,6 +380,20 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   const pushHistory = useCallback(() => {
     historyRef.current = [...historyRef.current.slice(-49), [...itemsRef.current]];
   }, []);
+  const [ctxMenu, setCtxMenu] = useState(null); // right-click menu position { x, y } inside the canvas
+  // Export PDF: menu, and "select area" mode where the user drags the region to export
+  const [exportMenu,  setExportMenu]  = useState(false);
+  const [pdfAreaMode, setPdfAreaMode] = useState(false);
+  const [pdfRect,     setPdfRect]     = useState(null);
+  const pdfAreaRef   = useRef(false);
+  const exportPdfRef = useRef(null);
+  useEffect(() => { pdfAreaRef.current = pdfAreaMode; }, [pdfAreaMode]);
+  const reorderSelection = useCallback((mode) => {
+    const sel = multiSelRef.current;
+    if (!sel.size) return;
+    pushHistory();
+    setItems(prev => reorderItems(prev, sel, mode));
+  }, [pushHistory]);
   useEffect(() => { toolRef.current     = tool;           }, [tool]);
   useEffect(() => { selRef.current      = selected;       }, [selected]);
   const multiSelRef = useRef(new Set());
@@ -525,7 +614,18 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
         setItems(prev => prev.filter(i => !toDelete.has(i.id) || i.item_locked));
         setSelected(null); setMultiSel(new Set());
       }
-      if (e.key === 'Escape') { setSelected(null); setMultiSel(new Set()); setEditLabel(null); }
+      if (e.key === 'Escape') {
+        if (pdfAreaRef.current) { setPdfAreaMode(false); setPdfRect(null); interactRef.current = null; return; }
+        setSelected(null); setMultiSel(new Set()); setEditLabel(null); setCtxMenu(null);
+      }
+      // Layer order, Figma shortcuts: Ctrl+] forward, Ctrl+[ backward, add Shift for front/back
+      if ((e.ctrlKey || e.metaKey) && (e.code === 'BracketRight' || e.code === 'BracketLeft') && multiSelRef.current.size > 0) {
+        e.preventDefault();
+        if (layout?.locked || !canEdit) return;
+        reorderSelection(e.code === 'BracketRight' ? (e.shiftKey ? 'front' : 'forward') : (e.shiftKey ? 'back' : 'backward'));
+        setCtxMenu(null);
+        return;
+      }
       // Arrow keys: move selected items 1px (Shift = 10px or the snap grid if larger)
       if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key) && multiSelRef.current.size > 0) {
         if (layout?.locked || !canEdit) return;
@@ -550,7 +650,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
       window.removeEventListener('keyup', up);
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [layout, canEdit, pushHistory]);
+  }, [layout, canEdit, pushHistory, reorderSelection]);
 
   const locked    = layout?.locked || false;
   const placedIds = new Set(items.filter(i => i.type === 'plot').map(i => i.inventory_id));
@@ -598,12 +698,22 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
       e.preventDefault(); return;
     }
 
-    if (locked || !canEdit) return;
+    if (e.button === 2) return; // right-click is handled by the context menu
+    setCtxMenu(null);
+    if (pdfAreaRef.current) { // dragging out the area to export (allowed for view-only users too)
+      const p = getPos(e);
+      interactRef.current = { type: 'pdfarea', sx: p.x, sy: p.y };
+      setPdfRect({ x: p.x, y: p.y, w: 0, h: 0 });
+      el.setPointerCapture(e.pointerId);
+      e.preventDefault(); return;
+    }
+    // View-only users (or a locked layout) can still click to select and inspect items, but not change them
+    const readOnly = locked || !canEdit;
     const pos = getPos(e);
 
     // Rotation handle
     const rotEl = e.target.closest('[data-rotate]');
-    if (rotEl) {
+    if (rotEl && !readOnly) {
       const id   = rotEl.dataset.rotate;
       const item = itemsRef.current.find(i => i.id === id);
       if (!item || item.item_locked) return;
@@ -619,12 +729,14 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
 
     // 8-handle resize
     const cornerEl = e.target.closest('[data-corner]');
-    if (cornerEl) {
+    if (cornerEl && !readOnly) {
       const corner = cornerEl.dataset.corner, id = cornerEl.dataset.id;
       const item = itemsRef.current.find(i => i.id === id);
       if (!item || item.item_locked || item.type === 'plot') return;
       pushHistory();
-      interactRef.current = { type: 'resize', id, corner, sx: pos.x, sy: pos.y, ox: item.x, oy: item.y, ow: item.w, oh: item.h, rot: item.rotation || 0 };
+      interactRef.current = { type: 'resize', id, corner, lx: pos.x, ly: pos.y, ax: 0, ay: 0, ox: item.x, oy: item.y, ow: item.w, oh: item.h, rot: item.rotation || 0 };
+      const cr = el.getBoundingClientRect();
+      setResizeInfo({ w: item.w, h: item.h, cx: e.clientX - cr.left, cy: e.clientY - cr.top });
       el.setPointerCapture(e.pointerId);
       e.preventDefault(); e.stopPropagation(); return;
     }
@@ -647,7 +759,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
 
       // Regular click: if item already in multi-selection, keep the group and start multi-drag
       if (multiSelRef.current.size > 1 && multiSelRef.current.has(id)) {
-        if (!item.item_locked) {
+        if (!item.item_locked && !readOnly) {
           const initPositions = [...multiSelRef.current].map(iid => {
             const it = itemsRef.current.find(i => i.id === iid);
             return { id: iid, ox: it ? it.x : 0, oy: it ? it.y : 0 };
@@ -660,7 +772,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
 
       // Single select
       setSelected(id); setMultiSel(new Set([id]));
-      if (item.item_locked) { el.setPointerCapture(e.pointerId); return; }
+      if (item.item_locked || readOnly) { el.setPointerCapture(e.pointerId); return; }
       pushHistory();
       interactRef.current = { type: 'drag', id, ox: pos.x - item.x, oy: pos.y - item.y };
       el.setPointerCapture(e.pointerId); return;
@@ -668,7 +780,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
 
     setSelected(null); setMultiSel(new Set()); setEditLabel(null);
     const t = toolRef.current;
-    if (t === 'road' || t === 'open') {
+    if ((t === 'road' || t === 'open') && !readOnly) {
       interactRef.current = { type: 'draw', tool: t, sx: pos.x, sy: pos.y };
       setDrawPreview({ tool: t, x: pos.x, y: pos.y, w: 0, h: 0 });
       el.setPointerCapture(e.pointerId);
@@ -694,7 +806,11 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
     if (intr.type === 'resize') {
       // Rotate screen-space delta into item-local space so handles work after rotation
       const rad = (intr.rot || 0) * Math.PI / 180;
-      const sdx = pos.x - intr.sx, sdy = pos.y - intr.sy;
+      // Accumulate movement step by step; with Shift held, 1 screen pixel = 1 canvas pixel at any zoom
+      const f = e.shiftKey ? Math.min(1, zoomRef.current) : 1;
+      intr.ax += (pos.x - intr.lx) * f; intr.ay += (pos.y - intr.ly) * f;
+      intr.lx = pos.x; intr.ly = pos.y;
+      const sdx = intr.ax, sdy = intr.ay;
       const dx = sdx * Math.cos(rad) + sdy * Math.sin(rad);
       const dy = -sdx * Math.sin(rad) + sdy * Math.cos(rad);
       const c = intr.corner;
@@ -704,14 +820,10 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
       if (c.includes('w')) w = Math.max(minW, snapTo(intr.ow - dx, g));
       if (c.includes('s')) h = Math.max(minH, snapTo(intr.oh + dy, g));
       if (c.includes('n')) h = Math.max(minH, snapTo(intr.oh - dy, g));
-      // Items rotate about their centre, so shift the centre along the item's own axes
-      // to keep the edge opposite the dragged handle fixed on screen
-      const shiftX = c.includes('e') ? (w - intr.ow) / 2 : c.includes('w') ? -(w - intr.ow) / 2 : 0;
-      const shiftY = c.includes('s') ? (h - intr.oh) / 2 : c.includes('n') ? -(h - intr.oh) / 2 : 0;
-      const cx = intr.ox + intr.ow / 2 + shiftX * Math.cos(rad) - shiftY * Math.sin(rad);
-      const cy = intr.oy + intr.oh / 2 + shiftX * Math.sin(rad) + shiftY * Math.cos(rad);
-      const x = cx - w / 2, y = cy - h / 2;
+      const { x, y } = resizeKeepingAnchor({ x: intr.ox, y: intr.oy, w: intr.ow, h: intr.oh, rotation: intr.rot }, c, w, h);
       setItems(prev => prev.map(i => i.id === intr.id ? { ...i, x, y, w, h } : i));
+      const cr = canvasRef.current.getBoundingClientRect();
+      setResizeInfo({ w, h, fine: e.shiftKey, cx: e.clientX - cr.left, cy: e.clientY - cr.top });
     }
     if (intr.type === 'rotate') {
       const angle = Math.atan2(e.clientY - intr.cy, e.clientX - intr.cx) * 180 / Math.PI;
@@ -723,6 +835,10 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
     }
     if (intr.type === 'draw') {
       setDrawPreview({ tool: intr.tool, x: Math.min(intr.sx, pos.x), y: Math.min(intr.sy, pos.y), w: Math.abs(pos.x - intr.sx), h: Math.abs(pos.y - intr.sy) });
+    }
+    if (intr.type === 'pdfarea') {
+      setPdfRect({ x: Math.min(intr.sx, pos.x), y: Math.min(intr.sy, pos.y), w: Math.abs(pos.x - intr.sx), h: Math.abs(pos.y - intr.sy) });
+      return;
     }
     if (intr.type === 'marquee') {
       setSelectionRect({ x: Math.min(intr.sx, pos.x), y: Math.min(intr.sy, pos.y), w: Math.abs(pos.x - intr.sx), h: Math.abs(pos.y - intr.sy) });
@@ -741,6 +857,16 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
     const intr = interactRef.current;
     if (!intr) return;
     try { canvasRef.current?.releasePointerCapture(e.pointerId); } catch {}
+    if (intr.type === 'resize') setResizeInfo(null);
+    if (intr.type === 'pdfarea') {
+      const pos = getPos(e);
+      const r = { x: Math.min(intr.sx, pos.x), y: Math.min(intr.sy, pos.y), w: Math.abs(pos.x - intr.sx), h: Math.abs(pos.y - intr.sy) };
+      setPdfRect(null);
+      interactRef.current = null;
+      // Ignore a click without a drag; otherwise export (pointerup still counts as a user action for the pop-up)
+      if (r.w * zoomRef.current > 8 && r.h * zoomRef.current > 8) { setPdfAreaMode(false); exportPdfRef.current?.(r); }
+      return;
+    }
     if (intr.type === 'draw') {
       const dp = drawPrevRef.current;
       if (dp && dp.w > 15 && dp.h > 10) {
@@ -765,7 +891,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
       }
     }
     interactRef.current = null;
-  }, [pushHistory, selectionRect]);
+  }, [pushHistory, selectionRect, getPos]);
 
   const onSidebarDragStart = (e, inventoryId) => {
     if (locked || !canEdit) { e.preventDefault(); return; }
@@ -794,10 +920,14 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
     setEditLabel(null);
   };
 
-  const rotateItem = useCallback((id) => {
+  // Turn plots 90° (swap width/depth) around their own centre so they stay in place
+  const rotatePlots = useCallback((ids) => {
     pushHistory();
-    setItems(prev => prev.map(i => i.id === id ? { ...i, w: i.h, h: i.w, rotated: !i.rotated } : i));
+    setItems(prev => prev.map(i => ids.has(i.id) && i.type === 'plot' && !i.item_locked
+      ? { ...i, x: i.x + (i.w - i.h) / 2, y: i.y + (i.h - i.w) / 2, w: i.h, h: i.w, rotated: !i.rotated }
+      : i));
   }, [pushHistory]);
+  const rotateItem = useCallback((id) => rotatePlots(new Set([id])), [rotatePlots]);
 
   const buildMultiPayload = (activeId, activeItems, activeCW, activeCH) => {
     const lays = layoutsRef.current;
@@ -1099,7 +1229,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   const bgPosY  = ((pan.y % gSize) + gSize) % gSize;
 
   const isPanning  = spaceDown;
-  const canvasCursor = interactRef.current?.type === 'pan' ? 'grabbing' : isPanning ? 'grab' : { select: 'default', road: 'crosshair', open: 'crosshair' }[tool] || 'default';
+  const canvasCursor = interactRef.current?.type === 'pan' ? 'grabbing' : isPanning ? 'grab' : pdfAreaMode ? 'crosshair' : { select: 'default', road: 'crosshair', open: 'crosshair' }[tool] || 'default';
 
   const ToolBtn = ({ t, icon, label }) => {
     const active = tool === t;
@@ -1139,9 +1269,14 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   const filterActive = filterProject !== 'ALL' || filterStatus !== 'ALL';
 
   // Opens a print-ready copy of the open layout; the browser's "Save as PDF" produces the file
-  const handleExportPdf = () => {
-    const visible = items.filter(i => !i.item_hidden && (i.type !== 'plot' || unitFor(i.inventory_id)));
-    if (visible.length === 0) { setSaveError('Nothing to export: this layout has no items yet.'); return; }
+  // region (canvas coords) = export only that area; omitted = whole layout cropped to its items
+  const handleExportPdf = (region) => {
+    const visible = items.filter(i => !i.item_hidden && (i.type !== 'plot' || unitFor(i.inventory_id))
+      && (!region || itemsOverlap(i, { x: region.x, y: region.y, w: region.w, h: region.h })));
+    if (visible.length === 0) {
+      setSaveError(region ? 'Nothing to export: the selected area has no items.' : 'Nothing to export: this layout has no items yet.');
+      return;
+    }
     const w = window.open('', '_blank'); // opened before any other work so pop-up blockers allow it
     if (!w) { setSaveError('The PDF window was blocked. Allow pop-ups for this site and try again.'); return; }
 
@@ -1163,7 +1298,8 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
     }
     const pad = 24;
     minX -= pad; minY -= pad;
-    const bw = maxX + pad - minX, bh = maxY + pad - minY;
+    let bw = maxX + pad - minX, bh = maxY + pad - minY;
+    if (region) { minX = region.x; minY = region.y; bw = region.w; bh = region.h; }
     clone.style.transform = 'none';
     clone.style.left = `${-minX}px`;
     clone.style.top  = `${-minY}px`;
@@ -1173,12 +1309,14 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
     const MM = 96 / 25.4;
     const pageW = (landscape ? 297 : 210) - 20, pageH = (landscape ? 210 : 297) - 20;
     const availW = pageW * MM, availH = (pageH - 34) * MM;
-    const scale = Math.min(availW / bw, availH / bh, 2);
+    const scale = Math.min(availW / bw, availH / bh, region ? 6 : 2);
 
-    // Legend: plot statuses actually placed, coloured as on screen
+    // Legend: plot statuses actually placed, coloured as on screen. For an area, count plots whose
+    // centre is inside it (neighbours only clipped at the edge are not counted)
+    const inArea = it => !region || (it.x + it.w / 2 >= region.x && it.x + it.w / 2 <= region.x + region.w && it.y + it.h / 2 >= region.y && it.y + it.h / 2 <= region.y + region.h);
     const counts = {};
     for (const it of visible) {
-      if (it.type !== 'plot') continue;
+      if (it.type !== 'plot' || !inArea(it)) continue;
       const st = unitFor(it.inventory_id)?.status;
       const key = viewMode === 'sold' ? (st === 'AVAILABLE' || st === 'RESERVED' ? st : 'SOLD') : st;
       counts[key] = (counts[key] || 0) + 1;
@@ -1224,7 +1362,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
       <h1>${escHtml(layoutName)}</h1>
       ${projectNames ? `<div class="sub">Projects: ${escHtml(projectNames)}</div>` : ''}
     </div>
-    <div class="meta">${plotCount} plot${plotCount === 1 ? '' : 's'}${filterActive || searchPlot.trim() ? ' &middot; filtered view' : ''}<br>Exported ${escHtml(dateStr)}</div>
+    <div class="meta">${region ? 'Selected area &middot; ' : ''}${plotCount} plot${plotCount === 1 ? '' : 's'}${filterActive || searchPlot.trim() ? ' &middot; filtered view' : ''}<br>Exported ${escHtml(dateStr)}</div>
   </header>
   <div class="fit"><div class="board">${clone.outerHTML}</div></div>
   ${legend ? `<div class="legend">${legend}</div>` : ''}
@@ -1233,6 +1371,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
 </body></html>`);
     w.document.close();
   };
+  exportPdfRef.current = handleExportPdf;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#f4f5f7', color: '#111827', fontFamily: 'system-ui,-apple-system,sans-serif', overflow: 'hidden' }}>
@@ -1341,10 +1480,32 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
           {autoSave ? '⟳ Auto' : '⟳ Auto'}
         </button>
         </>}
-        <button onClick={handleExportPdf} title="Export this layout as a PDF"
-          style={{ height: 32, padding: '0 12px', fontSize: 12, fontWeight: 600, borderRadius: 7, border: '1px solid #e5e7eb', cursor: 'pointer', background: '#f9fafb', color: '#374151', whiteSpace: 'nowrap', flexShrink: 0, marginLeft: 4 }}>
-          ⤓ Export PDF
-        </button>
+        <div style={{ position: 'relative', flexShrink: 0, marginLeft: 4 }}>
+          <button onClick={() => setExportMenu(o => !o)} title="Export this layout as a PDF"
+            style={{ height: 32, padding: '0 10px 0 12px', fontSize: 12, fontWeight: 600, borderRadius: 7, border: `1px solid ${pdfAreaMode ? '#2563eb' : '#e5e7eb'}`, cursor: 'pointer', background: pdfAreaMode ? '#eff6ff' : '#f9fafb', color: '#374151', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6 }}>
+            ⤓ Export PDF
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6"/></svg>
+          </button>
+          {exportMenu && (
+            <>
+              <div onClick={() => setExportMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 49 }}/>
+              <div style={{ position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 50, width: 220, padding: 4, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 10px 30px rgba(0,0,0,0.16)' }}>
+                {[
+                  ['Whole layout', 'Every item, fitted to the page', () => { setExportMenu(false); handleExportPdf(); }],
+                  ['Select area…', 'Drag a box on the canvas', () => { setExportMenu(false); setCtxMenu(null); setPdfAreaMode(true); }],
+                ].map(([label, hint, onClick]) => (
+                  <button key={label} onClick={onClick}
+                    style={{ display: 'block', width: '100%', padding: '7px 10px', border: 'none', borderRadius: 5, background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = '#f3f4f6'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#111827' }}>{label}</div>
+                    <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 1 }}>{hint}</div>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
         {canEdit && purchaseId && (
           <button onClick={() => setLockConfirm(true)}
             style={{ height: 32, padding: '0 12px', fontSize: 12, borderRadius: 7, border: '1px solid #e5e7eb', cursor: 'pointer', background: '#f9fafb', color: locked ? '#b45309' : '#6b7280', marginLeft: 4, flexShrink: 0 }}>
@@ -1441,14 +1602,69 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
           ) : (
             <>
               {/* Projects header with back */}
-              <div style={{ padding: '8px 10px', borderBottom: '1px solid #f3f4f6', background: '#f9fafb', flexShrink: 0 }}>
-                <button onClick={() => setLeftView('layouts')}
+              <div style={{ padding: '8px 10px', borderBottom: '1px solid #f3f4f6', background: '#f9fafb', flexShrink: 0, position: 'relative' }}>
+                <button onClick={() => { setLeftView('layouts'); setTypeFilterOpen(false); }}
                   style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0', color: '#6b7280', marginBottom: 6 }}>
                   <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 18l-6-6 6-6"/></svg>
                   <span style={{ fontSize: 11, fontWeight: 500 }}>Back to Layouts</span>
                 </button>
                 <div style={{ fontSize: 10, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.07em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{leftView?.layoutName}</div>
-                <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>Projects</div>
+                {(() => {
+                  const typeCounts = {};
+                  (layoutProjects[currentLayoutId] || []).forEach(p => p.inventory.forEach(u => {
+                    const t = u.type || 'PLOT'; typeCounts[t] = (typeCounts[t] || 0) + 1;
+                  }));
+                  const types = Object.keys(UNIT_TYPE_LABEL).filter(t => typeCounts[t]).concat(Object.keys(typeCounts).filter(t => !UNIT_TYPE_LABEL[t]));
+                  const active = sidebarTypes.length > 0;
+                  const toggleDraft = t => setTypeDraft(d => d.includes(t) ? d.filter(x => x !== t) : [...d, t]);
+                  return (
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}>
+                        <span style={{ fontSize: 10, color: '#9ca3af' }}>
+                          Projects{active && <span style={{ color: PRI, fontWeight: 600 }}> · {sidebarTypes.map(t => UNIT_TYPE_LABEL[t] || t).join(', ')}</span>}
+                        </span>
+                        <button
+                          onClick={() => { setTypeDraft(sidebarTypes); setTypeFilterOpen(o => !o); }}
+                          disabled={types.length === 0}
+                          title={types.length === 0 ? 'Add a project to filter its units' : 'Filter units by type'}
+                          style={{ position: 'relative', flexShrink: 0, width: 24, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${active ? PRI : '#e5e7eb'}`, borderRadius: 5, background: active ? `${PRI}12` : '#fff', cursor: types.length ? 'pointer' : 'not-allowed', opacity: types.length ? 1 : 0.4, padding: 0 }}>
+                          <svg width="12" height="12" fill="none" stroke={active ? PRI : '#6b7280'} viewBox="0 0 24 24" strokeWidth={2.2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 5h18l-7 8.5V19l-4 2v-7.5L3 5z"/>
+                          </svg>
+                          {active && <span style={{ position: 'absolute', top: -6, right: -6, minWidth: 14, height: 14, padding: '0 3px', borderRadius: 7, background: PRI, color: '#fff', fontSize: 9, fontWeight: 700, lineHeight: '14px', textAlign: 'center' }}>{sidebarTypes.length}</span>}
+                        </button>
+                      </div>
+
+                      {typeFilterOpen && (
+                        <>
+                          <div onClick={() => setTypeFilterOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 39 }}/>
+                          <div style={{ position: 'absolute', top: 'calc(100% - 4px)', left: 8, right: 8, zIndex: 40, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.14)', padding: 10 }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>Unit type</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 10 }}>
+                              {types.map(t => (
+                                <label key={t} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 4px', borderRadius: 4, cursor: 'pointer', fontSize: 12, color: '#374151' }}>
+                                  <input type="checkbox" checked={typeDraft.includes(t)} onChange={() => toggleDraft(t)} style={{ accentColor: PRI, margin: 0 }}/>
+                                  <span style={{ flex: 1 }}>{UNIT_TYPE_LABEL[t] || t}</span>
+                                  <span style={{ fontSize: 10, color: '#9ca3af', fontVariantNumeric: 'tabular-nums' }}>{typeCounts[t]}</span>
+                                </label>
+                              ))}
+                            </div>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <button onClick={() => { setSidebarTypes([]); setTypeDraft([]); setTypeFilterOpen(false); }}
+                                style={{ flex: 1, height: 28, border: '1px solid #e5e7eb', borderRadius: 6, background: '#f9fafb', color: '#6b7280', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                                Clear
+                              </button>
+                              <button onClick={() => { setSidebarTypes(typeDraft); setTypeFilterOpen(false); }}
+                                style={{ flex: 1, height: 28, border: 'none', borderRadius: 6, background: PRI, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                                Apply
+                              </button>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
               {/* Projects list */}
               {(() => {
@@ -1470,7 +1686,9 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                 }
                 return (
                   <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-                    {currProjects.map(proj => (
+                    {currProjects.map(proj => {
+                      const units = sidebarTypes.length ? proj.inventory.filter(u => sidebarTypes.includes(u.type || 'PLOT')) : proj.inventory;
+                      return (
                       <div key={proj.id}>
                         {/* Project header */}
                         {(() => {
@@ -1483,7 +1701,10 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 18l6-6-6-6"/>
                               </svg>
                               <span style={{ fontSize: 11, fontWeight: 700, color: '#374151', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{proj.name}</span>
-                              <span style={{ fontSize: 10, color: '#9ca3af', flexShrink: 0, background: '#e5e7eb', borderRadius: 8, padding: '1px 5px', marginRight: 2 }}>{proj.inventory.length}</span>
+                              <span title={sidebarTypes.length ? `${units.length} of ${proj.inventory.length} units match the filter` : undefined}
+                                style={{ fontSize: 10, color: sidebarTypes.length ? PRI : '#9ca3af', flexShrink: 0, background: sidebarTypes.length ? `${PRI}15` : '#e5e7eb', borderRadius: 8, padding: '1px 5px', marginRight: 2, fontVariantNumeric: 'tabular-nums' }}>
+                                {sidebarTypes.length ? `${units.length}/${proj.inventory.length}` : proj.inventory.length}
+                              </span>
                               {canEdit && <button
                                 onClick={e => { e.stopPropagation(); if (!hasPlaced) handleRemoveProject(proj.id); }}
                                 title={hasPlaced ? 'Remove placed units from canvas first' : 'Remove project from layout'}
@@ -1503,7 +1724,10 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                             {proj.inventory.length === 0 && (
                               <div style={{ padding: '10px 8px', fontSize: 10, color: '#d1d5db', textAlign: 'center' }}>No inventory in this project</div>
                             )}
-                            {proj.inventory.map(unit => {
+                            {proj.inventory.length > 0 && units.length === 0 && (
+                              <div style={{ padding: '10px 8px', fontSize: 10, color: '#9ca3af', textAlign: 'center' }}>No units of the selected type</div>
+                            )}
+                            {units.map(unit => {
                               const isPlaced = placedIds.has(unit.id);
                               const sc = effectiveSC[unit.status] || DC;
                               return (
@@ -1527,7 +1751,8 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                           </div>
                         )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 );
               })()}
@@ -1544,7 +1769,34 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onDragOver={onCanvasDragOver}
-          onDrop={onCanvasDrop}>
+          onDrop={onCanvasDrop}
+          onContextMenu={e => {
+            e.preventDefault();
+            const itemEl = e.target.closest('[data-item]');
+            if (!itemEl || locked || !canEdit) { setCtxMenu(null); return; }
+            const id = itemEl.dataset.item;
+            if (!multiSelRef.current.has(id)) {
+              const only = new Set([id]);
+              multiSelRef.current = only; setMultiSel(only); setSelected(id);
+            }
+            const r = canvasRef.current.getBoundingClientRect();
+            setCtxMenu({ x: Math.min(e.clientX - r.left, r.width - 230), y: Math.min(e.clientY - r.top, r.height - 250) });
+          }}
+          onWheel={() => { if (ctxMenu) setCtxMenu(null); }}
+          // The canvas captures the pointer during clicks, so double-clicks land here rather than on the item:
+          // find the item under the cursor. Plots rotate (all selected plots if it is in a group); roads/gardens/text get renamed.
+          onDoubleClick={e => {
+            const itemEl = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-item]');
+            if (!itemEl || locked || !canEdit || pdfAreaMode) return;
+            const it = itemsRef.current.find(i => i.id === itemEl.dataset.item);
+            if (!it || it.item_locked) return;
+            if (it.type === 'plot') {
+              const sel = multiSelRef.current;
+              rotatePlots(sel.size > 1 && sel.has(it.id) ? new Set(sel) : new Set([it.id]));
+            } else if (it.type === 'road' || it.type === 'open' || it.type === 'text') {
+              setEditLabel({ id: it.id, value: it.label || '' });
+            }
+          }}>
 
           {/* Auto-save status badge */}
           {autoSave && autoSaveStatus !== 'idle' && (
@@ -1555,6 +1807,75 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
               borderRadius: 20, padding: '4px 14px', fontSize: 11, fontWeight: 600,
               display: 'flex', alignItems: 'center', gap: 5, boxShadow: '0 2px 8px rgba(0,0,0,0.10)' }}>
               {autoSaveStatus === 'saving' ? <>⟳ Auto saving…</> : <>✓ Auto saved</>}
+            </div>
+          )}
+
+          {pdfAreaMode && (
+            <div onPointerDown={e => e.stopPropagation()}
+              style={{ position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)', zIndex: 32, display: 'flex', alignItems: 'center', gap: 10,
+                background: '#1e3a8a', color: '#fff', borderRadius: 8, padding: '7px 8px 7px 14px', fontSize: 12, fontWeight: 600, boxShadow: '0 4px 14px rgba(0,0,0,0.2)', whiteSpace: 'nowrap' }}>
+              <span>Drag a box over the area to export as PDF</span>
+              <button onClick={() => { setPdfAreaMode(false); setPdfRect(null); }}
+                style={{ height: 24, padding: '0 10px', borderRadius: 5, border: '1px solid #93c5fd', background: 'transparent', color: '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                Cancel (Esc)
+              </button>
+            </div>
+          )}
+
+          {/* Right-click menu: layer order (like Figma / Canva), lock and delete */}
+          {ctxMenu && (() => {
+            const selItems = items.filter(i => multiSel.has(i.id));
+            const allLocked = selItems.length > 0 && selItems.every(i => i.item_locked);
+            const deletable = selItems.some(i => !i.item_locked);
+            const run = fn => () => { fn(); setCtxMenu(null); };
+            const Row = ({ label, keys, onClick, danger, disabled }) => (
+              <button onClick={disabled ? undefined : onClick} disabled={disabled}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, width: '100%', padding: '6px 10px', border: 'none', borderRadius: 5, background: 'transparent', cursor: disabled ? 'default' : 'pointer', fontSize: 12, color: disabled ? '#d1d5db' : danger ? '#dc2626' : '#111827', textAlign: 'left' }}
+                onMouseEnter={e => { if (!disabled) e.currentTarget.style.background = danger ? '#fef2f2' : '#f3f4f6'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
+                <span>{label}</span>
+                {keys && <span style={{ fontSize: 10, color: '#9ca3af', fontFamily: 'ui-monospace, monospace' }}>{keys}</span>}
+              </button>
+            );
+            const Hr = () => <div style={{ height: 1, background: '#f3f4f6', margin: '4px 2px' }}/>;
+            return (
+              <>
+                <div onPointerDown={() => setCtxMenu(null)} onContextMenu={e => { e.preventDefault(); setCtxMenu(null); }}
+                  style={{ position: 'absolute', inset: 0, zIndex: 999 }}/>
+                <div onPointerDown={e => e.stopPropagation()}
+                  style={{ position: 'absolute', left: ctxMenu.x, top: ctxMenu.y, zIndex: 1000, width: 220, padding: 4, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 10px 30px rgba(0,0,0,0.16)' }}>
+                  <div style={{ padding: '4px 10px 6px', fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                    {selItems.length > 1 ? `${selItems.length} items` : 'Arrange'}
+                  </div>
+                  <Row label="Bring to Front" keys="Ctrl+Shift+]" onClick={run(() => reorderSelection('front'))}/>
+                  <Row label="Bring Forward"  keys="Ctrl+]"       onClick={run(() => reorderSelection('forward'))}/>
+                  <Row label="Send Backward"  keys="Ctrl+["       onClick={run(() => reorderSelection('backward'))}/>
+                  <Row label="Send to Back"   keys="Ctrl+Shift+[" onClick={run(() => reorderSelection('back'))}/>
+                  <Hr/>
+                  <Row label={allLocked ? 'Unlock' : 'Lock position'} onClick={run(() => {
+                    const ids = new Set(selItems.map(i => i.id));
+                    setItems(prev => prev.map(i => ids.has(i.id) ? { ...i, item_locked: !allLocked } : i));
+                  })}/>
+                  <Row label="Delete" keys="Del" danger disabled={!deletable} onClick={run(() => {
+                    pushHistory();
+                    const ids = new Set(selItems.map(i => i.id));
+                    setItems(prev => prev.filter(i => !ids.has(i.id) || i.item_locked));
+                    setSelected(null); setMultiSel(new Set());
+                  })}/>
+                </div>
+              </>
+            );
+          })()}
+
+          {/* Live size next to the cursor while dragging a resize handle */}
+          {resizeInfo && (
+            <div style={{ position: 'absolute', left: resizeInfo.cx + 18, top: resizeInfo.cy + 18, zIndex: 30, pointerEvents: 'none',
+              background: '#111827e6', color: '#fff', borderRadius: 6, padding: '4px 8px', fontSize: 11, fontWeight: 600, lineHeight: 1.35,
+              whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', boxShadow: '0 2px 8px rgba(0,0,0,0.25)' }}>
+              <div>W {Math.round(resizeInfo.w)} &nbsp;H {Math.round(resizeInfo.h)}</div>
+              <div style={{ fontSize: 10, fontWeight: 500, color: resizeInfo.fine ? '#86efac' : '#9ca3af' }}>
+                {resizeInfo.fine ? '1px precision' : 'Shift for 1px'}
+              </div>
             </div>
           )}
 
@@ -1585,11 +1906,13 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
             transformOrigin: '0 0',
           }}>
 
-            {items.map(item => {
+            {items.map((item, idx) => {
               if (item.item_hidden) return null;
               const isSel   = multiSel.has(item.id);
               const rot = item.rotation || 0;
-              const basePos = { position: 'absolute', left: item.x, top: item.y, width: item.w, height: item.h, transform: rot ? `rotate(${rot}deg)` : undefined, transformOrigin: 'center center' };
+              // Stacking follows the items order (Layers panel / Bring to Front etc.); selected items float above so their handles stay reachable
+              const z = idx + 1 + (isSel ? Z_SELECTED : 0);
+              const basePos = { position: 'absolute', left: item.x, top: item.y, width: item.w, height: item.h, transform: rot ? `rotate(${rot}deg)` : undefined, transformOrigin: 'center center', zIndex: z };
 
               if (item.type === 'plot') {
                 const unit = unitFor(item.inventory_id);
@@ -1608,7 +1931,8 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                 const dimmed = (srch.length > 0 && !isHighlighted) || !filterMatch;
                 return (
                   <div key={item.id} data-item={item.id}
-                    style={{ ...basePos, touchAction: 'none', cursor: !locked && canEdit && !item.item_locked ? 'move' : 'default', zIndex: isHighlighted ? 10 : 1, opacity: dimmed ? 0.2 : 1, filter: dimmed ? 'grayscale(1)' : 'none', transition: 'opacity 0.2s, filter 0.2s' }}>
+                    title={!locked && canEdit && !item.item_locked ? 'Double-click to rotate' : undefined}
+                    style={{ ...basePos, touchAction: 'none', cursor: !locked && canEdit && !item.item_locked ? 'move' : 'default', zIndex: isHighlighted && !isSel ? z + Z_HIGHLIGHT : z, opacity: dimmed ? 0.2 : 1, filter: dimmed ? 'grayscale(1)' : 'none', transition: 'opacity 0.2s, filter 0.2s' }}>
                     <svg width={item.w} height={item.h} style={{ overflow: 'visible', display: 'block' }}>
                       <PlotContent item={item} unit={unit} isSel={isSel} hideFlags={hideFlags} viewMode={viewMode} isHighlighted={isHighlighted} palette={effectiveSC} highlightColor={searchColor}/>
                     </svg>
@@ -1622,14 +1946,14 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
               if (item.type === 'road') {
                 return (
                   <div key={item.id} data-item={item.id}
-                    onDoubleClick={e => { e.stopPropagation(); setEditLabel({ id: item.id, value: item.label || '' }); }}
+                    onDoubleClick={e => { e.stopPropagation(); if (locked || !canEdit) return; setEditLabel({ id: item.id, value: item.label || '' }); }}
                     style={{ ...basePos, backgroundColor: ec.road.bg, border: `2px solid ${isSel ? PRI : ec.road.bd}`, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none', cursor: !locked && canEdit ? 'move' : 'default', outline: isSel ? `2px solid ${PRI}` : 'none', outlineOffset: 2 }}>
                     {editLabel?.id === item.id
                       ? <input autoFocus value={editLabel.value} onChange={e => setEditLabel(p => ({ ...p, value: e.target.value }))} onBlur={commitEdit} onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditLabel(null); }} onClick={e => e.stopPropagation()} style={{ border: 'none', background: 'transparent', textAlign: 'center', fontSize: 11, fontWeight: 900, color: ec.road.tx, textTransform: 'uppercase', letterSpacing: '0.08em', width: '92%', outline: 'none' }}/>
                       : <span style={{ fontSize: 11, fontWeight: 900, color: ec.road.tx, textTransform: 'uppercase', letterSpacing: '0.08em', pointerEvents: 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '0 8px' }}>{item.label || '7.50 MT WIDE ROAD'}</span>
                     }
-                    {isSel && !locked && canEdit && <ResizeHandles id={item.id}/>}
-                    {isSel && !locked && canEdit && <RotationHandle id={item.id}/>}
+                    {isSel && !locked && canEdit && <ResizeHandles id={item.id} zoom={zoom} rotation={rot} w={item.w} h={item.h}/>}
+                    {isSel && !locked && canEdit && <RotationHandle id={item.id} zoom={zoom}/>}
                   </div>
                 );
               }
@@ -1637,29 +1961,29 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
               if (item.type === 'open') {
                 return (
                   <div key={item.id} data-item={item.id}
-                    onDoubleClick={e => { e.stopPropagation(); setEditLabel({ id: item.id, value: item.label || '' }); }}
+                    onDoubleClick={e => { e.stopPropagation(); if (locked || !canEdit) return; setEditLabel({ id: item.id, value: item.label || '' }); }}
                     style={{ ...basePos, backgroundColor: ec.garden.bg, border: `2px solid ${isSel ? PRI : ec.garden.bd}`, borderRadius: 6, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, touchAction: 'none', cursor: !locked && canEdit ? 'move' : 'default', outline: isSel ? `2px solid ${PRI}` : 'none', outlineOffset: 2 }}>
                     <span style={{ fontSize: Math.min(item.h / 3, 22), lineHeight: 1, pointerEvents: 'none' }}>🌿</span>
                     {editLabel?.id === item.id
                       ? <input autoFocus value={editLabel.value} onChange={e => setEditLabel(p => ({ ...p, value: e.target.value }))} onBlur={commitEdit} onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditLabel(null); }} onClick={e => e.stopPropagation()} style={{ border: 'none', background: 'transparent', textAlign: 'center', fontSize: 9, fontWeight: 700, color: ec.garden.tx, width: '90%', outline: 'none' }}/>
                       : <span style={{ fontSize: 9, fontWeight: 700, color: ec.garden.tx, textAlign: 'center', pointerEvents: 'none', padding: '0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{item.label || 'Garden'}</span>
                     }
-                    {isSel && !locked && canEdit && <ResizeHandles id={item.id}/>}
-                    {isSel && !locked && canEdit && <RotationHandle id={item.id}/>}
+                    {isSel && !locked && canEdit && <ResizeHandles id={item.id} zoom={zoom} rotation={rot} w={item.w} h={item.h}/>}
+                    {isSel && !locked && canEdit && <RotationHandle id={item.id} zoom={zoom}/>}
                   </div>
                 );
               }
               if (item.type === 'text') {
                 return (
                   <div key={item.id} data-item={item.id}
-                    onDoubleClick={e => { e.stopPropagation(); setEditLabel({ id: item.id, value: item.label || '' }); }}
+                    onDoubleClick={e => { e.stopPropagation(); if (locked || !canEdit) return; setEditLabel({ id: item.id, value: item.label || '' }); }}
                     style={{ ...basePos, display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none', cursor: !locked && canEdit ? 'move' : 'default', outline: isSel ? `2px solid ${PRI}` : 'none', outlineOffset: 2 }}>
                     {editLabel?.id === item.id
                       ? <input autoFocus value={editLabel.value} onChange={e => setEditLabel(p => ({ ...p, value: e.target.value }))} onBlur={commitEdit} onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditLabel(null); }} onClick={e => e.stopPropagation()} style={{ border: 'none', background: 'transparent', textAlign: 'center', fontSize: 13, fontWeight: 700, color: ec.text, width: '92%', outline: 'none' }}/>
                       : <span style={{ fontSize: 13, fontWeight: 700, color: ec.text, textAlign: 'center', pointerEvents: 'none', padding: '0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{item.label || 'Text Label'}</span>
                     }
-                    {isSel && !locked && canEdit && <ResizeHandles id={item.id}/>}
-                    {isSel && !locked && canEdit && <RotationHandle id={item.id}/>}
+                    {isSel && !locked && canEdit && <ResizeHandles id={item.id} zoom={zoom} rotation={rot} w={item.w} h={item.h}/>}
+                    {isSel && !locked && canEdit && <RotationHandle id={item.id} zoom={zoom}/>}
                   </div>
                 );
               }
@@ -1671,8 +1995,8 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                     <svg width={item.w} height={item.h} style={{ display: 'block', overflow: 'visible' }}>
                       <line x1={0} y1={item.h / 2} x2={item.w} y2={item.h / 2} stroke={ec.dotted} strokeWidth="2" strokeDasharray="8 5"/>
                     </svg>
-                    {isSel && !locked && canEdit && <ResizeHandles id={item.id}/>}
-                    {isSel && !locked && canEdit && <RotationHandle id={item.id}/>}
+                    {isSel && !locked && canEdit && <ResizeHandles id={item.id} zoom={zoom} rotation={rot} w={item.w} h={item.h}/>}
+                    {isSel && !locked && canEdit && <RotationHandle id={item.id} zoom={zoom}/>}
                   </div>
                 );
               }
@@ -1684,8 +2008,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
             {selected && (() => {
               const sel = items.find(i => i.id === selected);
               if (!sel || sel.type !== 'plot') return null;
-              const selCX = sel.x + sel.w / 2, selCY = sel.y + sel.h / 2;
-              const dimUnit = unitFor(sel.inventory_id)?.front_area_details || "'";
+              const dimUnit = "'"; // front/back measurements are in feet (front_area_details often holds the area unit)
               const hDimVal = p => { const u = unitFor(p.inventory_id); const v = p.rotated ? parseFloat(u?.back_area) : parseFloat(u?.front_area); return isNaN(v) ? 0 : v; };
               const vDimVal = p => { const u = unitFor(p.inventory_id); const v = p.rotated ? parseFloat(u?.front_area) : parseFloat(u?.back_area); return isNaN(v) ? 0 : v; };
               const fmt = v => `${Number.isInteger(v) ? v : v.toFixed(2)}${dimUnit}`;
@@ -1722,29 +2045,51 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                 </g>);
               };
 
-              const rowPlots = items.filter(i => i.type === 'plot' && Math.abs((i.y + i.h / 2) - selCY) < Math.max(sel.h * 0.6, 30)).sort((a, b) => a.x - b.x);
-              const colPlots = items.filter(i => i.type === 'plot' && Math.abs((i.x + i.w / 2) - selCX) < Math.max(sel.w * 0.6, 30)).sort((a, b) => a.y - b.y);
-              const isVert = colPlots.length > rowPlots.length;
-              const hasRowBelow = items.some(i => i.type === 'plot' && (i.y + i.h / 2) > selCY + 30);
-              const barBelow = !hasRowBelow;
-              const hasColToRight = items.some(i => i.type === 'plot' && (i.x + i.w / 2) > selCX + 30);
-              const barLeft = hasColToRight;
+              // Same row/column = overlaps the selected plot by at least half of the narrower plot,
+              // so wider plots that sit across several neighbours still count
+              const overlap = (a1, a2, b1, b2) => Math.min(a2, b2) - Math.max(a1, b1);
+              const rowPlots = items.filter(i => i.type === 'plot' && !i.item_hidden && overlap(i.y, i.y + i.h, sel.y, sel.y + sel.h) >= 0.5 * Math.min(i.h, sel.h)).sort((a, b) => a.x - b.x);
+              const colPlots = items.filter(i => i.type === 'plot' && !i.item_hidden && overlap(i.x, i.x + i.w, sel.x, sel.x + sel.w) >= 0.5 * Math.min(i.w, sel.w)).sort((a, b) => a.y - b.y);
+              // Free space beside a chain of plots: distance to the nearest item directly next to it on that side
+              const clearance = (side, chain) => {
+                const minX = Math.min(...chain.map(p => p.x)), maxX = Math.max(...chain.map(p => p.x + p.w));
+                const minY = Math.min(...chain.map(p => p.y)), maxY = Math.max(...chain.map(p => p.y + p.h));
+                let best = Infinity;
+                for (const o of items) {
+                  if (o.item_hidden || chain.includes(o)) continue;
+                  const d = side === 'below' ? (overlap(o.x, o.x + o.w, minX, maxX) > 0 ? o.y - maxY : -Infinity)
+                          : side === 'above' ? (overlap(o.x, o.x + o.w, minX, maxX) > 0 ? minY - (o.y + o.h) : -Infinity)
+                          : side === 'right' ? (overlap(o.y, o.y + o.h, minY, maxY) > 0 ? o.x - maxX : -Infinity)
+                          :                    (overlap(o.y, o.y + o.h, minY, maxY) > 0 ? minX - (o.x + o.w) : -Infinity);
+                  if (d > -2) best = Math.min(best, Math.max(0, d));
+                }
+                return best;
+              };
               const sp = startPin ? items.find(i => i.id === startPin) : null;
               const ep = endPin   ? items.find(i => i.id === endPin)   : null;
 
               if (sp && ep && startPin !== selected && endPin !== selected) {
+                // Measure along whichever line holds both pins; if both do, follow how the pins are laid out
+                const inRow = rowPlots.includes(sp) && rowPlots.includes(ep);
+                const inCol = colPlots.includes(sp) && colPlots.includes(ep);
+                if (!inRow && !inCol) return null;
+                const pinsVertical = Math.abs((sp.y + sp.h / 2) - (ep.y + ep.h / 2)) >= Math.abs((sp.x + sp.w / 2) - (ep.x + ep.w / 2));
+                const isVert = inCol && (!inRow || pinsVertical);
                 if (!isVert) {
                   const si = rowPlots.findIndex(i => i.id === startPin), ei = rowPlots.findIndex(i => i.id === endPin), xi = rowPlots.findIndex(i => i.id === selected);
                   if (si < 0 || ei < 0 || xi < 0) return null;
                   const [l, r] = si < ei ? [si, ei] : [ei, si];
                   if (xi <= l || xi >= r) return null;
-                  const refY = barBelow ? sel.y + sel.h : sel.y;
+                  // Bar sits outside the tallest plot in the chain so it never runs across a plot
+                  const chainH = rowPlots.slice(l, r + 1);
+                  const barBelow = clearance('below', chainH) >= clearance('above', chainH);
+                  const refY = barBelow ? Math.max(...chainH.map(p => p.y + p.h)) : Math.min(...chainH.map(p => p.y));
                   const barY = barBelow ? refY + 26 : refY - 26;
                   const dL = rowPlots.slice(l, xi).reduce((s, p) => s + hDimVal(p), 0);
                   const dR = rowPlots.slice(xi + 1, r + 1).reduce((s, p) => s + hDimVal(p), 0);
                   if (!dL && !dR) return null;
                   const x1 = rowPlots[l].x, x2 = sel.x, x3 = sel.x + sel.w, x4 = rowPlots[r].x + rowPlots[r].w, sd = hDimVal(sel);
-                  return (<svg key="cd" style={{ position: 'absolute', top: 0, left: 0, width: canvasW, height: canvasH, pointerEvents: 'none', overflow: 'visible' }}>
+                  return (<svg key="cd" style={{ position: 'absolute', top: 0, left: 0, width: canvasW, height: canvasH, pointerEvents: 'none', overflow: 'visible', zIndex: Z_OVERLAY }}>
                     {dL > 0 && <HBar x1={x1} x2={x2} barY={barY} refY={refY} color="#059669" label={fmt(dL)}/>}
                     {sd > 0 && <HBar x1={x2} x2={x3} barY={barY} refY={refY} color={PRI}     label={fmt(sd)}/>}
                     {dR > 0 && <HBar x1={x3} x2={x4} barY={barY} refY={refY} color="#ea580c" label={fmt(dR)}/>}
@@ -1754,13 +2099,16 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                   if (si < 0 || ei < 0 || xi < 0) return null;
                   const [t, b] = si < ei ? [si, ei] : [ei, si];
                   if (xi <= t || xi >= b) return null;
-                  const refX = barLeft ? sel.x : sel.x + sel.w;
+                  // Bar sits outside the widest plot in the chain so it never runs across a plot
+                  const chainV = colPlots.slice(t, b + 1);
+                  const barLeft = clearance('left', chainV) > clearance('right', chainV);
+                  const refX = barLeft ? Math.min(...chainV.map(p => p.x)) : Math.max(...chainV.map(p => p.x + p.w));
                   const barX = barLeft ? refX - 26 : refX + 26;
                   const dA = colPlots.slice(t, xi).reduce((s, p) => s + vDimVal(p), 0);
                   const dB = colPlots.slice(xi + 1, b + 1).reduce((s, p) => s + vDimVal(p), 0);
                   if (!dA && !dB) return null;
                   const y1 = colPlots[t].y, y2 = sel.y, y3 = sel.y + sel.h, y4 = colPlots[b].y + colPlots[b].h, sv = vDimVal(sel);
-                  return (<svg key="cd" style={{ position: 'absolute', top: 0, left: 0, width: canvasW, height: canvasH, pointerEvents: 'none', overflow: 'visible' }}>
+                  return (<svg key="cd" style={{ position: 'absolute', top: 0, left: 0, width: canvasW, height: canvasH, pointerEvents: 'none', overflow: 'visible', zIndex: Z_OVERLAY }}>
                     {dA > 0 && <VBar y1={y1} y2={y2} barX={barX} refX={refX} color="#059669" label={fmt(dA)}/>}
                     {sv > 0 && <VBar y1={y2} y2={y3} barX={barX} refX={refX} color={PRI}     label={fmt(sv)}/>}
                     {dB > 0 && <VBar y1={y3} y2={y4} barX={barX} refX={refX} color="#ea580c" label={fmt(dB)}/>}
@@ -1772,11 +2120,16 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
             })()}
 
             {drawPreview && drawPreview.w > 5 && drawPreview.h > 5 && (
-              <div style={{ position: 'absolute', left: drawPreview.x, top: drawPreview.y, width: drawPreview.w, height: drawPreview.h, pointerEvents: 'none', borderRadius: 4, backgroundColor: drawPreview.tool === 'road' ? '#bae6fd60' : '#bbf7d060', border: `2px dashed ${drawPreview.tool === 'road' ? '#0369a1' : '#15803d'}` }}/>
+              <div style={{ position: 'absolute', left: drawPreview.x, top: drawPreview.y, width: drawPreview.w, height: drawPreview.h, pointerEvents: 'none', zIndex: Z_OVERLAY, borderRadius: 4, backgroundColor: drawPreview.tool === 'road' ? '#bae6fd60' : '#bbf7d060', border: `2px dashed ${drawPreview.tool === 'road' ? '#0369a1' : '#15803d'}` }}/>
+            )}
+            {/* Area being selected for PDF export */}
+            {pdfRect && pdfRect.w > 0 && pdfRect.h > 0 && (
+              <div style={{ position: 'absolute', left: pdfRect.x, top: pdfRect.y, width: pdfRect.w, height: pdfRect.h, pointerEvents: 'none', zIndex: Z_OVERLAY,
+                border: `${2 / zoom}px dashed #2563eb`, background: '#2563eb14', boxShadow: '0 0 0 100000px rgba(17,24,39,0.18)' }}/>
             )}
             {/* Rubber-band marquee selection rect */}
             {selectionRect && selectionRect.w > 4 && selectionRect.h > 4 && (
-              <div style={{ position: 'absolute', left: selectionRect.x, top: selectionRect.y, width: selectionRect.w, height: selectionRect.h, pointerEvents: 'none', border: `1.5px solid ${PRI}`, backgroundColor: `${PRI}18`, borderRadius: 3 }}/>
+              <div style={{ position: 'absolute', left: selectionRect.x, top: selectionRect.y, width: selectionRect.w, height: selectionRect.h, pointerEvents: 'none', zIndex: Z_OVERLAY, border: `1.5px solid ${PRI}`, backgroundColor: `${PRI}18`, borderRadius: 3 }}/>
             )}
           </div>
         </div>
@@ -1837,10 +2190,35 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                     <span>{selItem.item_locked ? 'Locked — click to unlock' : 'Lock Position'}</span>
                   </button>
                 )}
+                {/* Plot details from inventory (shown to everyone, including view-only users) */}
+                {selItem.type === 'plot' && (() => {
+                  const u = unitFor(selItem.inventory_id);
+                  if (!u) return null;
+                  const st = effectiveSC[u.status] || DC;
+                  const rows = [
+                    ['Front', fmtFt(u.front_area) || '—'],
+                    ['Back',  fmtFt(u.back_area)  || '—'],
+                    ['Area',  u.area ? `${Number(u.area).toFixed(2)} ${u.area_unit || ''}`.trim() : '—'],
+                  ];
+                  return (
+                    <div style={{ marginBottom: 12, border: '1px solid #f3f4f6', borderRadius: 7, overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '7px 10px', background: '#f9fafb' }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#111827' }}>{unitListLabel(u)}</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 999, background: st.bg, color: st.tx, border: `1px solid ${st.bd}60`, whiteSpace: 'nowrap' }}>{st.lb || u.status}</span>
+                      </div>
+                      {rows.map(([k, v]) => (
+                        <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 10px', borderTop: '1px solid #f3f4f6', fontSize: 12 }}>
+                          <span style={{ color: '#9ca3af' }}>{k}</span>
+                          <span style={{ color: '#111827', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{v}</span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12, opacity: selItem.item_locked ? 0.45 : 1 }}>
                   {[['X','x'],['Y','y'],['W','w'],['H','h']].map(([lbl, key]) => {
                     // Plot size comes from the inventory's front/back measurements and must not be edited
-                    const fixed = !!selItem.item_locked || (selItem.type === 'plot' && (key === 'w' || key === 'h'));
+                    const fixed = !!selItem.item_locked || locked || !canEdit || (selItem.type === 'plot' && (key === 'w' || key === 'h'));
                     return (
                       <div key={key}>
                         <PLabel>{lbl}</PLabel>
@@ -1874,8 +2252,8 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                     ↺ Rotate
                   </button>
                 )}
-                {/* Start/End pins only mark plots for measuring, so they stay available on locked plots */}
-                {selItem.type === 'plot' && !locked && canEdit && (
+                {/* Start/End pins only mark plots for measuring (nothing is saved), so everyone can use them, on locked plots too */}
+                {selItem.type === 'plot' && (
                   <>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 12 }}>
                       <button onClick={() => { if (startPin === selItem.id) { setStartPin(null); setEndPin(null); } else { setStartPin(selItem.id); setEndPin(null); } }}
@@ -1892,9 +2270,9 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                 {(selItem.type === 'road' || selItem.type === 'open' || selItem.type === 'text') && (
                   <div style={{ marginBottom: 12 }}>
                     <PLabel>Label</PLabel>
-                    <input type="text" value={selItem.label || ''}
+                    <input type="text" value={selItem.label || ''} readOnly={locked || !canEdit}
                       onChange={e => { if (!locked && canEdit) setItems(prev => prev.map(i => i.id === selItem.id ? { ...i, label: e.target.value } : i)); }}
-                      style={inp}/>
+                      style={{ ...inp, ...(locked || !canEdit ? { background: '#f9fafb', color: '#6b7280' } : {}) }}/>
                   </div>
                 )}
                 {!locked && canEdit && !selItem.item_locked && (
@@ -1943,7 +2321,10 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                     <div><b style={{ color: '#6b7280' }}>Place</b> — Drag unit from left panel</div>
                     <div><b style={{ color: '#6b7280' }}>Select</b> — Click item to edit props</div>
                     <div><b style={{ color: '#6b7280' }}>Multi-Select</b> — Drag on empty canvas or Ctrl+Click</div>
+                    <div><b style={{ color: '#6b7280' }}>Rotate Plot</b> — Double-click (rotates all selected)</div>
                     <div><b style={{ color: '#6b7280' }}>Move Group</b> — Drag any selected item</div>
+                    <div><b style={{ color: '#6b7280' }}>Nudge</b> — Arrows 1px · Shift+Arrows 10px</div>
+                    <div><b style={{ color: '#6b7280' }}>Resize</b> — Drag a handle · hold Shift for 1px</div>
                     <div><b style={{ color: '#6b7280' }}>Delete</b> — Select item(s), press Del</div>
                     <div><b style={{ color: '#6b7280' }}>Undo</b> — Ctrl+Z (up to 50 steps)</div>
                     <div><b style={{ color: '#6b7280' }}>Fit</b> — Click % button in toolbar</div>
@@ -2108,7 +2489,10 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                         onDragOver={e => e.preventDefault()}
                         onDrop={e => { e.stopPropagation(); handleLayerReorder(item.id); }}
                         onDragEnd={() => setLayerDragId(null)}
-                        onClick={() => { setSelected(item.id === selected ? null : item.id); }}
+                        onClick={() => {
+                          if (item.id === selected) { setSelected(null); setMultiSel(new Set()); }
+                          else { setSelected(item.id); setMultiSel(new Set([item.id])); }
+                        }}
                         style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', borderBottom: '1px solid #f3f4f6', background: isSel ? `${PRI}0d` : isDragging ? '#f3f4f6' : 'transparent', cursor: 'pointer', opacity: item.item_hidden ? 0.4 : 1, transition: 'background 0.1s', userSelect: 'none' }}>
                         {/* Drag grip */}
                         <svg width="10" height="14" viewBox="0 0 10 14" fill="#d1d5db" style={{ flexShrink: 0, cursor: 'grab' }}>
