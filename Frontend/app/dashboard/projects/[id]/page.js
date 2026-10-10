@@ -40,7 +40,7 @@ function toForm(p) {
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 function Skeleton() {
   return (
-    <div className="p-4 pb-10 max-w-5xl space-y-4">
+    <div className="p-4 pb-10 space-y-4">
       <div className="h-52 bg-gray-100 rounded-2xl animate-pulse" />
       <div className="grid grid-cols-3 gap-4">
         {[1,2,3].map(i => <div key={i} className="h-24 bg-gray-100 rounded-2xl animate-pulse" />)}
@@ -395,7 +395,7 @@ export default function ProjectDetailPage() {
         <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-white/5 pointer-events-none" />
         <div className="absolute -right-4 bottom-0 w-32 h-32 rounded-full bg-white/5 pointer-events-none" />
 
-        <div className="relative p-6 pb-5 max-w-7xl mx-auto">
+        <div className="relative p-6 pb-5">
           {/* Top row: back + actions */}
           <div className="flex items-center justify-between mb-5">
             <Link href="/dashboard/projects"
@@ -495,7 +495,7 @@ export default function ProjectDetailPage() {
       </div>
 
       {/* ══ KPI + TABS ═════════════════════════════════════════════════════════ */}
-      <div className="max-w-7xl mx-auto">
+      <div>
       <div className="grid grid-cols-3 gap-px bg-gray-100">
         {[
           { label: 'Total Project Value', value: fmtCr(totalVal),   sub: `${inventory.length} units · ${fmt(project.total_area)} area`, color: 'text-gray-900' },
@@ -876,7 +876,7 @@ export default function ProjectDetailPage() {
         )}
 
       </div>
-      </div>{/* end max-w-7xl */}
+      </div>{/* end KPI + tabs */}
 
       {/* Delete modal */}
       {delOpen && <DeleteModal name={project.name} onClose={() => setDelOpen(false)} onConfirm={handleDelete} />}
