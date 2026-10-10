@@ -79,7 +79,7 @@ export default function ProjectsPage() {
   const to        = Math.min(page * limit, total);
 
   return (
-    <div className="p-4 pb-10 max-w-7xl space-y-4">
+    <div className="p-4 pb-10 space-y-4">
 
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -180,7 +180,7 @@ export default function ProjectsPage() {
 
       {/* Grid */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
           {Array(6).fill(0).map((_, i) => (
             <div key={i} className="h-48 bg-gray-100 rounded-2xl animate-pulse" />
           ))}
@@ -194,7 +194,7 @@ export default function ProjectsPage() {
           <p className="text-xs text-gray-400 mt-1">Create your first project to get started</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
           {projects.map(p => {
             const totalVal = (p.inventory || []).reduce((s, u) => {
               const sale = u.sales?.[0];
