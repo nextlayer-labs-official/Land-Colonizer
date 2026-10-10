@@ -1481,15 +1481,19 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
         </button>
         </>}
         <div style={{ position: 'relative', flexShrink: 0, marginLeft: 4 }}>
-          <button onClick={() => setExportMenu(o => !o)} title="Export this layout as a PDF"
+          <button onClick={e => {
+              // The toolbar clips overflow, so the menu is positioned on screen next to the button
+              const r = e.currentTarget.getBoundingClientRect();
+              setExportMenu(m => m ? false : { top: r.bottom + 4, right: window.innerWidth - r.right });
+            }} title="Export this layout as a PDF"
             style={{ height: 32, padding: '0 10px 0 12px', fontSize: 12, fontWeight: 600, borderRadius: 7, border: `1px solid ${pdfAreaMode ? '#2563eb' : '#e5e7eb'}`, cursor: 'pointer', background: pdfAreaMode ? '#eff6ff' : '#f9fafb', color: '#374151', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6 }}>
             ⤓ Export PDF
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6"/></svg>
           </button>
           {exportMenu && (
             <>
-              <div onClick={() => setExportMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 49 }}/>
-              <div style={{ position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 50, width: 220, padding: 4, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 10px 30px rgba(0,0,0,0.16)' }}>
+              <div onClick={() => setExportMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 1000 }}/>
+              <div style={{ position: 'fixed', top: exportMenu.top, right: exportMenu.right, zIndex: 1001, width: 220, padding: 4, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 10px 30px rgba(0,0,0,0.16)' }}>
                 {[
                   ['Whole layout', 'Every item, fitted to the page', () => { setExportMenu(false); handleExportPdf(); }],
                   ['Select area…', 'Drag a box on the canvas', () => { setExportMenu(false); setCtxMenu(null); setPdfAreaMode(true); }],
@@ -1764,7 +1768,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
         {/* ── Canvas viewport — overflow hidden, pan+zoom via transform ── */}
         <div
           ref={canvasRef}
-          style={{ flex: 1, overflow: 'hidden', cursor: canvasCursor, userSelect: 'none', position: 'relative', backgroundColor: '#c8cdd8', backgroundImage: 'radial-gradient(circle, #a0a5b0 1px, transparent 1px)', backgroundSize: `${gSize}px ${gSize}px`, backgroundPosition: `${bgPosX}px ${bgPosY}px` }}
+          style={{ flex: 1, overflow: 'hidden', cursor: canvasCursor, userSelect: 'none', position: 'relative', isolation: 'isolate', backgroundColor: '#c8cdd8', backgroundImage: 'radial-gradient(circle, #a0a5b0 1px, transparent 1px)', backgroundSize: `${gSize}px ${gSize}px`, backgroundPosition: `${bgPosX}px ${bgPosY}px` }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
