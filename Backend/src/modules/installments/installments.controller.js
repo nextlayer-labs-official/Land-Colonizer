@@ -120,4 +120,4 @@ async function updateInstallment(req, res) {
   });
 }
 
-module.exports = { getInstallment, updateInstallment };
+module.exports = { getInstallment, updateInstallment, computeTotalPaid };

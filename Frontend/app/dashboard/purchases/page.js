@@ -655,7 +655,7 @@ export default function PurchasesPage() {
                 ['Area', 'text-right'],
                 ['Rate', 'text-right'],
                 ['Total Amount', 'text-right'],
-                ['Advance Paid', 'text-right'],
+                ['Total Paid (Adv + Inst)', 'text-right'],
                 ['Balance', 'text-right'],
                 ['% Paid', ''],
                 ['Reg. Date', ''],
@@ -737,7 +737,7 @@ export default function PurchasesPage() {
                     </td>
                     <td className="px-3 py-2.5 text-right text-gray-700">{nn(row.rate) ? fmtINR(row.rate) : '—'}</td>
                     <td className="px-3 py-2.5 text-right font-semibold text-gray-900">{fmtINR(row.total_amount)}</td>
-                    <td className="px-3 py-2.5 text-right text-gray-700">{nn(row.advance_paid) ? fmtINR(row.advance_paid) : '—'}</td>
+                    <td className="px-3 py-2.5 text-right text-gray-700">{Number(row.total_paid) > 0 ? fmtINR(row.total_paid) : '—'}</td>
                     <td className="px-3 py-2.5 text-right text-gray-700">{fmtINR(row.effective_balance ?? row.balance_to_pay)}</td>
                     <td className="px-3 py-2.5 min-w-[120px]">
                       <div className="flex items-center gap-2">

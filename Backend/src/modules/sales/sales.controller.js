@@ -1,5 +1,6 @@
 const prisma = require('../../lib/prisma');
 const { syncInventoryStatus } = require('../inventory/inventory.controller');
+const { computeTotalPaid } = require('../installments/installments.controller');
 const { auditLog, diff } = require('../../lib/audit');
 
 const SALE_TYPES        = ['PLOT', 'SHOP', 'LAND', 'FLAT'];
@@ -135,10 +136,23 @@ async function getSales(req, res) {
     ],
   };
 
-  const [sales, total] = await Promise.all([
-    prisma.sale.findMany({ where, orderBy: { created_at: 'desc' }, skip, take: Number(limit), include: INCLUDE }),
+  const [rows, total] = await Promise.all([
+    prisma.sale.findMany({
+      where, orderBy: { created_at: 'desc' }, skip, take: Number(limit),
+      include: { ...INCLUDE, installmentPartials: { select: { installment_no: true, amount: true } } },
+    }),
     prisma.sale.count({ where }),
   ]);
+
+  // Instalment Total Paid as on the sale's Installments tab: fully paid instalments plus partial payments
+  const sales = rows.map(({ installmentPartials, ...s }) => {
+    const partialsByN = {};
+    for (const p of installmentPartials) {
+      const t = (partialsByN[p.installment_no]?.total || 0) + Number(p.amount || 0);
+      partialsByN[p.installment_no] = { total: t };
+    }
+    return { ...s, inst_total_paid: s.installment ? computeTotalPaid(s.installment, partialsByN) : 0 };
+  });
 
   res.json({ sales, total, page: Number(page), limit: Number(limit) });
 }

@@ -39,10 +39,12 @@ function instPaidAmt(r) {
   return total;
 }
 
+// Received = Booking (when counted as received) + Advance + instalments' Total Paid (incl. partial payments)
 function effReceived(r) {
   const advance = Number(r.advance_payment || 0);
   const bk      = Number(r.booking_amount  || 0);
-  return (r.booking_in_received !== false ? bk : 0) + advance + instPaidAmt(r);
+  const inst    = r.inst_total_paid != null ? Number(r.inst_total_paid) : instPaidAmt(r);
+  return (r.booking_in_received !== false ? bk : 0) + advance + inst;
 }
 
 function effBalance(r) {

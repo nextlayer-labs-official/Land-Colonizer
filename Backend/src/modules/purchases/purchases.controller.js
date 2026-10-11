@@ -132,6 +132,8 @@ async function getPurchases(req, res) {
       return {
         ...comp,
         effective_balance: parseFloat(Math.max(0, comp.balance_to_pay - instPaid).toFixed(2)),
+        // Same figure as "Total Paid (Adv + Inst)" on the purchase details page
+        total_paid:        parseFloat((Number(p.advance_paid || 0) + instPaid).toFixed(2)),
       };
     }),
     total,

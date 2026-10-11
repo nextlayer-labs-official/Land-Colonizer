@@ -97,7 +97,7 @@ function instFromApi(inst) {
   return d;
 }
 
-function InstCard({ n, label, form, editing, setF }) {
+function InstCard({ n, label, form, editing, setF, onViewDetail }) {
   const amt = form[`inst_${n}_amount`];
   const dt  = form[`inst_${n}_date`];
   const pd  = form[`inst_${n}_paid`];
@@ -124,7 +124,7 @@ function InstCard({ n, label, form, editing, setF }) {
   }
   const cardCls = pd ? 'border-emerald-200 bg-emerald-50' : hasData ? 'border-amber-200 bg-amber-50' : 'border-gray-100 bg-gray-50';
   return (
-    <div className={`rounded-xl border-2 p-4 ${cardCls}`}>
+    <div className={`rounded-xl border-2 p-4 ${cardCls} ${onViewDetail ? 'cursor-pointer hover:shadow-sm transition' : ''}`} onClick={() => onViewDetail?.(n)}>
       <div className="flex items-start justify-between mb-3">
         <span className={`text-xs font-bold uppercase tracking-wide ${pd ? 'text-emerald-600' : hasData ? 'text-amber-600' : 'text-gray-300'}`}>{label}</span>
         {pd ? (
@@ -144,6 +144,69 @@ function InstCard({ n, label, form, editing, setF }) {
   );
 }
 
+// ── Installment Detail Modal (same as the Sales one; purchases have no partial payments) ──
+function InstDetailModal({ n, label, form, onClose }) {
+  const amt = form[`inst_${n}_amount`];
+  const dt  = form[`inst_${n}_date`];
+  const pd  = form[`inst_${n}_paid`];
+  const pay = form[`inst_${n}_payment_details`];
+
+  const statusBadge = pd
+    ? <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">Paid</span>
+    : amt
+      ? <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">Due</span>
+      : <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Not Set</span>;
+
+  useEffect(() => {
+    const onKey = e => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-bold text-gray-800">{label}</h3>
+            {statusBadge}
+          </div>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 text-lg">✕</button>
+        </div>
+
+        <div className="px-5 py-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500">Amount</span>
+            <span className="text-sm font-bold text-gray-900">{amt ? `₹${Number(amt).toLocaleString('en-IN')}` : '—'}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500">Due Date</span>
+            <span className="text-sm text-gray-700">{dt ? fmtDate(dt) : '—'}</span>
+          </div>
+          {pay && (
+            <div className="flex items-start justify-between gap-4">
+              <span className="text-xs text-gray-500 shrink-0">Payment Details</span>
+              <span className="text-xs text-gray-700 text-right whitespace-pre-wrap">{pay}</span>
+            </div>
+          )}
+          {pd && (
+            <div className="bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3 text-center">
+              <svg className="w-5 h-5 text-emerald-500 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
+              <p className="text-xs font-semibold text-emerald-700">Fully Paid</p>
+            </div>
+          )}
+        </div>
+
+        <div className="px-5 pb-4">
+          <button onClick={onClose} className="w-full h-9 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 font-medium">Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PurchaseInstallmentPanel({ purchaseId, canEdit, onTotalPaidChange }) {
   const [form,       setInstForm]  = useState(emptyInst());
   const [loading,    setLoading]   = useState(true);
@@ -153,6 +216,8 @@ function PurchaseInstallmentPanel({ purchaseId, canEdit, onTotalPaidChange }) {
   const [saveError,  setSaveError] = useState('');
   const [totalPaid,  setTotalPaid] = useState(0);
   const [balanceAmt, setBalance]   = useState(0);
+  const [detailModal, setDetailModal] = useState(null); // { n }
+  const closeDetail = useCallback(() => setDetailModal(null), []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -259,10 +324,15 @@ function PurchaseInstallmentPanel({ purchaseId, canEdit, onTotalPaidChange }) {
         {/* 24-slot grid — 4 columns max so cards breathe */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {ORDINALS.map((label, i) => (
-            <InstCard key={i + 1} n={i + 1} label={label} form={form} editing={editing} setF={setF} />
+            <InstCard key={i + 1} n={i + 1} label={label} form={form} editing={editing} setF={setF}
+              onViewDetail={editing ? null : (n) => setDetailModal({ n })} />
           ))}
         </div>
       </div>
+
+      {detailModal && (
+        <InstDetailModal n={detailModal.n} label={ORDINALS[detailModal.n - 1]} form={form} onClose={closeDetail} />
+      )}
     </div>
   );
 }
