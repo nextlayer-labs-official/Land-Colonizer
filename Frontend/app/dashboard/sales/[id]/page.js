@@ -311,15 +311,18 @@ function InstCard({ n, label, form, editing, setF, partialData, onAddPartial, on
       )}
 
       {/* Action buttons */}
-      {hasData && !pd && (
+      {hasData && !pd && (onAddPartial || hasPartials) && (
         <div className="flex gap-1 mt-2">
-          <button onClick={e => { e.stopPropagation(); onAddPartial(n); }}
-            className="flex-1 text-[9px] font-bold py-1 rounded-md bg-[#875A7B] text-white hover:bg-[#714B67] transition">
-            + Partial
-          </button>
+          {/* onAddPartial is only passed to users allowed to manage instalments */}
+          {onAddPartial && (
+            <button onClick={e => { e.stopPropagation(); onAddPartial(n); }}
+              className="flex-1 text-[9px] font-bold py-1 rounded-md bg-[#875A7B] text-white hover:bg-[#714B67] transition">
+              + Partial
+            </button>
+          )}
           {hasPartials && (
             <button onClick={e => { e.stopPropagation(); onViewHistory(n); }}
-              className="flex items-center gap-0.5 text-[9px] font-bold py-1 px-1.5 rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200 transition">
+              className={`flex items-center justify-center gap-0.5 text-[9px] font-bold py-1 px-1.5 rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200 transition ${onAddPartial ? '' : 'flex-1'}`}>
               <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
               {partialData.list.length}
             </button>
@@ -814,7 +817,7 @@ function InstallmentPanel({ saleId, canEdit, onTotalPaidChange, partialsRef }) {
           <InstCard
             key={i + 1} n={i + 1} label={label} form={form} editing={editing} setF={setF}
             partialData={partials[i + 1]}
-            onAddPartial={(n) => setPartialModal({ n })}
+            onAddPartial={canEdit ? (n) => setPartialModal({ n }) : null}
             onViewHistory={(n) => setHistoryCanvas({ n })}
             onViewDetail={editing ? null : (n) => setDetailModal({ n })}
           />
