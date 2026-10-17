@@ -125,8 +125,8 @@ export default function BrokersPage() {
   const toggleAll    = () => setSelected(selected.length === rows.length ? [] : rows.map(r => r.id));
 
   const totalPages = Math.ceil(total / limit);
-  const canCreate  = me?.is_system;
-  const canDelete  = me?.is_system;
+  const canCreate  = can('BROKER_CREATE') || me?.is_system;
+  const canDelete  = can('BROKER_DELETE') || me?.is_system;
   const from = total === 0 ? 0 : (page - 1) * limit + 1;
   const to   = Math.min(page * limit, total);
 

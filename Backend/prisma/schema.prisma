@@ -716,6 +716,8 @@ model Note {
   user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
+  deleted_at DateTime? // set when moved to the Recycle Bin; removed for good after 30 days
 
   @@index([user_id])
+  @@index([user_id, deleted_at])
 }

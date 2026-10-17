@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { apiGet, apiPost } from '@/lib/api';
+import usePermissions from '@/lib/usePermissions';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 export const SALE_TYPES       = ['PLOT', 'SHOP', 'LAND', 'FLAT', 'PLOT_WIRE', 'SHOP_WIRE'];
@@ -85,7 +86,7 @@ export function FInput({ value, onChange, type = 'text', placeholder, readOnly, 
 export function FTextarea({ value, onChange, placeholder, rows = 2, readOnly }) {
   if (readOnly) return <div className="min-h-[60px] px-3 py-2 bg-gray-50 rounded border border-gray-100 text-sm text-gray-700 whitespace-pre-wrap">{value || <span className="text-gray-300">—</span>}</div>;
   return <textarea value={value ?? ''} onChange={onChange} placeholder={placeholder} rows={rows}
-    className="w-full border border-gray-200 rounded px-3 py-[7px] text-sm text-gray-800 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30 transition resize-none placeholder:text-gray-300" />;
+    className="w-full border border-gray-200 rounded px-3 py-[7px] text-sm text-gray-800 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30 transition resize-y placeholder:text-gray-300" />;
 }
 export function FSelect({ value, onChange, children, readOnly }) {
   if (readOnly) return <div className="min-h-[36px] px-3 py-[7px] bg-gray-50 rounded border border-gray-100 text-sm text-gray-700">{value || <span className="text-gray-300">—</span>}</div>;
@@ -265,12 +266,15 @@ export function CustomerPicker({ value, onPick, onClear, readOnly, excludeIds })
 }
 
 export function BrokerPicker({ value, onPick, onClear, readOnly }) {
+  // Adding a broker from here needs the Broker Create permission (the server checks it too)
+  const { can, me } = usePermissions();
+  const canCreateBroker = can('BROKER_CREATE') || !!me?.is_system;
   return (
     <BasePicker
       value={value?.id ? value : null}
       onPick={onPick} onClear={onClear} readOnly={readOnly}
       label="Broker" endpoint="brokers" placeholder="Search broker…"
-      allowCreate
+      allowCreate={canCreateBroker}
       renderSelected={v => v ? `${v.broker_code || ''} ${v.name || ''} ${v.phone ? `· ${v.phone}` : ''}`.trim() : ''}
       renderItem={b => (
         <div>

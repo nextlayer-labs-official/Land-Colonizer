@@ -100,7 +100,7 @@ export default function DashboardLayout({ children }) {
   }, []);
 
   const singleItems = [
-    { label: 'Dashboard', href: '/dashboard',           perm: null,            exact: true },
+    { label: 'Dashboard', href: '/dashboard',           perm: 'DASHBOARD_VIEW', exact: true },
     { label: 'Purchases', href: '/dashboard/purchases', perm: 'PURCHASE_VIEW'  },
     { label: 'Inventory', href: '/dashboard/inventory', perm: 'INVENTORY_VIEW' },
     { label: 'Sales',     href: '/dashboard/sales',     perm: 'SALE_VIEW'      },

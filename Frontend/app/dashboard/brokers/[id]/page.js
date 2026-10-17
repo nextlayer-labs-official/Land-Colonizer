@@ -162,8 +162,8 @@ export default function BrokerDetailPage() {
   const [showDel,  setShowDel]  = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const canEdit   = me?.is_system;
-  const canDelete = me?.is_system;
+  const canEdit   = can('BROKER_EDIT')   || me?.is_system;
+  const canDelete = can('BROKER_DELETE') || me?.is_system;
 
   const load = useCallback(async () => {
     setLoading(true);

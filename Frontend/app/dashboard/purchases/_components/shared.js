@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { apiGet, apiPost } from '@/lib/api';
+import usePermissions from '@/lib/usePermissions';
 
 // Shared atoms, constants, and the computed-formula function for Purchase forms.
 // Used by both new/page.js and [id]/page.js.
@@ -349,12 +350,15 @@ function BasePicker({ value, onPick, onClear, label, endpoint, placeholder, rend
 }
 
 export function BrokerPicker({ value, onPick, onClear, excludeId }) {
+  // Adding a broker from here needs the Broker Create permission (the server checks it too)
+  const { can, me } = usePermissions();
+  const canCreateBroker = can('BROKER_CREATE') || !!me?.is_system;
   return (
     <BasePicker
       value={value?.name ? value : null}
       onPick={onPick} onClear={onClear}
       label="Broker" endpoint="brokers" placeholder="Search broker…"
-      allowCreate excludeId={excludeId}
+      allowCreate={canCreateBroker} excludeId={excludeId}
       renderSelected={v => v ? `${v.broker_code || ''} ${v.name || ''} ${v.phone ? `· ${v.phone}` : ''}`.trim() : ''}
       renderItem={b => (
         <div>

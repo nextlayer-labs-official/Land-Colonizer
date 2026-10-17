@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import useAuth from '@/lib/useAuth';
+import usePermissions from '@/lib/usePermissions';
 import { apiGet } from '@/lib/api';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -261,16 +263,37 @@ function QuickLink({ href, icon, label }) {
 }
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
+// Where to send users who aren't allowed to see the dashboard (first page they can open)
+const LANDING_PAGES = [
+  ['SALE_VIEW', '/dashboard/sales'], ['PURCHASE_VIEW', '/dashboard/purchases'], ['INVENTORY_VIEW', '/dashboard/inventory'],
+  ['PROJECT_VIEW', '/dashboard/projects'], ['REPORTS_VIEW', '/dashboard/reports'], ['LAYOUT_VIEW', '/dashboard/layout-builder'],
+  ['CUSTOMER_VIEW', '/dashboard/customers'], ['BROKER_VIEW', '/dashboard/brokers'], ['NOTE_VIEW', '/dashboard/notes'],
+  ['USER_VIEW', '/dashboard/users'], ['ROLE_VIEW', '/dashboard/roles'], ['SETTINGS_VIEW', '/dashboard/settings'], ['AUDIT_VIEW', '/dashboard/audit-logs'],
+];
+
 export default function DashboardPage() {
   useAuth();
+  const router = useRouter();
+  const { can, loading: permLoading } = usePermissions();
   const [data,    setData]    = useState(null);
   const [loading, setLoading] = useState(true);
+  const allowed = can('DASHBOARD_VIEW');
+  const landing = LANDING_PAGES.find(([perm]) => can(perm))?.[1];
 
   useEffect(() => {
+    if (permLoading) return;
+    if (!allowed) { if (landing) router.replace(landing); return; }
     apiGet('/dashboard').then(setData).catch(() => setData({})).finally(() => setLoading(false));
-  }, []);
+  }, [permLoading, allowed, landing, router]);
 
-  if (loading) return <DashboardSkeleton />;
+  if (!permLoading && !allowed && !landing) {
+    return (
+      <div className="flex items-center justify-center h-full p-6 text-center text-sm text-gray-400">
+        You don&apos;t have access to any pages yet. Please contact your administrator.
+      </div>
+    );
+  }
+  if (permLoading || !allowed || loading) return <DashboardSkeleton />;
 
   const { user, reStats = {}, recentSales = [], orgStats } = data || {};
   const today    = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });

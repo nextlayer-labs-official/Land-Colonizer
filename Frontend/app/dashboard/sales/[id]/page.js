@@ -1386,7 +1386,7 @@ function BookingPanel({ saleId, canEdit, onConfirmed, saleAdvance, saleAdvanceDa
             onChange={e => setAddForm(p => ({ ...p, notes: e.target.value }))}
             placeholder="Notes…"
             rows={2}
-            className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-[#875A7B] resize-none"
+            className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-[#875A7B] resize-y"
           />
           <div className="flex gap-2">
             <button onClick={handleAddSave} disabled={saving}
@@ -1574,7 +1574,7 @@ function BookingRow({ booking: b, idx, canEdit, isConfirmed, onConfirm, confirmi
             className="flex-1 text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:border-[#875A7B]" />
         </div>
         <textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} placeholder="Notes…" rows={2}
-          className="w-full text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:border-[#875A7B] resize-none" />
+          className="w-full text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:border-[#875A7B] resize-y" />
         <div className="flex gap-2">
           <button onClick={handleSave} disabled={saving}
             className="h-7 px-3 text-xs font-semibold rounded-lg text-white" style={{ backgroundColor: '#875A7B' }}>
