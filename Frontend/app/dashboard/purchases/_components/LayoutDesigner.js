@@ -43,28 +43,35 @@ const CANVAS_H  = 3600;
 const clampZoom = z => Math.min(20, Math.max(0.05, z));
 
 // ── Dimension helpers ─────────────────────────────────────────────────────────
-function DimH({ x1, x2, y, label }) {
+// Measurement labels sit on the OUTER side of their line (between the line and the plot edge), centred on it.
+// side: 'top' | 'bottom' for widths, 'left' | 'right' for lengths.
+const DIM_FONT = 8;
+function DimH({ x1, x2, y, label, side = 'top' }) {
   if (!label) return null;
   const cx = (x1 + x2) / 2;
+  const ty = side === 'bottom' ? y + DIM_FONT : y - 2; // baseline below the line for the bottom edge
   return (
     <g>
       <line x1={x1 + 4} y1={y} x2={x2 - 4} y2={y} stroke="#374151" strokeWidth="0.8"/>
       <line x1={x1 + 4} y1={y - 4} x2={x1 + 4} y2={y + 4} stroke="#374151" strokeWidth="0.8"/>
       <line x1={x2 - 4} y1={y - 4} x2={x2 - 4} y2={y + 4} stroke="#374151" strokeWidth="0.8"/>
-      <text x={cx} y={y - 2} textAnchor="middle" fontSize="8" fontWeight="700" fill="#1f2937" fontFamily="sans-serif">{label}</text>
+      <text x={cx} y={ty} textAnchor="middle" fontSize={DIM_FONT} fontWeight="700" fill="#1f2937" fontFamily="sans-serif">{label}</text>
     </g>
   );
 }
-function DimV({ x, y1, y2, label, anchor = 'end' }) {
+function DimV({ x, y1, y2, label, side = 'left' }) {
   if (!label) return null;
-  const cy = (y1 + y2) / 2, dx = anchor === 'end' ? -4 : 4;
+  const cy = (y1 + y2) / 2;
+  // Text is turned to read bottom-to-top, so its letters extend to the left of the baseline:
+  // left edge → baseline just left of the line; right edge → baseline one text-height right of it
+  const tx = side === 'right' ? x + DIM_FONT : x - 2;
   return (
     <g>
       <line x1={x} y1={y1 + 4} x2={x} y2={y2 - 4} stroke="#374151" strokeWidth="0.8"/>
       <line x1={x - 4} y1={y1 + 4} x2={x + 4} y2={y1 + 4} stroke="#374151" strokeWidth="0.8"/>
       <line x1={x - 4} y1={y2 - 4} x2={x + 4} y2={y2 - 4} stroke="#374151" strokeWidth="0.8"/>
-      <text x={x + dx} y={cy} textAnchor={anchor} fontSize="8" fontWeight="700" fill="#1f2937" fontFamily="sans-serif"
-        transform={`rotate(-90,${x + dx},${cy})`}>{label}</text>
+      <text x={tx} y={cy} textAnchor="middle" fontSize={DIM_FONT} fontWeight="700" fill="#1f2937" fontFamily="sans-serif"
+        transform={`rotate(-90,${tx},${cy})`}>{label}</text>
     </g>
   );
 }
@@ -119,10 +126,10 @@ function PlotContent({ item, unit, isSel, hideFlags = {}, viewMode = 'status', i
         const hDim = item.rotated ? backDim : frontDim, vDim = item.rotated ? frontDim : backDim;
         return (
           <>
-            <DimH x1={0} x2={W} y={DIM_INSET}     label={hDim}/>
-            <DimH x1={0} x2={W} y={H - DIM_INSET} label={hDim}/>
-            <DimV x={DIM_INSET}     y1={0} y2={H} label={vDim} anchor="start"/>
-            <DimV x={W - DIM_INSET} y1={0} y2={H} label={vDim} anchor="end"/>
+            <DimH x1={0} x2={W} y={DIM_INSET}     label={hDim} side="top"/>
+            <DimH x1={0} x2={W} y={H - DIM_INSET} label={hDim} side="bottom"/>
+            <DimV x={DIM_INSET}     y1={0} y2={H} label={vDim} side="left"/>
+            <DimV x={W - DIM_INSET} y1={0} y2={H} label={vDim} side="right"/>
           </>
         );
       })()}
@@ -140,6 +147,15 @@ const unitListLabel = (unit) => {
 };
 
 // ── 8-handle resize ───────────────────────────────────────────────────────────
+// Text labels: default font size and the box size needed to show the text at a given size
+const TEXT_FONT_DEFAULT = 13, TEXT_FONT_MIN = 6, TEXT_FONT_MAX = 200;
+let measureCtx = null;
+function textBoxFor(text, size) {
+  measureCtx ||= document.createElement('canvas').getContext('2d');
+  measureCtx.font = `700 ${size}px system-ui, -apple-system, sans-serif`;
+  return { w: Math.ceil(measureCtx.measureText(text || 'Text Label').width) + 16, h: Math.ceil(size * 1.4) + 8 };
+}
+
 // Axis-aligned bounds of an item as drawn (rotation-aware)
 function itemBounds(it) {
   const r = (it.rotation || 0) * Math.PI / 180, c = Math.abs(Math.cos(r)), s = Math.abs(Math.sin(r));
@@ -929,6 +945,17 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   }, [pushHistory]);
   const rotateItem = useCallback((id) => rotatePlots(new Set([id])), [rotatePlots]);
 
+  // Change a text label's font size; the box grows (about its centre) if the text no longer fits
+  const setTextFont = useCallback((id, raw) => {
+    const size = Math.min(TEXT_FONT_MAX, Math.max(TEXT_FONT_MIN, Math.round(Number(raw) || TEXT_FONT_DEFAULT)));
+    setItems(prev => prev.map(i => {
+      if (i.id !== id) return i;
+      const need = textBoxFor(i.label, size);
+      const w = Math.max(i.w, need.w), h = Math.max(i.h, need.h);
+      return { ...i, font_size: size, x: i.x - (w - i.w) / 2, y: i.y - (h - i.h) / 2, w, h };
+    }));
+  }, []);
+
   const buildMultiPayload = (activeId, activeItems, activeCW, activeCH) => {
     const lays = layoutsRef.current;
     const ld   = layoutDataRef.current;
@@ -1280,11 +1307,20 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
     const w = window.open('', '_blank'); // opened before any other work so pop-up blockers allow it
     if (!w) { setSaveError('The PDF window was blocked. Allow pop-ups for this site and try again.'); return; }
 
-    // Render once without selection handles, pins or measurement bars, copy the canvas, then restore
-    const prev = { selected, multiSel, startPin, endPin };
-    flushSync(() => { setSelected(null); setMultiSel(new Set()); setStartPin(null); setEndPin(null); setSelectionRect(null); setDrawPreview(null); });
+    // Render once without selection handles/outlines, copy the canvas, then restore. Start/End pins and the
+    // selected plot are kept, so Start-to-End measurements shown on screen are printed too.
+    const prevMulti = multiSel;
+    flushSync(() => { setMultiSel(new Set()); setSelectionRect(null); setDrawPreview(null); setCtxMenu(null); });
+    const measureEl = innerRef.current.querySelector('svg[data-measure]');
+    const mb = measureEl ? measureEl.getBBox() : null; // canvas coordinates of the measurement bars
     const clone = innerRef.current.cloneNode(true);
-    setSelected(prev.selected); setMultiSel(prev.multiSel); setStartPin(prev.startPin); setEndPin(prev.endPin);
+    setMultiSel(prevMulti);
+    const measure = mb && mb.width > 0 ? { x1: mb.x - 6, y1: mb.y - 6, x2: mb.x + mb.width + 6, y2: mb.y + mb.height + 6 } : null;
+    // An area that touches the measurement is widened to include it, so the bars aren't cut off
+    if (region && measure && measure.x1 < region.x + region.w && measure.x2 > region.x && measure.y1 < region.y + region.h && measure.y2 > region.y) {
+      const x1 = Math.min(region.x, measure.x1), y1 = Math.min(region.y, measure.y1);
+      region = { x: x1, y: y1, w: Math.max(region.x + region.w, measure.x2) - x1, h: Math.max(region.y + region.h, measure.y2) - y1 };
+    }
 
     // Crop to the placed items (rotation-aware)
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -1296,6 +1332,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
         minX = Math.min(minX, X); minY = Math.min(minY, Y); maxX = Math.max(maxX, X); maxY = Math.max(maxY, Y);
       }
     }
+    if (measure) { minX = Math.min(minX, measure.x1); minY = Math.min(minY, measure.y1); maxX = Math.max(maxX, measure.x2); maxY = Math.max(maxY, measure.y2); }
     const pad = 24;
     minX -= pad; minY -= pad;
     let bw = maxX + pad - minX, bh = maxY + pad - minY;
@@ -1983,8 +2020,8 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                     onDoubleClick={e => { e.stopPropagation(); if (locked || !canEdit) return; setEditLabel({ id: item.id, value: item.label || '' }); }}
                     style={{ ...basePos, display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none', cursor: !locked && canEdit ? 'move' : 'default', outline: isSel ? `2px solid ${PRI}` : 'none', outlineOffset: 2 }}>
                     {editLabel?.id === item.id
-                      ? <input autoFocus value={editLabel.value} onChange={e => setEditLabel(p => ({ ...p, value: e.target.value }))} onBlur={commitEdit} onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditLabel(null); }} onClick={e => e.stopPropagation()} style={{ border: 'none', background: 'transparent', textAlign: 'center', fontSize: 13, fontWeight: 700, color: ec.text, width: '92%', outline: 'none' }}/>
-                      : <span style={{ fontSize: 13, fontWeight: 700, color: ec.text, textAlign: 'center', pointerEvents: 'none', padding: '0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{item.label || 'Text Label'}</span>
+                      ? <input autoFocus value={editLabel.value} onChange={e => setEditLabel(p => ({ ...p, value: e.target.value }))} onBlur={commitEdit} onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditLabel(null); }} onClick={e => e.stopPropagation()} style={{ border: 'none', background: 'transparent', textAlign: 'center', fontSize: item.font_size || TEXT_FONT_DEFAULT, fontWeight: 700, color: ec.text, width: '92%', outline: 'none' }}/>
+                      : <span style={{ fontSize: item.font_size || TEXT_FONT_DEFAULT, fontWeight: 700, color: ec.text, lineHeight: 1.2, textAlign: 'center', pointerEvents: 'none', padding: '0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{item.label || 'Text Label'}</span>
                     }
                     {isSel && !locked && canEdit && <ResizeHandles id={item.id} zoom={zoom} rotation={rot} w={item.w} h={item.h}/>}
                     {isSel && !locked && canEdit && <RotationHandle id={item.id} zoom={zoom}/>}
@@ -2093,7 +2130,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                   const dR = rowPlots.slice(xi + 1, r + 1).reduce((s, p) => s + hDimVal(p), 0);
                   if (!dL && !dR) return null;
                   const x1 = rowPlots[l].x, x2 = sel.x, x3 = sel.x + sel.w, x4 = rowPlots[r].x + rowPlots[r].w, sd = hDimVal(sel);
-                  return (<svg key="cd" style={{ position: 'absolute', top: 0, left: 0, width: canvasW, height: canvasH, pointerEvents: 'none', overflow: 'visible', zIndex: Z_OVERLAY }}>
+                  return (<svg key="cd" data-measure="1" style={{ position: 'absolute', top: 0, left: 0, width: canvasW, height: canvasH, pointerEvents: 'none', overflow: 'visible', zIndex: Z_OVERLAY }}>
                     {dL > 0 && <HBar x1={x1} x2={x2} barY={barY} refY={refY} color="#059669" label={fmt(dL)}/>}
                     {sd > 0 && <HBar x1={x2} x2={x3} barY={barY} refY={refY} color={PRI}     label={fmt(sd)}/>}
                     {dR > 0 && <HBar x1={x3} x2={x4} barY={barY} refY={refY} color="#ea580c" label={fmt(dR)}/>}
@@ -2112,7 +2149,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                   const dB = colPlots.slice(xi + 1, b + 1).reduce((s, p) => s + vDimVal(p), 0);
                   if (!dA && !dB) return null;
                   const y1 = colPlots[t].y, y2 = sel.y, y3 = sel.y + sel.h, y4 = colPlots[b].y + colPlots[b].h, sv = vDimVal(sel);
-                  return (<svg key="cd" style={{ position: 'absolute', top: 0, left: 0, width: canvasW, height: canvasH, pointerEvents: 'none', overflow: 'visible', zIndex: Z_OVERLAY }}>
+                  return (<svg key="cd" data-measure="1" style={{ position: 'absolute', top: 0, left: 0, width: canvasW, height: canvasH, pointerEvents: 'none', overflow: 'visible', zIndex: Z_OVERLAY }}>
                     {dA > 0 && <VBar y1={y1} y2={y2} barX={barX} refX={refX} color="#059669" label={fmt(dA)}/>}
                     {sv > 0 && <VBar y1={y2} y2={y3} barX={barX} refX={refX} color={PRI}     label={fmt(sv)}/>}
                     {dB > 0 && <VBar y1={y3} y2={y4} barX={barX} refX={refX} color="#ea580c" label={fmt(dB)}/>}
@@ -2279,6 +2316,32 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                       style={{ ...inp, ...(locked || !canEdit ? { background: '#f9fafb', color: '#6b7280' } : {}) }}/>
                   </div>
                 )}
+                {selItem.type === 'text' && (() => {
+                  const size = selItem.font_size || TEXT_FONT_DEFAULT;
+                  const editable = !locked && canEdit && !selItem.item_locked;
+                  const stepBtn = { height: 28, width: 28, flexShrink: 0, background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 5, cursor: editable ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700, color: '#6b7280' };
+                  return (
+                    <div style={{ marginBottom: 12 }}>
+                      <PLabel>Font Size (px)</PLabel>
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
+                        <button title="Smaller" disabled={!editable} style={stepBtn}
+                          onClick={() => { pushHistory(); setTextFont(selItem.id, size - 1); }}>A−</button>
+                        <input type="number" min={TEXT_FONT_MIN} max={TEXT_FONT_MAX} value={size} readOnly={!editable}
+                          onFocus={() => { if (editable) pushHistory(); }}
+                          onChange={e => { if (editable && e.target.value !== '') setTextFont(selItem.id, e.target.value); }}
+                          style={{ ...inp, textAlign: 'center', ...(editable ? {} : { background: '#f9fafb', color: '#6b7280' }) }}/>
+                        <button title="Larger" disabled={!editable} style={stepBtn}
+                          onClick={() => { pushHistory(); setTextFont(selItem.id, size + 1); }}>A+</button>
+                      </div>
+                      {editable && (
+                        <input type="range" min={8} max={96} value={Math.min(96, Math.max(8, size))}
+                          onPointerDown={pushHistory}
+                          onChange={e => setTextFont(selItem.id, e.target.value)}
+                          style={{ width: '100%', accentColor: PRI }}/>
+                      )}
+                    </div>
+                  );
+                })()}
                 {!locked && canEdit && !selItem.item_locked && (
                   <button onClick={() => { const sid = selItem.id; setItems(p => p.filter(i => i.id !== sid)); setSelected(null); setMultiSel(new Set()); }}
                     style={{ width: '100%', height: 30, background: '#fff5f5', border: '1px solid #fecaca', borderRadius: 6, color: '#dc2626', fontSize: 12, cursor: 'pointer', marginTop: 4, fontWeight: 500 }}>
