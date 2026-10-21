@@ -129,6 +129,7 @@ model PasswordResetToken {
   token      String   @unique
   expires_at DateTime
   used       Boolean  @default(false)
+  attempts   Int      @default(0) // wrong verification-code tries; the code is voided after 5
   created_at DateTime @default(now())
 }
 

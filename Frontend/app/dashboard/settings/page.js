@@ -245,10 +245,10 @@ function CompanyTab() {
   const [prefixMsg,    setPrefixMsg]    = useState({ type: '', text: '' });
   const [prefixSaving, setPrefixSaving] = useState(false);
 
-  const [smtp,     setSmtp]     = useState({ smtp_host: '', smtp_port: 587, smtp_user: '', smtp_pass: '', smtp_from_name: '', smtp_from_email: '', email_notifications: false });
+  const [emailOn,  setEmailOn]  = useState(false);
+  const [smtpEnv,  setSmtpEnv]  = useState(null); // read-only SMTP status from the server .env
   const [smtpMsg,  setSmtpMsg]  = useState({ type: '', text: '' });
   const [smtpSave, setSmtpSave] = useState(false);
-  const [smtpPassSet, setSmtpPassSet] = useState(false);
 
   const [testTo,  setTestTo]  = useState('');
   const [testMsg, setTestMsg] = useState({ type: '', text: '' });
@@ -262,8 +262,8 @@ function CompanyTab() {
   useEffect(() => {
     apiGet('/settings').then((s) => {
       setInfo({ company_name: s.company_name || '', company_address: s.company_address || '', company_phone: s.company_phone || '', company_email: s.company_email || '', company_website: s.company_website || '', company_gstin: s.company_gstin || '' });
-      setSmtp({ smtp_host: s.smtp_host || '', smtp_port: s.smtp_port || 587, smtp_user: s.smtp_user || '', smtp_pass: '', smtp_from_name: s.smtp_from_name || '', smtp_from_email: s.smtp_from_email || '', email_notifications: s.email_notifications || false });
-      setSmtpPassSet(s.smtp_pass_set || false);
+      setEmailOn(!!s.email_notifications);
+      setSmtpEnv(s.smtp_env || { configured: false });
       setPrefixes({ purchase_prefix: s.purchase_prefix || 'PUR', inventory_prefix: s.inventory_prefix || 'INV' });
       if (s.company_logo) setLogoPreview(`${UPLOADS_URL}${s.company_logo}`);
     }).catch(() => {});
@@ -288,12 +288,8 @@ function CompanyTab() {
   const handleSaveSmtp = async (e) => {
     e.preventDefault(); setSmtpSave(true); setSmtpMsg({ type: '', text: '' });
     try {
-      const payload = { ...smtp };
-      if (!payload.smtp_pass) delete payload.smtp_pass;
-      await apiPut('/settings/email', payload);
+      await apiPut('/settings/email', { email_notifications: emailOn });
       setSmtpMsg({ type: 'success', text: 'Email settings saved' });
-      setSmtp((p) => ({ ...p, smtp_pass: '' }));
-      if (smtp.smtp_pass) setSmtpPassSet(true);
     } catch (err) { setSmtpMsg({ type: 'error', text: err.message }); }
     finally { setSmtpSave(false); }
   };
@@ -427,54 +423,39 @@ function CompanyTab() {
       </Section>
 
       {/* SMTP */}
-      <Section title="Email / SMTP Settings" description="Configure outgoing email for notifications and password reset">
+      <Section title="Email" description="Outgoing email for password reset codes and notifications">
+        {/* SMTP connection is set in the server .env — shown here read-only */}
+        <div className={`mb-4 rounded-lg border p-4 ${smtpEnv?.configured ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <p className="text-sm font-semibold text-gray-800">Mail server (from server .env)</p>
+            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${smtpEnv?.configured ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+              {smtpEnv == null ? 'Checking…' : smtpEnv.configured ? 'Connected' : 'Not configured'}
+            </span>
+          </div>
+          {smtpEnv?.configured ? (
+            <dl className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-1 text-xs">
+              <div><dt className="text-gray-500">Host</dt><dd className="font-mono text-gray-800">{smtpEnv.host}:{smtpEnv.port}{smtpEnv.secure ? ' (SSL)' : ' (TLS)'}</dd></div>
+              <div><dt className="text-gray-500">From</dt><dd className="font-mono text-gray-800 break-all">{smtpEnv.from_email}</dd></div>
+              <div><dt className="text-gray-500">From name</dt><dd className="text-gray-800">{smtpEnv.from_name || 'Company name'}</dd></div>
+            </dl>
+          ) : (
+            <p className="text-xs text-amber-800 leading-relaxed">
+              Email is set up by your server administrator in the backend <span className="font-mono">.env</span> file:
+              <span className="font-mono"> SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, MAIL_FROM_EMAIL</span>, then restart the server.
+              Until then, password reset by email is unavailable.
+            </p>
+          )}
+        </div>
+
         <form onSubmit={handleSaveSmtp} className="space-y-4">
           <Alert type={smtpMsg.type} message={smtpMsg.text} />
           <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer">
-            <input type="checkbox" checked={smtp.email_notifications}
-              onChange={(e) => setSmtp({ ...smtp, email_notifications: e.target.checked })}
+            <input type="checkbox" checked={emailOn}
+              onChange={(e) => setEmailOn(e.target.checked)}
               className="w-4 h-4 rounded" style={{ accentColor: 'var(--ams-primary)' }} />
             <span className="text-sm text-gray-700">Enable email notifications</span>
+            <span className="text-xs text-gray-400">(password reset emails are always sent)</span>
           </label>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="sm:col-span-2">
-              <Field label="SMTP Host" hint="e.g. smtp.gmail.com or smtp.sendgrid.net">
-                <input type="text" value={smtp.smtp_host}
-                  onChange={(e) => setSmtp({ ...smtp, smtp_host: e.target.value })}
-                  placeholder="smtp.gmail.com" className="ams-input" />
-              </Field>
-            </div>
-            <Field label="SMTP Port" hint="Usually 587 (TLS) or 465 (SSL)">
-              <input type="number" value={smtp.smtp_port}
-                onChange={(e) => setSmtp({ ...smtp, smtp_port: Number(e.target.value) })}
-                placeholder="587" className="ams-input" />
-            </Field>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="SMTP Username / Email">
-              <input type="text" value={smtp.smtp_user}
-                onChange={(e) => setSmtp({ ...smtp, smtp_user: e.target.value })}
-                placeholder="yourname@gmail.com" className="ams-input" />
-            </Field>
-            <Field label={smtpPassSet ? 'SMTP Password (leave blank to keep)' : 'SMTP Password'}
-              hint={smtpPassSet ? 'A password is already saved.' : ''}>
-              <input type="password" value={smtp.smtp_pass}
-                onChange={(e) => setSmtp({ ...smtp, smtp_pass: e.target.value })}
-                placeholder={smtpPassSet ? '••••••••' : 'App password or SMTP password'} className="ams-input" />
-            </Field>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="From Name">
-              <input type="text" value={smtp.smtp_from_name}
-                onChange={(e) => setSmtp({ ...smtp, smtp_from_name: e.target.value })}
-                placeholder="Acme AMS" className="ams-input" />
-            </Field>
-            <Field label="From Email">
-              <input type="email" value={smtp.smtp_from_email}
-                onChange={(e) => setSmtp({ ...smtp, smtp_from_email: e.target.value })}
-                placeholder="noreply@company.com" className="ams-input" />
-            </Field>
-          </div>
           <div className="flex justify-end pt-1"><SaveBtn saving={smtpSave} /></div>
         </form>
 

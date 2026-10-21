@@ -58,6 +58,23 @@ function resetLoginAttempts(ip) {
   store.delete(ip);
 }
 
+// Simple per-IP limiter for public endpoints (e.g. forgot password): `max` requests per `windowMs`
+function ipRateLimit({ name, max, windowMs, message }) {
+  return (req, res, next) => {
+    const key = `${name}:${req.ip || 'unknown'}`;
+    const now = Date.now();
+    const entry = store.get(key);
+    if (!entry || now > entry.resetAt) { store.set(key, { count: 1, resetAt: now + windowMs }); return next(); }
+    entry.count += 1;
+    if (entry.count > max) {
+      const retryAfterSecs = Math.ceil((entry.resetAt - now) / 1000);
+      res.setHeader('Retry-After', retryAfterSecs);
+      return res.status(429).json({ message: message || `Too many requests. Please try again in ${Math.ceil(retryAfterSecs / 60)} minute(s).` });
+    }
+    next();
+  };
+}
+
 // Cleanup stale entries every 30 minutes
 setInterval(() => {
   const now = Date.now();
@@ -66,4 +83,4 @@ setInterval(() => {
   }
 }, 30 * 60 * 1000);
 
-module.exports = { loginRateLimiter, resetLoginAttempts };
+module.exports = { loginRateLimiter, resetLoginAttempts, ipRateLimit };

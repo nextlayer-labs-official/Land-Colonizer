@@ -1,15 +1,16 @@
 const crypto = require('crypto');
 const prisma = require('../../lib/prisma');
-const { sendMail } = require('../../lib/mailer');
+const { sendMailCritical, smtpStatus } = require('../../lib/mailer');
 const { auditLog, diff } = require('../../lib/audit');
 
-// Strip sensitive fields before sending settings to the client
+// Strip sensitive fields before sending settings to the client.
+// SMTP now comes from the server .env, so the old smtp_* columns are left out and a safe status is sent instead.
 function safeSettings(s) {
   if (!s) return s;
-  const { smtp_pass, google_drive_service_account_json, ...rest } = s;
+  const { smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from_name, smtp_from_email, google_drive_service_account_json, ...rest } = s;
   return {
     ...rest,
-    smtp_pass_set:       !!smtp_pass,
+    smtp_env:              smtpStatus(),
     google_drive_json_set: !!google_drive_service_account_json,
   };
 }
@@ -51,12 +52,9 @@ const updateCompanyInfo = async (req, res) => {
   res.json(safeSettings(updated));
 };
 
-// ── Update SMTP / email settings ──────────────────────────────────────────────
+// ── Update email settings (SMTP itself is configured in the server .env) ──────
 const updateEmailSettings = async (req, res) => {
-  const {
-    smtp_host, smtp_port, smtp_user, smtp_pass,
-    smtp_from_name, smtp_from_email, email_notifications,
-  } = req.body;
+  const { email_notifications } = req.body;
 
   let settings = await prisma.companySettings.findFirst();
   if (!settings) {
@@ -64,17 +62,8 @@ const updateEmailSettings = async (req, res) => {
   }
 
   const data = {
-    ...(smtp_host           !== undefined ? { smtp_host }           : {}),
-    ...(smtp_port           !== undefined ? { smtp_port: Number(smtp_port) } : {}),
-    ...(smtp_user           !== undefined ? { smtp_user }           : {}),
-    ...(smtp_from_name      !== undefined ? { smtp_from_name }      : {}),
-    ...(smtp_from_email     !== undefined ? { smtp_from_email }     : {}),
     ...(email_notifications !== undefined ? { email_notifications: Boolean(email_notifications) } : {}),
   };
-  // Only update password if explicitly provided and non-empty
-  if (smtp_pass && smtp_pass.trim()) {
-    data.smtp_pass = smtp_pass.trim();
-  }
 
   const updated = await prisma.companySettings.update({ where: { id: settings.id }, data });
   auditLog({ req, action: 'UPDATE', entity: 'settings', entityCode: 'email_settings' });
@@ -118,16 +107,17 @@ const testEmail = async (req, res) => {
   const { test_to } = req.body;
   if (!test_to) return res.status(400).json({ message: 'test_to email is required' });
 
-  const settings = await prisma.companySettings.findFirst();
-  if (!settings?.smtp_host || !settings?.smtp_user || !settings?.smtp_pass) {
-    return res.status(400).json({ message: 'SMTP is not configured. Please save SMTP settings first.' });
+  if (!smtpStatus().configured) {
+    return res.status(400).json({ message: 'Email is not configured. Set SMTP_HOST, SMTP_USER, SMTP_PASS and MAIL_FROM_EMAIL in the server .env and restart the server.' });
   }
 
-  await sendMail({
+  const settings = await prisma.companySettings.findFirst();
+  const result = await sendMailCritical({
     to: test_to,
-    subject: 'AMS — Email Test',
-    html: `<p>This is a test email from <strong>${settings.company_name || 'AMS'}</strong>. Your email configuration is working correctly.</p>`,
+    subject: `${settings?.company_name || 'AMS'} — Email Test`,
+    html: `<p>This is a test email from <strong>${settings?.company_name || 'AMS'}</strong>. Your email configuration is working correctly.</p>`,
   });
+  if (!result?.sent) return res.status(502).json({ message: `Test email could not be sent: ${result?.reason || 'unknown error'}` });
 
   res.json({ message: `Test email sent to ${test_to}` });
 };
