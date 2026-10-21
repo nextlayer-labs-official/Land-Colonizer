@@ -74,15 +74,15 @@ async function sendMail({ to, subject, html }) {
   }
 }
 
-// For critical emails (password reset, test email) — sends whenever SMTP is configured, ignores the toggle
-async function sendMailCritical({ to, subject, html }) {
+// For critical emails (password reset, test email, backups) — sends whenever SMTP is configured, ignores the toggle
+async function sendMailCritical({ to, subject, html, attachments }) {
   try {
     const transporter = getTransporter();
     if (!transporter) {
       console.warn('[Mailer] SMTP not configured in .env — cannot send critical email to', to);
       return { skipped: true, reason: 'SMTP is not configured in the server .env' };
     }
-    await transporter.sendMail({ from: await getFromAddress(), to, subject, html });
+    await transporter.sendMail({ from: await getFromAddress(), to, subject, html, ...(attachments ? { attachments } : {}) });
     return { sent: true };
   } catch (err) {
     console.error('[Mailer] Failed to send critical email:', err.message);

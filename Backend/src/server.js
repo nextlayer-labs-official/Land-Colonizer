@@ -5,6 +5,8 @@ const PORT = process.env.PORT || 4000;
 
 const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  // Emails scheduled backups (Settings → Backup → Automatic Email Backup)
+  require('./modules/backup/auto-backup').startScheduler();
 });
 
 async function shutdown(signal) {

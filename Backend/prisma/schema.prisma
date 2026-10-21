@@ -118,6 +118,12 @@ model CompanySettings {
   broker_prefix        String   @default("BRK")
   layout_colors        String?  @db.Text
   global_layout        String?  @db.LongText
+  // Automatic email backup (Settings → Backup)
+  auto_backup_enabled        Boolean   @default(false)
+  auto_backup_interval_hours Int       @default(24)
+  auto_backup_emails         String?   @db.Text
+  auto_backup_last_at        DateTime?
+  auto_backup_last_status    String?   @db.Text
   created_at           DateTime @default(now())
   updated_at           DateTime @updatedAt
 }

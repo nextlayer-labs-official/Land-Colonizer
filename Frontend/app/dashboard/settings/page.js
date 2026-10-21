@@ -734,6 +734,106 @@ function IntegrationsTab() {
 }
 
 // ── Backup Tab ────────────────────────────────────────────────────────────────
+// ── Automatic email backup ───────────────────────────────────────────────────
+const INTERVAL_LABEL = (h) => h === 1 ? 'Every hour' : h < 24 ? `Every ${h} hours` : h === 24 ? 'Every day (24 hours)' : h === 168 ? 'Every week' : `Every ${h / 24} days`;
+const fmtWhen = (d) => d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+
+function AutoBackupSection() {
+  const [state,   setState]   = useState(null);
+  const [form,    setForm]    = useState({ enabled: false, interval_hours: 24, emails: '' });
+  const [msg,     setMsg]     = useState({ type: '', text: '' });
+  const [saving,  setSaving]  = useState(false);
+  const [sending, setSending] = useState(false);
+
+  const apply = (s) => { setState(s); setForm({ enabled: s.enabled, interval_hours: s.interval_hours, emails: s.emails.join(', ') }); };
+  useEffect(() => { apiGet('/backup/auto').then(apply).catch(e => setMsg({ type: 'error', text: e.message })); }, []);
+
+  const save = async (e) => {
+    e.preventDefault(); setSaving(true); setMsg({ type: '', text: '' });
+    try {
+      const s = await apiPut('/backup/auto', form);
+      apply(s);
+      setMsg({ type: 'success', text: s.enabled ? `Saved. Backups will be emailed ${INTERVAL_LABEL(s.interval_hours).toLowerCase()}.` : 'Saved. Automatic backup is off.' });
+    } catch (err) { setMsg({ type: 'error', text: err.message }); }
+    finally { setSaving(false); }
+  };
+
+  const sendNow = async () => {
+    setSending(true); setMsg({ type: '', text: '' });
+    try {
+      const s = await apiPost('/backup/auto/run', {});
+      setState(s);
+      setMsg({ type: 'success', text: s.message });
+    } catch (err) {
+      setMsg({ type: 'error', text: err.message });
+      apiGet('/backup/auto').then(setState).catch(() => {});
+    } finally { setSending(false); }
+  };
+
+  const dirty = state && (form.enabled !== state.enabled || Number(form.interval_hours) !== state.interval_hours || form.emails.trim() !== state.emails.join(', '));
+  const failed = state?.last_status && !state.last_status.startsWith('Sent');
+
+  return (
+    <Section title="Automatic Email Backup" description="Email a full backup as an attachment on a regular schedule">
+      {!state ? <div className="h-24 bg-gray-50 rounded-lg animate-pulse" /> : (
+        <form onSubmit={save} className="space-y-4">
+          <Alert type={msg.type} message={msg.text} />
+          {!state.smtp_configured && (
+            <div className="px-3 py-2.5 rounded-lg border border-amber-200 bg-amber-50 text-xs text-amber-800">
+              Email isn&apos;t set up on the server yet (see Company → Email), so backups can&apos;t be sent.
+            </div>
+          )}
+
+          <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer">
+            <input type="checkbox" checked={form.enabled} onChange={e => setForm(f => ({ ...f, enabled: e.target.checked }))}
+              className="w-4 h-4 rounded" style={{ accentColor: 'var(--ams-primary)' }} />
+            <span className="text-sm text-gray-700">Turn on automatic email backup</span>
+          </label>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Field label="Send backup" hint="How often the backup is emailed">
+              <select value={form.interval_hours} onChange={e => setForm(f => ({ ...f, interval_hours: Number(e.target.value) }))} className="ams-input">
+                {state.interval_options.map(h => <option key={h} value={h}>{INTERVAL_LABEL(h)}</option>)}
+              </select>
+            </Field>
+            <div className="sm:col-span-2">
+              <Field label="Send to" hint="One or more email addresses, separated by commas">
+                <input type="text" value={form.emails} onChange={e => setForm(f => ({ ...f, emails: e.target.value }))}
+                  placeholder="owner@company.com, accounts@company.com" className="ams-input" />
+              </Field>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+            <div className="rounded-lg border border-gray-200 px-3 py-2">
+              <p className="text-gray-400 uppercase tracking-wider text-[10px] font-semibold">Last sent</p>
+              <p className="text-gray-800 font-medium mt-0.5">{fmtWhen(state.last_at)}</p>
+            </div>
+            <div className="rounded-lg border border-gray-200 px-3 py-2">
+              <p className="text-gray-400 uppercase tracking-wider text-[10px] font-semibold">Next backup</p>
+              <p className="text-gray-800 font-medium mt-0.5">{state.enabled ? (new Date(state.next_at) <= new Date() ? 'Within a minute' : fmtWhen(state.next_at)) : 'Off'}</p>
+            </div>
+            <div className={`rounded-lg border px-3 py-2 ${failed ? 'border-red-200 bg-red-50' : 'border-gray-200'}`}>
+              <p className="text-gray-400 uppercase tracking-wider text-[10px] font-semibold">Last result</p>
+              <p className={`mt-0.5 font-medium break-words ${failed ? 'text-red-700' : 'text-gray-800'}`}>{state.last_status || '—'}</p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+            <button type="button" onClick={sendNow} disabled={sending || dirty || !state.emails.length || !state.smtp_configured}
+              title={dirty ? 'Save your changes first' : !state.emails.length ? 'Add an email address first' : ''}
+              className="btn-secondary text-sm">
+              {sending ? 'Sending backup…' : 'Send backup now'}
+            </button>
+            <SaveBtn saving={saving} />
+          </div>
+          <p className="text-[11px] text-gray-400">The backup is attached as a compressed <span className="font-mono">.json.gz</span> file. It can be restored below as it is — no need to unzip it.</p>
+        </form>
+      )}
+    </Section>
+  );
+}
+
 function BackupTab() {
   const [exporting,  setExporting]  = useState(false);
   const [exportMsg,  setExportMsg]  = useState({ type: '', text: '' });
@@ -791,6 +891,8 @@ function BackupTab() {
 
   return (
     <div className="space-y-5">
+      <AutoBackupSection />
+
       {/* Export */}
       <Section title="Download Backup" description="Export all data to a JSON file you can store safely">
         <div className="space-y-4">
@@ -801,7 +903,7 @@ function BackupTab() {
             </svg>
             <div className="text-xs text-blue-700 space-y-1">
               <p className="font-semibold">What is included in the backup?</p>
-              <p>All database records: users, roles, purchases, inventory, sales, customers, brokers, projects, instalments, and audit logs. The database name is <strong>not</strong> included — the file is safe to restore to any environment.</p>
+              <p>All database records: users, roles, purchases, inventory, sales, customers, brokers, projects, instalments and partial payments, layouts, notes, and audit logs. The database name is <strong>not</strong> included — the file is safe to restore to any environment.</p>
             </div>
           </div>
           <div className="flex justify-start">
@@ -831,14 +933,14 @@ function BackupTab() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Select Backup File (.json)</label>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Select Backup File (.json or emailed .json.gz)</label>
             <div className="flex items-center gap-3">
               <label className="btn-secondary cursor-pointer text-sm">
                 Choose File
                 <input
                   ref={fileRef}
                   type="file"
-                  accept=".json,application/json"
+                  accept=".json,.gz,application/json,application/gzip"
                   onChange={e => { setRestoreFile(e.target.files?.[0] || null); setRestoreMsg({ type: '', text: '' }); }}
                   className="hidden"
                 />

@@ -1,6 +1,7 @@
 const prisma = require('../../lib/prisma');
 const fs   = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 
 const UPLOADS_DIR = path.join(__dirname, '../../../uploads');
 
@@ -20,8 +21,11 @@ const TABLE_MAP = [
   ['sale',                'Sale'],
   ['saleBooking',         'SaleBooking'],
   ['installment',         'Installment'],
+  ['installmentPartial',  'installment_partials'],
   ['purchaseInstallment', 'PurchaseInstallment'],
+  ['purchaseLayout',      'PurchaseLayout'],
   ['document',            'Document'],
+  ['note',                'Note'],
   ['passwordResetToken',  'PasswordResetToken'],
   ['auditLog',            'AuditLog'],
 ];
@@ -53,7 +57,8 @@ function cleanRestoreRow(row) {
   return out;
 }
 
-async function exportBackup(req, res) {
+// Builds the full backup object (all tables + company logo). Used by the download and by automatic email backups.
+async function buildBackup() {
   const backup = {
     version:     '1.0',
     app:         'AMS',
@@ -83,7 +88,11 @@ async function exportBackup(req, res) {
       };
     }
   }
+  return backup;
+}
 
+async function exportBackup(req, res) {
+  const backup = await buildBackup();
   const filename = `ams-backup-${new Date().toISOString().slice(0, 10)}.json`;
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
   res.setHeader('Content-Type', 'application/json');
@@ -95,9 +104,12 @@ async function restoreBackup(req, res) {
 
   let backup;
   try {
-    backup = JSON.parse(req.file.buffer.toString('utf8'));
+    // Emailed backups are gzip-compressed (.json.gz); downloaded ones are plain .json
+    const buf = req.file.buffer;
+    const raw = buf[0] === 0x1f && buf[1] === 0x8b ? zlib.gunzipSync(buf) : buf;
+    backup = JSON.parse(raw.toString('utf8'));
   } catch {
-    return res.status(400).json({ message: 'Invalid JSON file — could not parse' });
+    return res.status(400).json({ message: 'Invalid backup file — could not read it' });
   }
 
   if (!backup.tables || backup.app !== 'AMS') {
@@ -117,13 +129,17 @@ async function restoreBackup(req, res) {
       // Allow stale enum values (e.g. Permission.action='') to be reinserted as-is
       await tx.$executeRaw`SET sql_mode = ''`;
 
-      // ── 1. Clear all tables in reverse FK order ───────────────────────────
-      for (const [, tableName] of [...TABLE_MAP].reverse()) {
+      // Only tables present in the file are replaced, so restoring an older backup (made before a table
+      // existed, e.g. notes) leaves that table's current data alone instead of emptying it
+      const included = TABLE_MAP.filter(([key]) => Array.isArray(backup.tables[key]));
+
+      // ── 1. Clear the included tables in reverse FK order ──────────────────
+      for (const [, tableName] of [...included].reverse()) {
         await tx.$executeRawUnsafe(`DELETE FROM \`${tableName}\``);
       }
 
       // ── 2. Reinsert from backup in forward FK order ───────────────────────
-      for (const [key, tableName] of TABLE_MAP) {
+      for (const [key, tableName] of included) {
         const rows = backup.tables[key];
         if (!rows || rows.length === 0) continue;
 
@@ -177,4 +193,4 @@ async function restoreBackup(req, res) {
   }
 }
 
-module.exports = { exportBackup, restoreBackup };
+module.exports = { exportBackup, restoreBackup, buildBackup };
