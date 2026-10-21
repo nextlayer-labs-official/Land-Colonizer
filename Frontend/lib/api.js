@@ -25,11 +25,25 @@ function authHeaders(extra = {}) {
   };
 }
 
+// Parses the server's JSON reply. If the server (or nginx in front of it) sends an HTML error page instead,
+// raise a readable message rather than "Unexpected token '<'".
+async function readJson(res) {
+  const text = await res.text();
+  try { return text ? JSON.parse(text) : {}; }
+  catch {
+    const msg = res.status === 504 ? 'The server took too long to respond. Please try again.'
+      : res.status === 502 || res.status === 503 ? 'The server is not reachable right now. Please try again shortly.'
+      : res.status === 413 ? 'The data sent was too large for the server.'
+      : `Unexpected response from the server (HTTP ${res.status}). Please try again.`;
+    throw Object.assign(new Error(msg), { status: res.status });
+  }
+}
+
 export async function apiGet(endpoint) {
   startBar();
   try {
     const res = await fetch(`${BASE_URL}${endpoint}`, { headers: authHeaders() });
-    const data = await res.json();
+    const data = await readJson(res);
     if (!res.ok) throw new Error(data.message || 'Something went wrong');
     return data;
   } finally { stopBar(); }
@@ -43,7 +57,7 @@ export async function apiPost(endpoint, body) {
       headers: authHeaders(),
       body: JSON.stringify(body),
     });
-    const data = await res.json();
+    const data = await readJson(res);
     if (!res.ok) throw new Error(data.message || 'Something went wrong');
     return data;
   } finally { stopBar(); }
@@ -57,7 +71,7 @@ export async function apiPut(endpoint, body) {
       headers: authHeaders(),
       body: JSON.stringify(body),
     });
-    const data = await res.json();
+    const data = await readJson(res);
     if (!res.ok) throw Object.assign(new Error(data.message || 'Something went wrong'), { status: res.status });
     return data;
   } finally { stopBar(); }
@@ -71,7 +85,7 @@ export async function apiPatch(endpoint, body = {}) {
       headers: authHeaders(),
       body: JSON.stringify(body),
     });
-    const data = await res.json();
+    const data = await readJson(res);
     if (!res.ok) throw new Error(data.message || 'Something went wrong');
     return data;
   } finally { stopBar(); }
@@ -83,7 +97,7 @@ export async function apiPostForm(endpoint, formData, method = 'POST') {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
     const res = await fetch(`${BASE_URL}${endpoint}`, { method, headers, body: formData });
-    const data = await res.json();
+    const data = await readJson(res);
     if (!res.ok) throw new Error(data.message || 'Something went wrong');
     return data;
   } finally { stopBar(); }
@@ -96,7 +110,7 @@ export async function apiDelete(endpoint) {
       method: 'DELETE',
       headers: authHeaders(),
     });
-    const data = await res.json();
+    const data = await readJson(res);
     if (!res.ok) throw new Error(data.message || 'Something went wrong');
     return data;
   } finally { stopBar(); }

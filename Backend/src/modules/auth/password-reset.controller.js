@@ -52,7 +52,9 @@ const forgotPassword = async (req, res) => {
   });
 
   const company = await companyName();
-  const result = await sendMailCritical({
+  // Sent in the background: the reply comes back immediately (and takes the same time whether or not the
+  // account exists), and a slow mail server can't hold up the request
+  sendMailCritical({
     to: user.email,
     subject: `${code} is your ${company} password reset code`,
     html: emailShell(company, 'Reset your password', `
@@ -60,8 +62,7 @@ const forgotPassword = async (req, res) => {
       <p style="margin:0 0 12px">Use this code to reset your password:</p>
       <p style="font-size:30px;font-weight:700;letter-spacing:8px;margin:8px 0 16px;color:#875A7B">${code}</p>
       <p style="margin:0 0 12px;font-size:13px;color:#6b7280">The code expires in ${CODE_TTL_MIN} minutes. If you didn't ask to reset your password, you can ignore this email — your password won't change.</p>`),
-  });
-  if (!result?.sent) console.warn('[ForgotPassword] code email not sent:', result?.reason);
+  }).then(result => { if (!result?.sent) console.warn('[ForgotPassword] code email not sent:', result?.reason); });
 
   auditLog({ req, action: 'PASSWORD_RESET_REQUEST', entity: 'auth', userId: user.id });
   res.json({ message: GENERIC_SENT });

@@ -27,7 +27,11 @@ function getTransporter() {
   if (!isConfigured(c)) return null;
   const key = `${c.host}|${c.port}|${c.secure}|${c.user}|${c.pass}`;
   if (cached?.key !== key) {
-    cached = { key, transporter: nodemailer.createTransport({ host: c.host, port: c.port, secure: c.secure, auth: { user: c.user, pass: c.pass } }) };
+    cached = { key, transporter: nodemailer.createTransport({
+      host: c.host, port: c.port, secure: c.secure, auth: { user: c.user, pass: c.pass },
+      // Fail fast on a wrong/unreachable host instead of hanging until the web server times out
+      connectionTimeout: 15_000, greetingTimeout: 10_000, socketTimeout: 20_000,
+    }) };
   }
   return cached.transporter;
 }
