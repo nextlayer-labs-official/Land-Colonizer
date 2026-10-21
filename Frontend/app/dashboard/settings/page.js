@@ -868,7 +868,8 @@ function BackupTab() {
 
   const handleRestore = async () => {
     if (!restoreFile) return;
-    setRestoring(true); setRestoreMsg({ type: '', text: '' }); setConfirm(false);
+    // The confirm box stays open while restoring so its button can show progress
+    setRestoring(true); setRestoreMsg({ type: '', text: '' });
     try {
       const fd = new FormData();
       fd.append('backup', restoreFile);
@@ -883,10 +884,11 @@ function BackupTab() {
       // Clear the session token — the user account was wiped and restored from backup,
       // so the current JWT must be discarded and the user must log in again.
       localStorage.removeItem('token');
-      window.location.href = '/login?restored=1';
+      window.location.href = '/login?restored=1'; // keep the loader up until the page changes
     } catch (err) {
       setRestoreMsg({ type: 'error', text: err.message });
-    } finally { setRestoring(false); }
+      setConfirm(false); setRestoring(false);
+    }
   };
 
   return (
@@ -935,11 +937,12 @@ function BackupTab() {
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Select Backup File (.json or emailed .json.gz)</label>
             <div className="flex items-center gap-3">
-              <label className="btn-secondary cursor-pointer text-sm">
+              <label className={`btn-secondary text-sm ${restoring ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}`}>
                 Choose File
                 <input
                   ref={fileRef}
                   type="file"
+                  disabled={restoring}
                   accept=".json,.gz,application/json,application/gzip"
                   onChange={e => { setRestoreFile(e.target.files?.[0] || null); setRestoreMsg({ type: '', text: '' }); }}
                   className="hidden"
@@ -973,9 +976,15 @@ function BackupTab() {
                 <button
                   onClick={handleRestore}
                   disabled={restoring}
-                  className="btn-primary text-sm"
+                  className="btn-primary text-sm flex items-center gap-2 disabled:opacity-80 disabled:cursor-wait"
                   style={{ backgroundColor: '#dc2626' }}
                 >
+                  {restoring && (
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                    </svg>
+                  )}
                   {restoring ? 'Restoring…' : 'Yes, restore now'}
                 </button>
                 <button
@@ -986,6 +995,11 @@ function BackupTab() {
                   Cancel
                 </button>
               </div>
+              {restoring && (
+                <p className="text-xs text-red-700" role="status">
+                  Restoring your data — this can take a minute for large backups. Please don&apos;t close or refresh this page. You&apos;ll be taken to the login page when it&apos;s done.
+                </p>
+              )}
             </div>
           )}
         </div>

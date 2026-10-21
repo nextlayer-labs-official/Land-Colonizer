@@ -30,6 +30,20 @@ const TABLE_MAP = [
   ['auditLog',            'AuditLog'],
 ];
 
+// Tables and columns that actually exist in the connected database (names lower-cased; MySQL on Windows
+// lower-cases table names). Lets backup/restore work when the database is a version behind or ahead.
+async function getSchema(client) {
+  const rows = await client.$queryRawUnsafe(
+    'SELECT TABLE_NAME AS t, COLUMN_NAME AS c FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE()');
+  const schema = new Map();
+  for (const { t, c } of rows) {
+    const key = String(t).toLowerCase();
+    if (!schema.has(key)) schema.set(key, new Set());
+    schema.get(key).add(String(c).toLowerCase());
+  }
+  return schema;
+}
+
 // Raw SQL results contain BigInt (IDs) and Buffer (BIT/TINYINT booleans).
 // Convert them so JSON.stringify works correctly.
 function cleanExportRow(row) {
@@ -67,7 +81,9 @@ async function buildBackup() {
   };
 
   // Raw SQL bypasses Prisma enum validation — handles stale enum values (e.g. action='')
+  const schema = await getSchema(prisma);
   for (const [key, tableName] of TABLE_MAP) {
+    if (!schema.has(tableName.toLowerCase())) continue; // table not in this database yet — leave it out
     const rows = await prisma.$queryRawUnsafe(`SELECT * FROM \`${tableName}\``);
     backup.tables[key] = rows.map(cleanExportRow);
   }
@@ -116,6 +132,7 @@ async function restoreBackup(req, res) {
     return res.status(400).json({ message: 'Invalid backup file — wrong format or app mismatch' });
   }
 
+  const skippedTables = [], skippedColumns = new Set();
   try {
     // $transaction pins all operations to a SINGLE MySQL connection.
     // This is critical: SET FOREIGN_KEY_CHECKS and SET sql_mode are session-level
@@ -130,8 +147,15 @@ async function restoreBackup(req, res) {
       await tx.$executeRaw`SET sql_mode = ''`;
 
       // Only tables present in the file are replaced, so restoring an older backup (made before a table
-      // existed, e.g. notes) leaves that table's current data alone instead of emptying it
-      const included = TABLE_MAP.filter(([key]) => Array.isArray(backup.tables[key]));
+      // existed, e.g. notes) leaves that table's current data alone instead of emptying it.
+      // Tables or columns this database doesn't have (it's on an older version) are skipped and reported.
+      const schema = await getSchema(tx);
+      const included = TABLE_MAP.filter(([key, tableName]) => {
+        if (!Array.isArray(backup.tables[key])) return false;
+        if (schema.has(tableName.toLowerCase())) return true;
+        if (backup.tables[key].length) skippedTables.push(`${tableName} (${backup.tables[key].length} rows)`);
+        return false;
+      });
 
       // ── 1. Clear the included tables in reverse FK order ──────────────────
       for (const [, tableName] of [...included].reverse()) {
@@ -143,8 +167,12 @@ async function restoreBackup(req, res) {
         const rows = backup.tables[key];
         if (!rows || rows.length === 0) continue;
 
+        const knownCols = schema.get(tableName.toLowerCase());
         for (const row of rows) {
           const clean        = cleanRestoreRow(row);
+          for (const k of Object.keys(clean)) {
+            if (!knownCols.has(k.toLowerCase())) { delete clean[k]; skippedColumns.add(`${tableName}.${k}`); }
+          }
           const cols         = Object.keys(clean).map(c => `\`${c}\``).join(', ');
           const vals         = Object.values(clean);
           const placeholders = vals.map(() => '?').join(', ');
@@ -182,7 +210,9 @@ async function restoreBackup(req, res) {
 
     // The current user's session was wiped and re-created from backup.
     // Tell the frontend to clear the token and redirect to login.
-    res.json({ message: 'Backup restored successfully', counts, requireRelogin: true });
+    const skipped = [...skippedTables, ...skippedColumns];
+    if (skipped.length) console.warn('[Restore] skipped (not in this database):', skipped.join(', '));
+    res.json({ message: 'Backup restored successfully', counts, requireRelogin: true, skipped });
 
   } catch (err) {
     console.error('Restore failed:', err);
