@@ -137,6 +137,113 @@ function PlotContent({ item, unit, isSel, hideFlags = {}, viewMode = 'status', i
   );
 }
 
+// ── Custom plot (not linked to inventory) ─────────────────────────────────────
+// Sides are entered like inventory measurements (feet, "42.6" = 42'-6"), at the same scale as inventory plots.
+// Four lengths alone don't fix a shape, so it is drawn as the four-sided shape whose corners lie on one
+// circle (the usual surveying choice): always closes, is a true rectangle when opposite sides match,
+// and keeps the bottom side level. Lengths that can't close fall back to a rectangle and are flagged.
+// A triangle plot (shape: 'triangle') has bottom, left and right only; three sides fix it exactly.
+const CUSTOM_SIDES = ['top', 'bottom', 'left', 'right'];
+const CUSTOM_DEFAULT   = { label: 'Plot', top: '30', bottom: '30', left: '50', right: '50' };
+const TRIANGLE_DEFAULT = { label: 'Plot', shape: 'triangle', bottom: '40', left: '35', right: '35' };
+const isTriangle = it => it.shape === 'triangle';
+function customPlotGeometry(it) {
+  const n = k => Math.max(0, parseFloat(it[k]) || 0);
+  const b = n('right'), c = n('bottom'), d = n('left');
+  let ok, ft, edges;
+  if (isTriangle(it)) {
+    // Corners: apex, bottom-right, bottom-left (clockwise on screen, y pointing down)
+    const ax = c > 0 ? (d * d - b * b + c * c) / (2 * c) : 0;
+    ok = b > 0 && c > 0 && d > 0 && b < c + d && c < b + d && d < b + c;
+    ft = ok ? [[ax, -Math.sqrt(Math.max(0, d * d - ax * ax))], [c, 0], [0, 0]]
+            : [[0, -Math.max(b, d, 1)], [Math.max(c, 1), 0], [0, 0]];
+    edges = [['right', 0, 1], ['bottom', 1, 2], ['left', 2, 0]];
+  } else {
+    const a = n('top');
+    const cosL = (c * c + d * d - a * a - b * b) / (2 * (c * d + a * b)); // corner between bottom and left
+    const cosR = (c * c + b * b - a * a - d * d) / (2 * (c * b + a * d)); // corner between bottom and right
+    ok = a > 0 && b > 0 && c > 0 && d > 0 && Math.abs(cosL) <= 1 && Math.abs(cosR) <= 1;
+    // Corners: top-left, top-right, bottom-right, bottom-left (clockwise on screen, y pointing down)
+    ft = ok
+      ? [[d * cosL, -d * Math.sqrt(1 - cosL * cosL)], [c - b * cosR, -b * Math.sqrt(1 - cosR * cosR)], [c, 0], [0, 0]]
+      : [[0, -Math.max(b, d)], [Math.max(a, c), -Math.max(b, d)], [Math.max(a, c), 0], [0, 0]];
+    edges = [['top', 0, 1], ['right', 1, 2], ['bottom', 2, 3], ['left', 3, 0]];
+  }
+  const minX = Math.min(...ft.map(p => p[0])), minY = Math.min(...ft.map(p => p[1]));
+  const pts = ft.map(([x, y]) => [(x - minX) * PX_PER_FT, (y - minY) * PX_PER_FT]);
+  return { ok, pts, edges,
+    w: Math.max(5, Math.round(Math.max(...pts.map(p => p[0])))),
+    h: Math.max(5, Math.round(Math.max(...pts.map(p => p[1])))) };
+}
+const customPlotSize = (it) => { const { w, h } = customPlotGeometry(it); return { w, h }; };
+// Rotate: a four-sided plot turns 90° clockwise (left becomes top, top becomes right, …);
+// a triangle turns to stand on its next side (right becomes the bottom)
+const rotateCustomSides = (it) => isTriangle(it)
+  ? { bottom: it.right, right: it.left, left: it.bottom }
+  : { top: it.left, right: it.top, bottom: it.right, left: it.bottom };
+
+// Measurement along one side: a line parallel to it just inside the plot, label between the line and
+// the side, centred and kept upright (same look as DimH / DimV on inventory plots)
+// ip / iq: the matching corners of the plot shrunk inward by DIM_INSET, so lines meet cleanly in sharp corners
+function DimEdge({ p, q, ip, iq, inward, label }) {
+  if (!label) return null;
+  const len = Math.hypot(q[0] - p[0], q[1] - p[1]);
+  if (len < 12) return null;
+  const tx = (q[0] - p[0]) / len, ty = (q[1] - p[1]) / len, [nx, ny] = inward;
+  const at = (pt, off, along) => [pt[0] + nx * off + tx * along, pt[1] + ny * off + ty * along];
+  const inner = (iq[0] - ip[0]) * tx + (iq[1] - ip[1]) * ty; // length of the shrunk side
+  if (inner < 12) return null;
+  const s = [ip[0] + tx * 4, ip[1] + ty * 4], e = [iq[0] - tx * 4, iq[1] - ty * 4];
+  const tick = pt => <line x1={pt[0] - nx * 4} y1={pt[1] - ny * 4} x2={pt[0] + nx * 4} y2={pt[1] + ny * 4} stroke="#374151" strokeWidth="0.8"/>;
+  const mid = at([(p[0] + q[0]) / 2, (p[1] + q[1]) / 2], DIM_INSET - DIM_FONT / 2 - 1.5, 0);
+  let ang = Math.atan2(ty, tx) * 180 / Math.PI;
+  if (ang > 90) ang -= 180; else if (ang <= -90) ang += 180;
+  return (
+    <g>
+      <line x1={s[0]} y1={s[1]} x2={e[0]} y2={e[1]} stroke="#374151" strokeWidth="0.8"/>
+      {tick(s)}{tick(e)}
+      <text x={mid[0]} y={mid[1]} textAnchor="middle" dominantBaseline="central" fontSize={DIM_FONT} fontWeight="700" fill="#1f2937" fontFamily="sans-serif"
+        transform={`rotate(${ang},${mid[0]},${mid[1]})`}>{label}</text>
+    </g>
+  );
+}
+
+function CustomPlotContent({ item, isSel, hideFlags = {} }) {
+  const c = DC;
+  const geo = customPlotGeometry(item), pts = geo.pts, k = pts.length;
+  const cx = pts.reduce((s, p) => s + p[0], 0) / k, cy = pts.reduce((s, p) => s + p[1], 0) / k;
+  const name = String(item.label || 'Plot');
+  const ovalRx = Math.min(Math.max(12, name.length * 4 + 6), item.w / 2 - 6);
+  const ovalRy = Math.min(10, Math.max(6, item.h * 0.12));
+  // Corners moved inward along the corner's bisector so every side's line sits DIM_INSET inside it
+  const unit = (x, y) => { const l = Math.hypot(x, y) || 1; return [x / l, y / l]; };
+  const insetPts = pts.map((v, i) => {
+    const a = pts[(i + k - 1) % k], b = pts[(i + 1) % k];
+    const u1 = unit(a[0] - v[0], a[1] - v[1]), u2 = unit(b[0] - v[0], b[1] - v[1]);
+    const bis = unit(u1[0] + u2[0], u1[1] + u2[1]);
+    const sinHalf = Math.max(0.15, Math.abs(u1[0] * bis[1] - u1[1] * bis[0]));
+    return [v[0] + bis[0] * DIM_INSET / sinHalf, v[1] + bis[1] * DIM_INSET / sinHalf];
+  });
+  const edges = geo.edges.map(([key, i, j]) => {
+    const p = pts[i], q = pts[j], len = Math.hypot(q[0] - p[0], q[1] - p[1]) || 1;
+    let n = [-(q[1] - p[1]) / len, (q[0] - p[0]) / len];
+    if (n[0] * (cx - (p[0] + q[0]) / 2) + n[1] * (cy - (p[1] + q[1]) / 2) < 0) n = [-n[0], -n[1]]; // point into the plot
+    return { key, p, q, ip: insetPts[i], iq: insetPts[j], n };
+  });
+  return (
+    <>
+      <polygon points={pts.map(p => p.join(',')).join(' ')} fill={c.bg2} stroke={isSel ? PRI : c.bd} strokeWidth={isSel ? 2.5 : 1.8} strokeLinejoin="round"/>
+      {!hideFlags.plotNo && (
+        <>
+          <ellipse cx={cx} cy={cy} rx={ovalRx} ry={ovalRy} fill="white" stroke={c.bd} strokeWidth="1.5"/>
+          <text x={cx} y={cy + ovalRy * 0.38} textAnchor="middle" fontSize={Math.min(11, ovalRy * 1.6)} fontWeight="900" fill={c.tx} fontFamily="sans-serif">{name}</text>
+        </>
+      )}
+      {!hideFlags.frontBack && edges.map(e => <DimEdge key={e.key} p={e.p} q={e.q} ip={e.ip} iq={e.iq} inward={e.n} label={fmtFt(item[e.key])}/>)}
+    </>
+  );
+}
+
 const escHtml = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const UNIT_TYPE_LABEL = { PLOT: 'Plot', SHOP: 'Shop', LAND: 'Land', FLAT: 'Flat', PLOT_WIRE: 'Plot Wire', SHOP_WIRE: 'Shop Wire' };
@@ -342,7 +449,6 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   const [searchPlot,       setSearchPlot]       = useState('');
   const [viewMode,         setViewMode]         = useState('status');
   const [insertType,       setInsertType]       = useState('line');
-  const [showConfig,          setShowConfig]          = useState(false);
   const [showFilterPopup,     setShowFilterPopup]     = useState(false);
   // Multi-layout
   const [layouts,             setLayouts]             = useState([]);   // [{ id, name }]
@@ -399,6 +505,9 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   const [ctxMenu, setCtxMenu] = useState(null); // right-click menu position { x, y } inside the canvas
   // Export PDF: menu, and "select area" mode where the user drags the region to export
   const [exportMenu,  setExportMenu]  = useState(false);
+  const fitRef = useRef(null); // latest fitScreen, for the keyboard shortcut
+  // Status summary under the exported PDF (counts per status); can be left out for copies shown to customers
+  const [pdfSummary,  setPdfSummary]  = useState(() => { try { return localStorage.getItem('ams-layout-pdf-summary') !== '0'; } catch { return true; } });
   const [pdfAreaMode, setPdfAreaMode] = useState(false);
   const [pdfRect,     setPdfRect]     = useState(null);
   const pdfAreaRef   = useRef(false);
@@ -573,16 +682,11 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
     handleSaveRef.current?.();
   }, [loading]);
 
-  // On first load: start at 100% zoom, centered
+  // On first load: zoom to fit the layout (an empty one opens at 100%, centred)
   useEffect(() => {
     if (loading) return;
-    const el = canvasRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const z = 1.0;
-    const px = (rect.width  - canvasW * z) / 2;
-    const py = (rect.height - canvasH * z) / 2;
-    applyZoom(z, px, py);
+    const t = setTimeout(() => fitRef.current?.(), 60);
+    return () => clearTimeout(t);
   }, [loading]);
 
   // Wheel: pan (scroll) or zoom (Ctrl+scroll)
@@ -615,6 +719,8 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
         e.preventDefault(); spaceRef.current = true; setSpaceDown(true);
       }
       if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
+      // Shift+1: zoom to fit, as in Figma
+      if (e.shiftKey && !e.ctrlKey && !e.metaKey && e.code === 'Digit1') { e.preventDefault(); fitRef.current?.(); return; }
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
         e.preventDefault();
         if (canEdit && historyRef.current.length > 0) {
@@ -748,7 +854,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
     if (cornerEl && !readOnly) {
       const corner = cornerEl.dataset.corner, id = cornerEl.dataset.id;
       const item = itemsRef.current.find(i => i.id === id);
-      if (!item || item.item_locked || item.type === 'plot') return;
+      if (!item || item.item_locked || item.type === 'plot' || item.type === 'custom') return;
       pushHistory();
       interactRef.current = { type: 'resize', id, corner, lx: pos.x, ly: pos.y, ax: 0, ay: 0, ox: item.x, oy: item.y, ow: item.w, oh: item.h, rot: item.rotation || 0 };
       const cr = el.getBoundingClientRect();
@@ -936,13 +1042,29 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
     setEditLabel(null);
   };
 
-  // Turn plots 90° (swap width/depth) around their own centre so they stay in place
+  // Turn plots 90° (swap width/depth) around their own centre so they stay in place.
+  // Custom plots turn their side measurements with them.
   const rotatePlots = useCallback((ids) => {
     pushHistory();
-    setItems(prev => prev.map(i => ids.has(i.id) && i.type === 'plot' && !i.item_locked
-      ? { ...i, x: i.x + (i.w - i.h) / 2, y: i.y + (i.h - i.w) / 2, w: i.h, h: i.w, rotated: !i.rotated }
-      : i));
+    setItems(prev => prev.map(i => {
+      if (!ids.has(i.id) || i.item_locked || (i.type !== 'plot' && i.type !== 'custom')) return i;
+      if (i.type === 'plot') return { ...i, x: i.x + (i.w - i.h) / 2, y: i.y + (i.h - i.w) / 2, w: i.h, h: i.w, rotated: !i.rotated };
+      // Custom plots are redrawn from their turned sides; keep the centre where it was
+      const turned = { ...i, ...rotateCustomSides(i) }, { w, h } = customPlotSize(turned);
+      return { ...turned, x: i.x + (i.w - w) / 2, y: i.y + (i.h - h) / 2, w, h };
+    }));
   }, [pushHistory]);
+
+  // Change a custom plot's name or a side measurement; the size follows the measurements, kept about its centre
+  const setCustomField = useCallback((id, key, value) => {
+    setItems(prev => prev.map(i => {
+      if (i.id !== id) return i;
+      const next = { ...i, [key]: value };
+      if (!CUSTOM_SIDES.includes(key)) return next;
+      const { w, h } = customPlotSize(next);
+      return { ...next, x: i.x - (w - i.w) / 2, y: i.y - (h - i.h) / 2, w, h };
+    }));
+  }, []);
   const rotateItem = useCallback((id) => rotatePlots(new Set([id])), [rotatePlots]);
 
   // Change a text label's font size; the box grows (about its centre) if the text no longer fits
@@ -1091,14 +1213,30 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
     if (insertType === 'rect')   setItems(prev => [...prev, { id: mkId(), type: 'open',   x: snapTo(cx - 60, g),  y: snapTo(cy - 40, g), w: 120, h: 80,  label: 'Area' }]);
     if (insertType === 'line')   setItems(prev => [...prev, { id: mkId(), type: 'road',   x: snapTo(cx - 100, g), y: snapTo(cy - 15, g), w: 200, h: 30,  label: '7.50 MT WIDE ROAD' }]);
     if (insertType === 'dotted') setItems(prev => [...prev, { id: mkId(), type: 'dotted', x: snapTo(cx - 100, g), y: snapTo(cy - 5, g),  w: 200, h: 10,  label: '' }]);
+    if (insertType === 'custom' || insertType === 'triangle') {
+      const base = insertType === 'triangle' ? TRIANGLE_DEFAULT : CUSTOM_DEFAULT;
+      const { w, h } = customPlotSize(base), id = mkId();
+      pushHistory();
+      setItems(prev => [...prev, { id, type: 'custom', ...base, x: snapTo(cx - w / 2, g), y: snapTo(cy - h / 2, g), w, h }]);
+      // Select it straight away so the measurements can be entered in the side panel
+      setSelected(id); setMultiSel(new Set([id]));
+    }
   };
 
+  // Zoom to fit: frame the items that are on the canvas (like Figma's "Zoom to fit");
+  // an empty layout is shown at 100%, centred
   const fitScreen = useCallback(() => {
     const el = canvasRef.current; if (!el) return;
     const rect = el.getBoundingClientRect();
-    const z = Math.min(rect.width / canvasW, rect.height / canvasH) * 0.88;
-    applyZoom(z, (rect.width - canvasW * z) / 2, (rect.height - canvasH * z) / 2);
+    const shown = itemsRef.current.filter(i => !i.item_hidden);
+    if (!shown.length) { applyZoom(1, (rect.width - canvasW) / 2, (rect.height - canvasH) / 2); return; }
+    const b = shown.map(itemBounds);
+    const x1 = Math.min(...b.map(r => r.x1)), y1 = Math.min(...b.map(r => r.y1));
+    const x2 = Math.max(...b.map(r => r.x2)), y2 = Math.max(...b.map(r => r.y2));
+    const z = clampZoom(Math.min(2, Math.min(rect.width / (x2 - x1 || 1), rect.height / (y2 - y1 || 1)) * 0.9));
+    applyZoom(z, rect.width / 2 - (x1 + x2) / 2 * z, rect.height / 2 - (y1 + y2) / 2 * z);
   }, [canvasW, canvasH, applyZoom]);
+  fitRef.current = fitScreen;
 
   const stepZoom = useCallback((dir) => {
     const el = canvasRef.current; if (!el) return;
@@ -1365,6 +1503,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
       ...(counts.undefined ? [swatch(DC.bg, DC.bd, 'Other', counts.undefined)] : []),
       ...(visible.some(i => i.type === 'road') ? [swatch(ec.road.bg, ec.road.bd, 'Road')] : []),
       ...(visible.some(i => i.type === 'open') ? [swatch(ec.garden.bg, ec.garden.bd, 'Garden')] : []),
+      ...(visible.some(i => i.type === 'custom') ? [swatch(DC.bg2, DC.bd, 'Custom plot')] : []),
     ].join('');
     const plotCount = Object.values(counts).reduce((a, b) => a + b, 0);
 
@@ -1402,7 +1541,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
     <div class="meta">${region ? 'Selected area &middot; ' : ''}${plotCount} plot${plotCount === 1 ? '' : 's'}${filterActive || searchPlot.trim() ? ' &middot; filtered view' : ''}<br>Exported ${escHtml(dateStr)}</div>
   </header>
   <div class="fit"><div class="board">${clone.outerHTML}</div></div>
-  ${legend ? `<div class="legend">${legend}</div>` : ''}
+  ${legend && pdfSummary ? `<div class="legend">${legend}</div>` : ''}
 </div>
 <script>window.onload = function () { setTimeout(function () { window.print(); }, 150); };</script>
 </body></html>`);
@@ -1415,16 +1554,6 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
 
       {/* ── Toolbar ── */}
       <div style={{ height: 52, background: '#fff', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: 6, padding: '0 12px', flexShrink: 0, zIndex: 20, overflowX: 'auto', overflowY: 'hidden' }}>
-
-        {/* Settings for Config */}
-        {canEdit && <button onClick={() => setShowConfig(true)} title={isLayoutSelected ? 'Settings for Config' : 'Select a layout first'}
-          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, padding: '5px 12px', border: 'none', borderRadius: 7, background: 'transparent', cursor: isLayoutSelected ? 'pointer' : 'not-allowed', flexShrink: 0, transition: 'background 0.12s', opacity: isLayoutSelected ? 1 : 0.35, pointerEvents: isLayoutSelected ? 'auto' : 'none' }}
-          onMouseEnter={e => { if (isLayoutSelected) e.currentTarget.style.background='#f3f4f6'; }} onMouseLeave={e => e.currentTarget.style.background='transparent'}>
-          <svg width="18" height="18" fill="none" stroke="#6b7280" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3" strokeWidth={1.8}/></svg>
-          <span style={{ fontSize: 9, color: '#6b7280', fontWeight: 600, whiteSpace: 'nowrap', letterSpacing: '0.02em' }}>Settings</span>
-        </button>}
-
-        {(canEdit || canCreateLayout) && <Sep/>}
 
         {/* New Layout */}
         {canCreateLayout && <button onClick={handleNewLayoutClick} title="New Layout"
@@ -1503,6 +1632,8 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
           <span style={{ fontSize: 11, color: '#9ca3af', paddingRight: 6, lineHeight: 1 }}>%</span>
         </div>
         <button onClick={() => stepZoom(1)} style={{ height: 28, width: 28, border: '1px solid #e5e7eb', borderRadius: 5, background: '#f9fafb', color: '#374151', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>+</button>
+        <button onClick={fitScreen} title="Zoom to fit the whole layout (Shift+1)"
+          style={{ height: 28, padding: '0 9px', border: '1px solid #e5e7eb', borderRadius: 5, background: '#f9fafb', color: '#374151', cursor: 'pointer', fontSize: 11, fontWeight: 600, flexShrink: 0, whiteSpace: 'nowrap' }}>Fit</button>
 
         <Sep/>
 
@@ -1543,6 +1674,17 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                     <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 1 }}>{hint}</div>
                   </button>
                 ))}
+                <div style={{ height: 1, background: '#f3f4f6', margin: '4px 2px' }}/>
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '7px 10px', borderRadius: 5, cursor: 'pointer' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#f3f4f6'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
+                  <input type="checkbox" checked={pdfSummary} style={{ marginTop: 2, accentColor: PRI }}
+                    onChange={e => { const v = e.target.checked; setPdfSummary(v); try { localStorage.setItem('ams-layout-pdf-summary', v ? '1' : '0'); } catch {} }}/>
+                  <span>
+                    <span style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#111827' }}>Show status summary</span>
+                    <span style={{ display: 'block', fontSize: 10, color: '#9ca3af', marginTop: 1 }}>Counts of Available, Sold, Registered… under the layout. Untick for customer copies.</span>
+                  </span>
+                </label>
               </div>
             </>
           )}
@@ -1831,7 +1973,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
             if (!itemEl || locked || !canEdit || pdfAreaMode) return;
             const it = itemsRef.current.find(i => i.id === itemEl.dataset.item);
             if (!it || it.item_locked) return;
-            if (it.type === 'plot') {
+            if (it.type === 'plot' || it.type === 'custom') {
               const sel = multiSelRef.current;
               rotatePlots(sel.size > 1 && sel.has(it.id) ? new Set(sel) : new Set([it.id]));
             } else if (it.type === 'road' || it.type === 'open' || it.type === 'text') {
@@ -1984,6 +2126,25 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                 );
               }
 
+              if (item.type === 'custom') {
+                const srch = searchPlot.trim().toLowerCase();
+                const isHighlighted = srch.length > 0 && String(item.label || '').toLowerCase().includes(srch);
+                const dimmed = srch.length > 0 && !isHighlighted;
+                return (
+                  <div key={item.id} data-item={item.id}
+                    title={!locked && canEdit && !item.item_locked ? 'Double-click to rotate' : undefined}
+                    style={{ ...basePos, touchAction: 'none', cursor: !locked && canEdit && !item.item_locked ? 'move' : 'default', zIndex: isHighlighted && !isSel ? z + Z_HIGHLIGHT : z, opacity: dimmed ? 0.2 : 1, transition: 'opacity 0.2s' }}>
+                    <svg width={item.w} height={item.h} style={{ overflow: 'visible', display: 'block' }}>
+                      {isHighlighted && <rect x={-5} y={-5} width={item.w + 10} height={item.h + 10} fill="none" stroke={searchColor} strokeWidth="3" strokeDasharray="6 3" rx="6"/>}
+                      <CustomPlotContent item={item} isSel={isSel} hideFlags={hideFlags}/>
+                    </svg>
+                    {item.id === startPin && <div style={{ position: 'absolute', top: 2, left: 2, background: '#059669', color: 'white', fontSize: 7, fontWeight: 900, padding: '1px 4px', borderRadius: 3, pointerEvents: 'none', lineHeight: 1.4 }}>START</div>}
+                    {item.id === endPin   && <div style={{ position: 'absolute', bottom: 2, left: 2, background: '#ea580c', color: 'white', fontSize: 7, fontWeight: 900, padding: '1px 4px', borderRadius: 3, pointerEvents: 'none', lineHeight: 1.4 }}>END</div>}
+                    {item.item_locked && !hideFlags.lockSymbol && <div style={{ position: 'absolute', bottom: 3, right: 4, fontSize: 9, lineHeight: 1, pointerEvents: 'none', opacity: 0.75 }}>🔒</div>}
+                  </div>
+                );
+              }
+
               if (item.type === 'road') {
                 return (
                   <div key={item.id} data-item={item.id}
@@ -2048,10 +2209,12 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
             {/* Cumulative dimension indicator */}
             {selected && (() => {
               const sel = items.find(i => i.id === selected);
-              if (!sel || sel.type !== 'plot') return null;
+              const isPlotLike = i => i.type === 'plot' || i.type === 'custom';
+              if (!sel || !isPlotLike(sel)) return null;
               const dimUnit = "'"; // front/back measurements are in feet (front_area_details often holds the area unit)
-              const hDimVal = p => { const u = unitFor(p.inventory_id); const v = p.rotated ? parseFloat(u?.back_area) : parseFloat(u?.front_area); return isNaN(v) ? 0 : v; };
-              const vDimVal = p => { const u = unitFor(p.inventory_id); const v = p.rotated ? parseFloat(u?.front_area) : parseFloat(u?.back_area); return isNaN(v) ? 0 : v; };
+              // Custom plots: the width along a row is the top side, the length down a column is the left side
+              const hDimVal = p => { if (p.type === 'custom') return parseFloat(isTriangle(p) ? p.bottom : p.top) || 0; const u = unitFor(p.inventory_id); const v = p.rotated ? parseFloat(u?.back_area) : parseFloat(u?.front_area); return isNaN(v) ? 0 : v; };
+              const vDimVal = p => { if (p.type === 'custom') return parseFloat(p.left) || 0; const u = unitFor(p.inventory_id); const v = p.rotated ? parseFloat(u?.front_area) : parseFloat(u?.back_area); return isNaN(v) ? 0 : v; };
               const fmt = v => `${Number.isInteger(v) ? v : v.toFixed(2)}${dimUnit}`;
 
               const HBar = ({ x1, x2, barY, refY, color, label }) => {
@@ -2089,8 +2252,8 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
               // Same row/column = overlaps the selected plot by at least half of the narrower plot,
               // so wider plots that sit across several neighbours still count
               const overlap = (a1, a2, b1, b2) => Math.min(a2, b2) - Math.max(a1, b1);
-              const rowPlots = items.filter(i => i.type === 'plot' && !i.item_hidden && overlap(i.y, i.y + i.h, sel.y, sel.y + sel.h) >= 0.5 * Math.min(i.h, sel.h)).sort((a, b) => a.x - b.x);
-              const colPlots = items.filter(i => i.type === 'plot' && !i.item_hidden && overlap(i.x, i.x + i.w, sel.x, sel.x + sel.w) >= 0.5 * Math.min(i.w, sel.w)).sort((a, b) => a.y - b.y);
+              const rowPlots = items.filter(i => isPlotLike(i) && !i.item_hidden && overlap(i.y, i.y + i.h, sel.y, sel.y + sel.h) >= 0.5 * Math.min(i.h, sel.h)).sort((a, b) => a.x - b.x);
+              const colPlots = items.filter(i => isPlotLike(i) && !i.item_hidden && overlap(i.x, i.x + i.w, sel.x, sel.x + sel.w) >= 0.5 * Math.min(i.w, sel.w)).sort((a, b) => a.y - b.y);
               // Free space beside a chain of plots: distance to the nearest item directly next to it on that side
               const clearance = (side, chain) => {
                 const minX = Math.min(...chain.map(p => p.x)), maxX = Math.max(...chain.map(p => p.x + p.w));
@@ -2219,11 +2382,11 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
           ) : selItem ? (
             <>
               <div style={{ padding: '10px 12px 8px', borderBottom: '1px solid #f3f4f6', background: '#f9fafb', flexShrink: 0 }}>
-                <PLabel>{{ plot: 'Plot', road: 'Road', open: 'Garden', text: 'Text', dotted: 'Dotted Line' }[selItem.type] || selItem.type}</PLabel>
+                <PLabel>{selItem.type === 'custom' && isTriangle(selItem) ? 'Triangle Plot' : { plot: 'Plot', custom: 'Custom Plot', road: 'Road', open: 'Garden', text: 'Text', dotted: 'Dotted Line' }[selItem.type] || selItem.type}</PLabel>
               </div>
               <div style={{ flex: 1, overflowY: 'auto', padding: 12, minHeight: 0 }}>
                 {/* Individual item lock toggle */}
-                {selItem.type === 'plot' && canEdit && !locked && (
+                {(selItem.type === 'plot' || selItem.type === 'custom') && canEdit && !locked && (
                   <button
                     onClick={() => setItems(prev => prev.map(i => i.id === selItem.id ? { ...i, item_locked: !i.item_locked } : i))}
                     style={{ width: '100%', height: 30, marginBottom: 10, border: `1px solid ${selItem.item_locked ? '#f59e0b' : '#e5e7eb'}`, borderRadius: 6, background: selItem.item_locked ? '#fef3c7' : '#f9fafb', color: selItem.item_locked ? '#b45309' : '#6b7280', fontSize: 12, cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
@@ -2256,22 +2419,60 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                     </div>
                   );
                 })()}
+                {/* Custom plot: name and the four side measurements set its size */}
+                {selItem.type === 'custom' && (() => {
+                  const editable = !locked && canEdit && !selItem.item_locked;
+                  const ro = editable ? {} : { background: '#f9fafb', color: '#6b7280' };
+                  return (
+                    <div style={{ marginBottom: 12 }}>
+                      <PLabel>Name</PLabel>
+                      <input type="text" value={selItem.label || ''} readOnly={!editable} placeholder="Plot"
+                        onFocus={() => { if (editable) pushHistory(); }}
+                        onChange={e => { if (editable) setCustomField(selItem.id, 'label', e.target.value); }}
+                        style={{ ...inp, marginBottom: 8, ...ro }}/>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                        {(isTriangle(selItem) ? [['Bottom', 'bottom'], ['Left', 'left'], ['Right', 'right']]
+                          : [['Top', 'top'], ['Bottom', 'bottom'], ['Left', 'left'], ['Right', 'right']]).map(([lbl, key]) => (
+                          <div key={key}>
+                            <PLabel>{lbl} (ft)</PLabel>
+                            <input type="number" min={0} step="any" value={selItem[key] ?? ''} readOnly={!editable}
+                              onFocus={() => { if (editable) pushHistory(); }}
+                              onChange={e => { if (editable) setCustomField(selItem.id, key, e.target.value); }}
+                              style={{ ...inp, ...ro }}/>
+                            <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2, minHeight: 13 }}>{fmtFt(selItem[key]) || '—'}</div>
+                          </div>
+                        ))}
+                      </div>
+                      {!customPlotGeometry(selItem).ok && (
+                        <p role="alert" style={{ fontSize: 11, color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 5, padding: '5px 7px', margin: '6px 0 0', lineHeight: 1.45 }}>
+                          {isTriangle(selItem)
+                            ? <>These sides can&apos;t form a triangle: each side must be shorter than the other two added together. Shown as a right-angled triangle until corrected.</>
+                            : <>These sides can&apos;t form a closed shape: each side must be shorter than the other three added together. Shown as a rectangle until corrected.</>}
+                        </p>
+                      )}
+                      <p style={{ fontSize: 10, color: '#9ca3af', margin: '6px 0 0', lineHeight: 1.5 }}>
+                        Enter feet like inventory: 42.6 = 42&apos;-6&quot;. The shape and size follow these measurements; the bottom side stays level.
+                      </p>
+                    </div>
+                  );
+                })()}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12, opacity: selItem.item_locked ? 0.45 : 1 }}>
                   {[['X','x'],['Y','y'],['W','w'],['H','h']].map(([lbl, key]) => {
-                    // Plot size comes from the inventory's front/back measurements and must not be edited
-                    const fixed = !!selItem.item_locked || locked || !canEdit || (selItem.type === 'plot' && (key === 'w' || key === 'h'));
+                    // Plot size comes from its measurements (inventory, or the custom plot's sides) and must not be edited
+                    const sized = (selItem.type === 'plot' || selItem.type === 'custom') && (key === 'w' || key === 'h');
+                    const fixed = !!selItem.item_locked || locked || !canEdit || sized;
                     return (
                       <div key={key}>
                         <PLabel>{lbl}</PLabel>
                         <input type="number" step={snapG} value={selItem[key]} readOnly={fixed}
-                          title={selItem.type === 'plot' && (key === 'w' || key === 'h') ? 'Plot size is set from the inventory measurements' : undefined}
+                          title={sized ? (selItem.type === 'plot' ? 'Plot size is set from the inventory measurements' : 'Size is set from the Top / Bottom / Left / Right measurements') : undefined}
                           onChange={e => { if (!locked && canEdit && !fixed) setItems(prev => prev.map(i => i.id === selItem.id ? { ...i, [key]: Number(e.target.value) } : i)); }}
                           style={{ ...inp, cursor: fixed ? 'not-allowed' : undefined, ...(fixed && !selItem.item_locked ? { background: '#f3f4f6', color: '#9ca3af' } : {}) }}/>
                       </div>
                     );
                   })}
                 </div>
-                {selItem.type !== 'plot' && !locked && canEdit && !selItem.item_locked && (
+                {selItem.type !== 'plot' && selItem.type !== 'custom' && !locked && canEdit && !selItem.item_locked && (
                   <div style={{ marginBottom: 12 }}>
                     <PLabel>Rotation (°)</PLabel>
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -2287,14 +2488,14 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                     </div>
                   </div>
                 )}
-                {selItem.type === 'plot' && !locked && canEdit && !selItem.item_locked && (
+                {(selItem.type === 'plot' || selItem.type === 'custom') && !locked && canEdit && !selItem.item_locked && (
                   <button onClick={() => rotateItem(selItem.id)}
                     style={{ width: '100%', height: 30, background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6, color: '#374151', fontSize: 12, cursor: 'pointer', marginBottom: 8, fontWeight: 500 }}>
                     ↺ Rotate
                   </button>
                 )}
                 {/* Start/End pins only mark plots for measuring (nothing is saved), so everyone can use them, on locked plots too */}
-                {selItem.type === 'plot' && (
+                {(selItem.type === 'plot' || selItem.type === 'custom') && (
                   <>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 12 }}>
                       <button onClick={() => { if (startPin === selItem.id) { setStartPin(null); setEndPin(null); } else { setStartPin(selItem.id); setEndPin(null); } }}
@@ -2394,7 +2595,8 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                     <div><b style={{ color: '#6b7280' }}>Resize</b> — Drag a handle · hold Shift for 1px</div>
                     <div><b style={{ color: '#6b7280' }}>Delete</b> — Select item(s), press Del</div>
                     <div><b style={{ color: '#6b7280' }}>Undo</b> — Ctrl+Z (up to 50 steps)</div>
-                    <div><b style={{ color: '#6b7280' }}>Fit</b> — Click % button in toolbar</div>
+                    <div><b style={{ color: '#6b7280' }}>Fit</b> — Fit button in toolbar or Shift+1</div>
+                    <div><b style={{ color: '#6b7280' }}>Snap</b> — Step size, bottom-right of the status bar</div>
                   </div>
                 </div>
               )}
@@ -2469,7 +2671,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                   </button>
                   {/* Individual plot locks */}
                   {canEdit && !locked && (() => {
-                    const plotItems   = items.filter(i => i.type === 'plot');
+                    const plotItems   = items.filter(i => (i.type === 'plot' || i.type === 'custom'));
                     const lockedCount = plotItems.filter(i => i.item_locked).length;
                     return (
                       <div style={{ marginTop: 18 }}>
@@ -2478,11 +2680,11 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                           <span style={{ fontWeight: 700, color: lockedCount > 0 ? '#b45309' : '#9ca3af' }}>{lockedCount}</span> of {plotItems.length} plots locked
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                          <button onClick={() => setItems(prev => prev.map(i => i.type === 'plot' ? { ...i, item_locked: true } : i))}
+                          <button onClick={() => setItems(prev => prev.map(i => (i.type === 'plot' || i.type === 'custom') ? { ...i, item_locked: true } : i))}
                             style={{ height: 30, border: '1px solid #f59e0b', borderRadius: 6, background: '#fef3c7', color: '#b45309', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
                             🔒 Lock All
                           </button>
-                          <button onClick={() => setItems(prev => prev.map(i => i.type === 'plot' ? { ...i, item_locked: false } : i))}
+                          <button onClick={() => setItems(prev => prev.map(i => (i.type === 'plot' || i.type === 'custom') ? { ...i, item_locked: false } : i))}
                             style={{ height: 30, border: '1px solid #e5e7eb', borderRadius: 6, background: '#f9fafb', color: '#6b7280', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
                             🔓 Unlock All
                           </button>
@@ -2508,6 +2710,8 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                       ['rect',   'Square / Rectangle','#22c55e', '▭'],
                       ['line',   'Line (Road)',        '#0369a1', '═'],
                       ['dotted', 'Dotted Line',        '#9ca3af', '┄'],
+                      ['custom', 'Custom Plot',        '#6b7280', '▢'],
+                      ['triangle', 'Triangle Plot',    '#6b7280', '△'],
                     ].map(([type, label, color, icon]) => (
                       <button key={type} onClick={() => { setInsertType(type); }}
                         style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', border: `1px solid ${insertType === type ? color : '#e5e7eb'}`, borderRadius: 7, background: insertType === type ? `${color}12` : '#f9fafb', cursor: 'pointer', textAlign: 'left', transition: 'all 0.12s' }}>
@@ -2547,6 +2751,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                                 : item.type === 'open'   ? (item.label || 'Garden')
                                 : item.type === 'text'   ? (item.label || 'Text')
                                 : item.type === 'dotted' ? 'Dotted Line'
+                                : item.type === 'custom' ? `${item.label || 'Plot'} (${isTriangle(item) ? 'triangle' : 'custom'})`
                                 : item.type;
                     const isDragging = layerDragId === item.id;
                     return (
@@ -2568,7 +2773,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                           <circle cx="3" cy="11" r="1.3"/><circle cx="7" cy="11" r="1.3"/>
                         </svg>
                         {/* Type dot / icon */}
-                        {item.type === 'plot' ? (
+                        {item.type === 'plot' || item.type === 'custom' ? (
                           <div style={{ width: 10, height: 10, borderRadius: 2, background: sc.bd, flexShrink: 0, border: `1px solid ${sc.bd}` }}/>
                         ) : item.type === 'road' ? (
                           <div style={{ width: 10, height: 5, borderRadius: 1, background: '#7dd3fc', flexShrink: 0 }}/>
@@ -2672,7 +2877,17 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
           </label>
         ))}
         {locked && <span style={{ color: '#b45309', fontWeight: 600, flexShrink: 0 }}>● Locked</span>}
-        <span style={{ marginLeft: 'auto', flexShrink: 0 }}>{Math.round(zoom * 100)}% · Snap {snapG}px</span>
+        <span style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+          {Math.round(zoom * 100)}% ·
+          {/* Step for dragging and X/Y edits; 1px for fine moves, larger to line items up */}
+          <label title="Snap: how far items move per step when dragging" style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            Snap
+            <select value={snapG} onChange={e => setSnapG(Number(e.target.value))}
+              style={{ height: 18, fontSize: 10, color: '#6b7280', border: '1px solid #e5e7eb', borderRadius: 4, background: '#fff', padding: '0 2px', cursor: 'pointer' }}>
+              {[...new Set([1, 5, 10, 20, 50, snapG])].sort((a, b) => a - b).map(v => <option key={v} value={v}>{v}px</option>)}
+            </select>
+          </label>
+        </span>
       </div>
 
       {/* Unsaved Changes Warning */}
@@ -2724,36 +2939,6 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                 style={{ height: 36, padding: '0 16px', fontSize: 13, background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, color: '#6b7280', cursor: 'pointer' }}>Cancel</button>
               <button onClick={confirmNewLayout}
                 style={{ height: 36, padding: '0 24px', fontSize: 13, fontWeight: 700, background: PRI, border: 'none', borderRadius: 8, color: 'white', cursor: 'pointer' }}>Create Layout</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Config / Settings modal */}
-      {showConfig && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setShowConfig(false)}>
-          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)' }}/>
-          <div style={{ position: 'relative', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.15)', padding: 24, maxWidth: 360, width: '100%' }} onClick={e => e.stopPropagation()}>
-            <h3 style={{ fontSize: 15, fontWeight: 800, color: '#111827', margin: '0 0 18px' }}>Canvas Settings</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 5 }}>Snap Grid (px)</div>
-                <input type="number" min={1} max={500} value={snapG} onChange={e => setSnapG(Math.max(1, Number(e.target.value) || 1))}
-                  style={{ height: 34, width: '100%', padding: '0 10px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, color: '#111827', outline: 'none' }}/>
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 5 }}>Canvas Width (px)</div>
-                <input type="number" min={500} max={20000} value={canvasW} onChange={e => setCanvasW(Math.max(500, Number(e.target.value) || CANVAS_W))}
-                  style={{ height: 34, width: '100%', padding: '0 10px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, color: '#111827', outline: 'none' }}/>
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 5 }}>Canvas Height (px)</div>
-                <input type="number" min={500} max={20000} value={canvasH} onChange={e => setCanvasH(Math.max(500, Number(e.target.value) || CANVAS_H))}
-                  style={{ height: 34, width: '100%', padding: '0 10px', border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 13, color: '#111827', outline: 'none' }}/>
-              </div>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
-              <button onClick={() => setShowConfig(false)} style={{ height: 36, padding: '0 20px', fontSize: 13, fontWeight: 600, background: PRI, border: 'none', borderRadius: 8, color: 'white', cursor: 'pointer' }}>Done</button>
             </div>
           </div>
         </div>
