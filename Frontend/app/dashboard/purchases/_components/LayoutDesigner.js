@@ -2138,6 +2138,8 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                       {isHighlighted && <rect x={-5} y={-5} width={item.w + 10} height={item.h + 10} fill="none" stroke={searchColor} strokeWidth="3" strokeDasharray="6 3" rx="6"/>}
                       <CustomPlotContent item={item} isSel={isSel} hideFlags={hideFlags}/>
                     </svg>
+                    {/* Free rotation like roads and gardens; size still comes only from the measurements, so no resize handles */}
+                    {isSel && !locked && canEdit && !item.item_locked && <RotationHandle id={item.id} zoom={zoom}/>}
                     {item.id === startPin && <div style={{ position: 'absolute', top: 2, left: 2, background: '#059669', color: 'white', fontSize: 7, fontWeight: 900, padding: '1px 4px', borderRadius: 3, pointerEvents: 'none', lineHeight: 1.4 }}>START</div>}
                     {item.id === endPin   && <div style={{ position: 'absolute', bottom: 2, left: 2, background: '#ea580c', color: 'white', fontSize: 7, fontWeight: 900, padding: '1px 4px', borderRadius: 3, pointerEvents: 'none', lineHeight: 1.4 }}>END</div>}
                     {item.item_locked && !hideFlags.lockSymbol && <div style={{ position: 'absolute', bottom: 3, right: 4, fontSize: 9, lineHeight: 1, pointerEvents: 'none', opacity: 0.75 }}>🔒</div>}
@@ -2472,7 +2474,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                     );
                   })}
                 </div>
-                {selItem.type !== 'plot' && selItem.type !== 'custom' && !locked && canEdit && !selItem.item_locked && (
+                {selItem.type !== 'plot' && !locked && canEdit && !selItem.item_locked && (
                   <div style={{ marginBottom: 12 }}>
                     <PLabel>Rotation (°)</PLabel>
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
