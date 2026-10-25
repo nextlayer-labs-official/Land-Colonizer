@@ -5,13 +5,14 @@ import useAuth from '@/lib/useAuth';
 import usePermissions from '@/lib/usePermissions';
 import { apiGet } from '@/lib/api';
 
-const TYPE_LABEL = { PLOT: 'Plot', LAND: 'Land', SHOP: 'Shop', SCO: 'S.C.O', FLAT: 'Flat' };
+const TYPE_LABEL = { PLOT: 'Plot', LAND: 'Land', SHOP: 'Shop', SCO: 'S.C.O', FLAT: 'Flat', HOUSE: 'House' };
 const TYPE_BADGE = {
   PLOT: 'bg-violet-50 text-violet-700 ring-1 ring-violet-200',
   LAND: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',
   SHOP: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200',
   SCO:  'bg-cyan-50 text-cyan-700 ring-1 ring-cyan-200',
   FLAT: 'bg-orange-50 text-orange-700 ring-1 ring-orange-200',
+  HOUSE: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
 };
 
 const fmt     = (n) => { if (n == null) return '—'; const v = Number(n); const d = v % 1 === 0 ? 0 : 2; return v.toLocaleString('en-IN', { minimumFractionDigits: d, maximumFractionDigits: 2 }); };
@@ -470,6 +471,7 @@ function PurchaseReport() {
               <option value="SHOP">Shop</option>
               <option value="SCO">S.C.O</option>
               <option value="FLAT">Flat</option>
+              <option value="HOUSE">House</option>
             </select>
           </Field>
           <Field label="Status">

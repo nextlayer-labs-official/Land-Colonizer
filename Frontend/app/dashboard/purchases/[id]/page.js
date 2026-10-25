@@ -9,7 +9,7 @@ import { apiGet, apiPut, apiDelete, apiPost, apiPatch } from '@/lib/api';
 import { EMPTY, computed, getStageIndex, StatusPipeline, TYPE_RING, fmtINR, fmtNum, BrokerPicker } from '../_components/shared';
 import DocumentsPanel from '../../_components/DocumentsPanel';
 
-const TYPE_MAP = { PLOT: 'Plot', LAND: 'Land', SHOP: 'Shop', SCO: 'S.C.O', FLAT: 'Flat' };
+const TYPE_MAP = { PLOT: 'Plot', LAND: 'Land', SHOP: 'Shop', SCO: 'S.C.O', FLAT: 'Flat', HOUSE: 'House' };
 
 // ── Inline field atoms ─────────────────────────────────────────────────────────
 function Label({ children }) {
@@ -1295,6 +1295,7 @@ export default function PurchaseRecordPage() {
                   <option value="SHOP">Shop</option>
                   <option value="SCO">S.C.O</option>
                   <option value="FLAT">Flat</option>
+                  <option value="HOUSE">House</option>
                 </FSelect>
                 <FSelect label="Status" value={form.status} onChange={set('status')} readOnly={!editing}>
                   <option value="ACTIVE">Active</option>

@@ -78,6 +78,7 @@ export const TYPE_RING = {
   PLOT: 'bg-violet-50  text-violet-700  ring-violet-200',
   SCO:  'bg-cyan-50    text-cyan-700    ring-cyan-200',
   FLAT: 'bg-orange-50  text-orange-700  ring-orange-200',
+  HOUSE: 'bg-amber-50  text-amber-700   ring-amber-200',
 };
 
 // ─── Atoms ────────────────────────────────────────────────────────────────────
