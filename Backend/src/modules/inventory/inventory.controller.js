@@ -11,7 +11,8 @@ function computeStatus(sales = []) {
   const active = sales.filter(s => s.status !== 'INACTIVE');
   if (active.length === 0) return 'AVAILABLE';
   const sale = active[0]; // most recent (ordered by created_at desc)
-  if (sale.date_of_registration || sale.registration_completed) return 'REGISTERED';
+  // Only the Registration checkbox marks a plot Registered; the Date of Registration is information only
+  if (sale.registration_completed) return 'REGISTERED';
   if ((sale.booking_amount && Number(sale.booking_amount) > 0) ||
       (sale.advance_payment && Number(sale.advance_payment) > 0)) return 'SOLD';
   return 'RESERVED';
@@ -103,7 +104,7 @@ function buildStatusWhere(status) {
       AND: [
         { sales: { none: { ...ni, full_final_completed: true } } },
         { sales: { none: { ...ni, attorney_completed: true } } },
-        { sales: { some: { ...ni, OR: [{ date_of_registration: { not: null } }, { registration_completed: true }] } } },
+        { sales: { some: { ...ni, registration_completed: true } } },
       ],
     };
   }
@@ -112,7 +113,7 @@ function buildStatusWhere(status) {
       AND: [
         { sales: { none: { ...ni, full_final_completed: true } } },
         { sales: { none: { ...ni, attorney_completed: true } } },
-        { sales: { none: { ...ni, OR: [{ date_of_registration: { not: null } }, { registration_completed: true }] } } },
+        { sales: { none: { ...ni, registration_completed: true } } },
         { sales: { some: { ...ni, OR: [{ booking_amount: { gt: 0 } }, { advance_payment: { gt: 0 } }] } } },
       ],
     };
@@ -123,7 +124,7 @@ function buildStatusWhere(status) {
         { sales: { some: ni } },
         { sales: { none: { ...ni, full_final_completed: true } } },
         { sales: { none: { ...ni, attorney_completed: true } } },
-        { sales: { none: { ...ni, OR: [{ date_of_registration: { not: null } }, { registration_completed: true }] } } },
+        { sales: { none: { ...ni, registration_completed: true } } },
         { sales: { none: { ...ni, OR: [{ booking_amount: { gt: 0 } }, { advance_payment: { gt: 0 } }] } } },
       ],
     };
@@ -232,7 +233,7 @@ async function syncInventoryStatus(inventoryId) {
   try {
     const inv = await prisma.inventory.findUnique({
       where: { id: Number(inventoryId) },
-      include: { sales: { select: { booking_amount: true, advance_payment: true, date_of_registration: true, registration_completed: true, status: true }, orderBy: { created_at: 'desc' } } },
+      include: { sales: { select: { booking_amount: true, advance_payment: true, registration_completed: true, status: true }, orderBy: { created_at: 'desc' } } },
     });
     if (!inv) return;
     const status = computeStatus(inv.sales || []);
