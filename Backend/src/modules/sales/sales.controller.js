@@ -3,7 +3,7 @@ const { syncInventoryStatus } = require('../inventory/inventory.controller');
 const { computeTotalPaid } = require('../installments/installments.controller');
 const { auditLog, diff } = require('../../lib/audit');
 
-const SALE_TYPES        = ['PLOT', 'SHOP', 'LAND', 'FLAT'];
+const SALE_TYPES        = ['PLOT', 'SHOP', 'LAND', 'FLAT', 'PLOT_WIRE', 'SHOP_WIRE', 'HOUSE'];
 const POSSESSION_STATES = ['PENDING', 'SYMBOLIC', 'PHYSICAL'];
 
 function computeFields(d) {

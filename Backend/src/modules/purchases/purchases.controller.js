@@ -249,8 +249,8 @@ async function importPurchases(req, res) {
         const inv = await prisma.inventory.create({
           data: {
             purchase_id:     updated.id,
-            // Inventory has no S.C.O or House type; those units start as Plot (editable on the inventory)
-            type:            ['LAND', 'SHOP', 'PLOT', 'FLAT'].includes(updated.type) ? updated.type : 'PLOT',
+            // Inventory has no S.C.O type; those units start as Plot (editable on the inventory)
+            type:            ['LAND', 'SHOP', 'PLOT', 'FLAT', 'HOUSE'].includes(updated.type) ? updated.type : 'PLOT',
             sl_no:           updated.sl_no   || null,
             location:        updated.location || null,
             plot_no:         updated.plot_no  || null,

@@ -4,7 +4,7 @@ import { apiGet, apiPost } from '@/lib/api';
 import usePermissions from '@/lib/usePermissions';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
-export const SALE_TYPES       = ['PLOT', 'SHOP', 'LAND', 'FLAT', 'PLOT_WIRE', 'SHOP_WIRE'];
+export const SALE_TYPES       = ['PLOT', 'SHOP', 'LAND', 'FLAT', 'PLOT_WIRE', 'SHOP_WIRE', 'HOUSE'];
 export const POSSESSION_STATES = ['PENDING', 'SYMBOLIC', 'PHYSICAL'];
 
 export const EMPTY = {
@@ -62,7 +62,7 @@ export const fmtNum  = (n) => n != null && n !== '' ? Number(n).toLocaleString('
 export const fmtDate = (d) =>
   d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
-export const TYPE_LABEL = { PLOT: 'Plot', SHOP: 'Shop', LAND: 'Land', FLAT: 'Flat', PLOT_WIRE: 'Plot Wire', SHOP_WIRE: 'Shop Wire' };
+export const TYPE_LABEL = { PLOT: 'Plot', SHOP: 'Shop', LAND: 'Land', FLAT: 'Flat', PLOT_WIRE: 'Plot Wire', SHOP_WIRE: 'Shop Wire', HOUSE: 'House' };
 export const POSS_LABEL = { PENDING: 'Pending', SYMBOLIC: 'Symbolic', PHYSICAL: 'Physical' };
 export const POSS_COLOR = {
   PENDING:  'bg-amber-50 text-amber-700 ring-amber-200',
@@ -83,10 +83,11 @@ export function FInput({ value, onChange, type = 'text', placeholder, readOnly, 
   return <input autoFocus={autoFocus} type={type} value={value ?? ''} onChange={onChange} placeholder={placeholder}
     className="w-full border border-gray-200 rounded px-3 py-[7px] text-sm text-gray-800 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30 transition placeholder:text-gray-300" />;
 }
-export function FTextarea({ value, onChange, placeholder, rows = 2, readOnly }) {
-  if (readOnly) return <div className="min-h-[60px] px-3 py-2 bg-gray-50 rounded border border-gray-100 text-sm text-gray-700 whitespace-pre-wrap">{value || <span className="text-gray-300">—</span>}</div>;
+export function FTextarea({ value, onChange, placeholder, rows = 2, readOnly, bold }) {
+  const weight = bold ? 'font-bold text-gray-900' : '';
+  if (readOnly) return <div className={`min-h-[60px] px-3 py-2 bg-gray-50 rounded border border-gray-100 text-sm text-gray-700 whitespace-pre-wrap ${weight}`}>{value || <span className="text-gray-300 font-normal">—</span>}</div>;
   return <textarea value={value ?? ''} onChange={onChange} placeholder={placeholder} rows={rows}
-    className="w-full border border-gray-200 rounded px-3 py-[7px] text-sm text-gray-800 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30 transition resize-y placeholder:text-gray-300" />;
+    className={`w-full border border-gray-200 rounded px-3 py-[7px] text-sm text-gray-800 bg-white focus:outline-none focus:border-[#875A7B] focus:ring-1 focus:ring-[#875A7B]/30 transition resize-y placeholder:text-gray-300 placeholder:font-normal ${weight}`} />;
 }
 export function FSelect({ value, onChange, children, readOnly }) {
   if (readOnly) return <div className="min-h-[36px] px-3 py-[7px] bg-gray-50 rounded border border-gray-100 text-sm text-gray-700">{value || <span className="text-gray-300">—</span>}</div>;
@@ -296,8 +297,9 @@ const INV_TYPE_BADGE = {
   FLAT:      'bg-orange-50 text-orange-700',
   PLOT_WIRE: 'bg-purple-50 text-purple-700',
   SHOP_WIRE: 'bg-indigo-50 text-indigo-700',
+  HOUSE:     'bg-amber-50 text-amber-700',
 };
-const INV_TYPE_LABEL = { PLOT: 'Plot', SHOP: 'Shop', LAND: 'Land', FLAT: 'Flat', PLOT_WIRE: 'Plot Wire', SHOP_WIRE: 'Shop Wire' };
+const INV_TYPE_LABEL = { PLOT: 'Plot', SHOP: 'Shop', LAND: 'Land', FLAT: 'Flat', PLOT_WIRE: 'Plot Wire', SHOP_WIRE: 'Shop Wire', HOUSE: 'House' };
 const unitTitle = (u) => [INV_TYPE_LABEL[u.type] || u.type, u.plot_no || u.sl_no].filter(Boolean).join(' ');
 const INV_STATUS_BADGE = {
   AVAILABLE:  'bg-emerald-50 text-emerald-700',
@@ -442,6 +444,7 @@ export function InventoryPickerModal({ value, onPick, onClear, readOnly }) {
                 <option value="FLAT">Flat</option>
                 <option value="PLOT_WIRE">Plot Wire</option>
                 <option value="SHOP_WIRE">Shop Wire</option>
+                <option value="HOUSE">House</option>
               </select>
             </div>
 

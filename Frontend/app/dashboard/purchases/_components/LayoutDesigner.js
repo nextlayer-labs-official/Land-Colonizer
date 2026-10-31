@@ -246,7 +246,7 @@ function CustomPlotContent({ item, isSel, hideFlags = {} }) {
 
 const escHtml = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-const UNIT_TYPE_LABEL = { PLOT: 'Plot', SHOP: 'Shop', LAND: 'Land', FLAT: 'Flat', PLOT_WIRE: 'Plot Wire', SHOP_WIRE: 'Shop Wire' };
+const UNIT_TYPE_LABEL = { PLOT: 'Plot', SHOP: 'Shop', LAND: 'Land', FLAT: 'Flat', PLOT_WIRE: 'Plot Wire', SHOP_WIRE: 'Shop Wire', HOUSE: 'House' };
 const unitListLabel = (unit) => {
   const no = unit.plot_no || unit.sl_no || `#${unit.id}`;
   const type = UNIT_TYPE_LABEL[unit.type] || unit.type;
@@ -1590,18 +1590,6 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
           </svg>
           <input placeholder="Search Plot" value={searchPlot} onChange={e => setSearchPlot(e.target.value)}
             style={{ height: 32, width: 140, paddingLeft: 28, paddingRight: 8, border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 11, color: '#374151', background: '#fff', outline: 'none' }}/>
-        </div>
-
-        <Sep/>
-
-        {/* Legend */}
-        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-          {[['#22c55e','Available'],['#2563eb','Registered'],['#875A7B','Locked']].map(([col, lb]) => (
-            <div key={lb} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <span style={{ width: 12, height: 12, borderRadius: 2, background: col, flexShrink: 0 }}/>
-              <span style={{ fontSize: 10, color: '#6b7280', whiteSpace: 'nowrap' }}>{lb}</span>
-            </div>
-          ))}
         </div>
 
         <div style={{ flex: 1 }}/>

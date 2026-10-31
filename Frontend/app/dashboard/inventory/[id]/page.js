@@ -24,6 +24,7 @@ const TYPE_STYLE = {
   FLAT:      { label: 'Flat',      color: '#f97316', bg: '#f9731615' },
   PLOT_WIRE: { label: 'Plot Wire', color: '#7c3aed', bg: '#7c3aed15' },
   SHOP_WIRE: { label: 'Shop Wire', color: '#4f46e5', bg: '#4f46e515' },
+  HOUSE:     { label: 'House',     color: '#d97706', bg: '#d9770615' },
 };
 const POSS_LABEL = { PENDING: 'Pending', SYMBOLIC: 'Symbolic', PHYSICAL: 'Physical' };
 const POSS_STYLE = {
@@ -172,7 +173,7 @@ function generateInventoryReportHTML(form, inv, activeSale, companyName = 'Compa
     `<td style="padding:6px 10px;text-align:right;font-family:monospace;font-size:11px;color:${hi ? purple : '#111827'};font-weight:${hi ? '700' : '600'};border-bottom:1px solid #f3f4f6;">${value}</td></tr>`;
 
   const codeLabel = form.inventory_code || (inv?.id ? `INV-${String(inv.id).padStart(4,'0')}` : '—');
-  const TYPE_MAP = { PLOT: 'Plot', LAND: 'Land', SHOP: 'Shop', FLAT: 'Flat', PLOT_WIRE: 'Plot Wire', SHOP_WIRE: 'Shop Wire' };
+  const TYPE_MAP = { PLOT: 'Plot', LAND: 'Land', SHOP: 'Shop', FLAT: 'Flat', PLOT_WIRE: 'Plot Wire', SHOP_WIRE: 'Shop Wire', HOUSE: 'House' };
   const fa = parseFloat(form.front_area) || 0;
   const ba = parseFloat(form.back_area)  || 0;
   const areaStr = fa && ba ? `${nf(fa*(ba/9))} ${form.front_area_details||'gaj'} (${nf(fa)} &times; ${nf(ba)})` : (form.area ? `${nf(form.area)} ${form.area_unit||''}`.trim() : '&mdash;');
@@ -549,6 +550,7 @@ export default function InventoryRecordPage() {
                     <option value="FLAT">Flat</option>
                     <option value="PLOT_WIRE">Plot Wire</option>
                     <option value="SHOP_WIRE">Shop Wire</option>
+                    <option value="HOUSE">House</option>
                   </FSel>
 
                   <div>
@@ -724,6 +726,7 @@ export default function InventoryRecordPage() {
                         <option value="FLAT">Flat</option>
                         <option value="PLOT_WIRE">Plot Wire</option>
                         <option value="SHOP_WIRE">Shop Wire</option>
+                        <option value="HOUSE">House</option>
                       </FSel>
                       <FIn label="SL No" value={form.sl_no} onChange={set('sl_no')} placeholder="Survey / serial no" readOnly={!editing} />
                       <FIn label="Plot No" value={form.plot_no} onChange={set('plot_no')} placeholder="e.g. A-125" readOnly={!editing} />

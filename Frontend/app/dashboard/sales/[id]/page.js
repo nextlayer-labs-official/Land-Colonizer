@@ -121,8 +121,8 @@ const ORDINALS = [
   '11th','12th','13th','14th','15th','16th','17th','18th','19th','20th',
   '21st','22nd','23rd','24th',
 ];
-const TYPE_ICON_COLOR = { PLOT: '#875A7B', SHOP: '#3b82f6', SHOP_WIRE: '#6366f1', PLOT_WIRE: '#8b5cf6' };
-const TYPE_ICON_BG    = { PLOT: '#875A7B15', SHOP: '#3b82f615', SHOP_WIRE: '#6366f115', PLOT_WIRE: '#8b5cf615' };
+const TYPE_ICON_COLOR = { PLOT: '#875A7B', SHOP: '#3b82f6', SHOP_WIRE: '#6366f1', PLOT_WIRE: '#8b5cf6', HOUSE: '#d97706' };
+const TYPE_ICON_BG    = { PLOT: '#875A7B15', SHOP: '#3b82f615', SHOP_WIRE: '#6366f115', PLOT_WIRE: '#8b5cf615', HOUSE: '#d9770615' };
 const POSS_RING = {
   PENDING:  'ring-amber-200 bg-amber-50 text-amber-700',
   SYMBOLIC: 'ring-blue-200 bg-blue-50 text-blue-700',
@@ -877,10 +877,10 @@ function SaleDetailView({ form, linkedProject }) {
   const balanceAmt        = actualAmt > 0 ? (actualAmt - advanceAmt) : 0;
   const effectiveBalance  = Math.max(0, balanceAmt - (bookingInReceived ? bookingAmt : 0));
 
-  const Cell = ({ label, value, wide, money, accent }) => (
+  const Cell = ({ label, value, wide, money, accent, bold }) => (
     <div className={wide ? 'col-span-2 sm:col-span-3' : ''}>
       <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">{label}</p>
-      <p className={`text-sm ${accent ? 'font-bold text-[#875A7B]' : 'text-gray-800'} ${money ? 'font-semibold tabular-nums' : ''}`}>
+      <p className={`text-sm ${accent ? 'font-bold text-[#875A7B]' : bold ? 'font-bold text-gray-900' : 'text-gray-800'} ${money ? 'font-semibold tabular-nums' : ''}`}>
         {value ?? noVal}
       </p>
     </div>
@@ -905,7 +905,7 @@ function SaleDetailView({ form, linkedProject }) {
         <Cell label="Sale Date"   value={dt(form.sale_date)} />
         <Cell label="Type"        value={form.type ? (TYPE_LABEL[form.type] || form.type) : null} />
         <Cell label="SL No."      value={v(form.sl_no)} />
-        {form.details && <Cell label="Details" value={v(form.details)} wide />}
+        {form.details && <Cell label="Details" value={v(form.details)} wide bold />}
         {linkedProject && (
           <div className="col-span-full sm:col-span-1">
             <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Project</p>
@@ -1912,7 +1912,7 @@ function generateSaleReportHTML(form, effectiveInstPaid, effectiveBalance, compa
   // Bookings
   const bookings = (form.bookings || []).filter(b => b.income_amount && Number(b.income_amount) > 0);
 
-  const TYPE_LABEL_MAP = { PLOT: 'Plot', SHOP: 'Shop', LAND: 'Land', FLAT: 'Flat', PLOT_WIRE: 'Plot Wire', SHOP_WIRE: 'Shop Wire' };
+  const TYPE_LABEL_MAP = { PLOT: 'Plot', SHOP: 'Shop', LAND: 'Land', FLAT: 'Flat', PLOT_WIRE: 'Plot Wire', SHOP_WIRE: 'Shop Wire', HOUSE: 'House' };
   const POSS_LABEL_MAP = { PENDING: 'Pending', SYMBOLIC: 'Symbolic', PHYSICAL: 'Physical' };
 
   const purple   = '#875A7B';
@@ -2489,6 +2489,13 @@ export default function SaleDetailPage() {
                           return <span className="text-[10px] font-semibold text-orange-700 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-full">Current Status: Payment Due {fmtDate(form.payment_due_date)}</span>;
                         return null;
                       })()}
+                      {/* Type, a little larger than the sale ID so it is seen first */}
+                      {form.type && (
+                        <span className="text-2xl font-extrabold leading-tight px-3 py-0.5 rounded-lg uppercase tracking-wide"
+                          style={{ backgroundColor: TYPE_ICON_BG[form.type] || '#875A7B15', color: TYPE_ICON_COLOR[form.type] || '#875A7B' }}>
+                          {TYPE_LABEL[form.type] || form.type}
+                        </span>
+                      )}
                     </h1>
                     <p className="text-xs text-gray-400 mt-0.5">{form.sale_date ? `Sale date: ${fmtDate(form.sale_date)}` : 'No sale date'}</p>
                   </div>
@@ -2600,16 +2607,6 @@ export default function SaleDetailPage() {
                     </div>
                   )}
 
-                  {/* Type */}
-                  {form.type && (
-                    <div>
-                      <p className="text-[9px] text-gray-400 uppercase tracking-wide mb-1">Type</p>
-                      <span className="text-xs font-bold px-2 py-0.5 rounded" style={{backgroundColor:TYPE_ICON_BG[form.type]||'#875A7B15',color:TYPE_ICON_COLOR[form.type]||'#875A7B'}}>
-                        {TYPE_LABEL[form.type]||form.type}
-                      </span>
-                    </div>
-                  )}
-
                   {/* Possession */}
                   {form.possession && (
                     <div>
@@ -2635,7 +2632,7 @@ export default function SaleDetailPage() {
                   {form.details && (
                     <div className="col-span-full">
                       <p className="text-[9px] text-gray-400 uppercase tracking-wide mb-1">Details</p>
-                      <p className="text-xs text-gray-600 line-clamp-2">{form.details}</p>
+                      <p className="text-xs font-bold text-gray-800 line-clamp-2">{form.details}</p>
                     </div>
                   )}
                 </div>

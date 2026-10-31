@@ -334,6 +334,7 @@ function InventoryReport() {
               <option value="FLAT">Flat</option>
               <option value="PLOT_WIRE">Plot Wire</option>
               <option value="SHOP_WIRE">Shop Wire</option>
+              <option value="HOUSE">House</option>
             </select>
           </Field>
           <Field label="Facing">
@@ -1021,11 +1022,11 @@ function InstalmentsReport() {
                       {expandP[r.id] && r.pending_instalments.map(inst => (
                         <tr key={inst.no} className="border-b border-gray-50 bg-orange-50/20">
                           <td /><td />
-                          <td className="px-3 py-2 pl-8 text-xs text-gray-500 font-medium" colSpan={2}>Instalment #{inst.no}</td>
+                          <td className="px-3 py-2 pl-8 text-xs text-gray-900 font-semibold" colSpan={2}>Instalment #{inst.no}</td>
                           <td />
                           <td />
                           <td className="px-3 py-2 text-sm font-semibold text-orange-700">₹ {fmt(inst.amount)}</td>
-                          <td className="px-3 py-2 text-xs text-gray-400">{inst.date ? fmtDate(inst.date) : 'No due date'}</td>
+                          <td className="px-3 py-2 text-xs text-gray-900 font-semibold">{inst.date ? fmtDate(inst.date) : 'No due date'}</td>
                         </tr>
                       ))}
                     </>
@@ -1112,11 +1113,11 @@ function InstalmentsReport() {
                       {expandS[r.id] && r.pending_instalments.map(inst => (
                         <tr key={inst.no} className="border-b border-gray-50 bg-blue-50/20">
                           <td /><td />
-                          <td className="px-3 py-2 pl-8 text-xs text-gray-500 font-medium" colSpan={2}>Instalment #{inst.no}</td>
+                          <td className="px-3 py-2 pl-8 text-xs text-gray-900 font-semibold" colSpan={2}>Instalment #{inst.no}</td>
                           <td />
                           <td />
                           <td className="px-3 py-2 text-sm font-semibold text-blue-700">₹ {fmt(inst.amount)}</td>
-                          <td className="px-3 py-2 text-xs text-gray-400">{inst.date ? fmtDate(inst.date) : 'No due date'}</td>
+                          <td className="px-3 py-2 text-xs text-gray-900 font-semibold">{inst.date ? fmtDate(inst.date) : 'No due date'}</td>
                         </tr>
                       ))}
                     </>
@@ -1158,7 +1159,7 @@ function AvailabilityReport() {
 
   const doExcel = async () => {
     if (!result) return;
-    const TYPE_LABEL = { PLOT: 'Plot', SHOP: 'Shop', LAND: 'Land', FLAT: 'Flat', PLOT_WIRE: 'Plot Wire', SHOP_WIRE: 'Shop Wire' };
+    const TYPE_LABEL = { PLOT: 'Plot', SHOP: 'Shop', LAND: 'Land', FLAT: 'Flat', PLOT_WIRE: 'Plot Wire', SHOP_WIRE: 'Shop Wire', HOUSE: 'House' };
     const rows = result.units.map((u, i) => ({
       '#':           i + 1,
       'SL No.':      u.sl_no   || '',
@@ -1270,7 +1271,7 @@ function AvailabilityReport() {
                 {result.units.length === 0 ? (
                   <tr><td colSpan={10} className="py-10 text-center text-sm text-gray-400">No inventory found</td></tr>
                 ) : result.units.map((u, i) => {
-                  const TYPE_LABEL = { PLOT: 'Plot', SHOP: 'Shop', LAND: 'Land', FLAT: 'Flat', PLOT_WIRE: 'Plot Wire', SHOP_WIRE: 'Shop Wire' };
+                  const TYPE_LABEL = { PLOT: 'Plot', SHOP: 'Shop', LAND: 'Land', FLAT: 'Flat', PLOT_WIRE: 'Plot Wire', SHOP_WIRE: 'Shop Wire', HOUSE: 'House' };
                   return (
                   <tr key={u.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>

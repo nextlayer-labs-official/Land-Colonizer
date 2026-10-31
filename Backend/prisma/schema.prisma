@@ -272,6 +272,7 @@ enum SaleType {
   FLAT
   PLOT_WIRE
   SHOP_WIRE
+  HOUSE
 }
 
 enum PossessionStatus {
@@ -671,6 +672,7 @@ enum UnitType {
   FLAT
   PLOT_WIRE
   SHOP_WIRE
+  HOUSE
 }
 
 enum InventoryStatus {

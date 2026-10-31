@@ -20,7 +20,7 @@ export const EMPTY = {
   status:             'AVAILABLE',
 };
 
-export const UNIT_TYPES = ['PLOT', 'SHOP', 'LAND', 'FLAT', 'PLOT_WIRE', 'SHOP_WIRE'];
+export const UNIT_TYPES = ['PLOT', 'SHOP', 'LAND', 'FLAT', 'PLOT_WIRE', 'SHOP_WIRE', 'HOUSE'];
 export const AREA_UNITS = ['gaj', 'acres', 'bigha'];
 
 export const STATUS_RING = {
@@ -48,6 +48,7 @@ export const UNIT_TYPE_RING = {
   FLAT:      'bg-orange-50  text-orange-700  ring-orange-200',
   PLOT_WIRE: 'bg-purple-50  text-purple-700  ring-purple-200',
   SHOP_WIRE: 'bg-indigo-50  text-indigo-700  ring-indigo-200',
+  HOUSE:     'bg-amber-50  text-amber-700  ring-amber-200',
 };
 
 export const fmtINR  = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;

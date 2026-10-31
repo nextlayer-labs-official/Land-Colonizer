@@ -410,7 +410,7 @@ function DeleteUnitModal({ open, onClose, onConfirm, deleting, unitData }) {
 
 // ── Add Unit modal (inline, no navigation) ────────────────────────────────────
 const AREA_UNITS = ['gaj', 'acres', 'bigha'];
-const UNIT_TYPES = ['PLOT', 'SHOP', 'LAND', 'FLAT', 'PLOT_WIRE', 'SHOP_WIRE'];
+const UNIT_TYPES = ['PLOT', 'SHOP', 'LAND', 'FLAT', 'PLOT_WIRE', 'SHOP_WIRE', 'HOUSE'];
 
 function AddUnitModal({ open, onClose, purchase, inventory = [], onCreated, onCreatedAndNext }) {
   const UNIT_EMPTY = { type: 'PLOT', sl_no: '', location: '', plot_no: '', facing: '', front_area: '', front_area_details: '', back_area: '', back_area_details: '', rate: '' };
@@ -1074,6 +1074,7 @@ export default function PurchaseRecordPage() {
     FLAT:      'bg-orange-50  text-orange-700',
     PLOT_WIRE: 'bg-purple-50  text-purple-700',
     SHOP_WIRE: 'bg-indigo-50  text-indigo-700',
+    HOUSE:     'bg-amber-50  text-amber-700',
   };
 
   // ── Skeleton ──

@@ -253,6 +253,7 @@ export default function SalesPage() {
             <option value="FLAT">Flat</option>
             <option value="PLOT_WIRE">Plot Wire</option>
             <option value="SHOP_WIRE">Shop Wire</option>
+            <option value="HOUSE">House</option>
           </select>
 
           <select value={projectFilter} onChange={e => setProjectFilter(e.target.value)}
