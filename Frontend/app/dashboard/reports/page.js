@@ -14,6 +14,9 @@ const TYPE_BADGE = {
   FLAT: 'bg-orange-50 text-orange-700 ring-1 ring-orange-200',
   HOUSE: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
 };
+// Unit / sale types (inventory and sales also have the wire types)
+const UNIT_TYPE_LABEL = { ...TYPE_LABEL, PLOT_WIRE: 'Plot Wire', SHOP_WIRE: 'Shop Wire' };
+const UNIT_TYPE_BADGE = { ...TYPE_BADGE, PLOT_WIRE: 'bg-purple-50 text-purple-700 ring-1 ring-purple-200', SHOP_WIRE: 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' };
 
 const fmt     = (n) => { if (n == null) return '—'; const v = Number(n); const d = v % 1 === 0 ? 0 : 2; return v.toLocaleString('en-IN', { minimumFractionDigits: d, maximumFractionDigits: 2 }); };
 const fmtN    = (n) => n == null ? '—' : parseFloat(Number(n).toFixed(2)).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
@@ -590,6 +593,7 @@ function BrokerReport() {
           Project:       s.project?.name || '',
           'Plot No':     s.plot_no || '',
           Area:          s.total_area ? `${s.total_area} ${s.area_unit}` : '',
+          Type:          s.type ? (UNIT_TYPE_LABEL[s.type] || s.type) : '',
           'Per Sq. Y':   sArea > 0 ? parseFloat((sBrok / sArea).toFixed(2)) : '',
           Brokerage:     fmtNum(s.brokerage),
         });
@@ -691,22 +695,28 @@ function BrokerReport() {
                   <col style={{width:36}}/>
                   <col style={{width:160}}/>
                   <col style={{width:80}}/>
+                  <col style={{width:120}}/>
                   <col style={{width:110}}/>
                   <col style={{width:130}}/>
                 </colgroup>
                 <thead className="sticky top-0 z-10 bg-gray-50">
                   <tr className="border-b border-gray-200">
-                    {['','#','Broker','Sales','Per Sq. Y','Sale Brokerage'].map(h => (
+                    {['','#','Broker','Sales','Type','Per Sq. Y','Sale Brokerage'].map(h => (
                       <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {result.brokers.filter(b => b.sales_count > 0).length === 0 ? (
-                    <tr><td colSpan={6} className="py-10 text-center text-sm text-gray-400">No sale brokerage records found</td></tr>
+                    <tr><td colSpan={7} className="py-10 text-center text-sm text-gray-400">No sale brokerage records found</td></tr>
                   ) : result.brokers.filter(b => b.sales_count > 0).map((b, i) => {
                     const totalArea = b.sales.reduce((s, r) => s + Number(r.total_area || 0), 0);
                     const brokerPerSqY = totalArea > 0 ? b.sales_brokerage / totalArea : null;
+                    // How many of each type this broker sold, e.g. "Plot 150 · Shop 49"
+                    const typeCounts = {};
+                    for (const s of b.sales) { const t = s.type || '—'; typeCounts[t] = (typeCounts[t] || 0) + 1; }
+                    const typeSummary = Object.entries(typeCounts).sort((x, y) => y[1] - x[1])
+                      .map(([t, n]) => `${UNIT_TYPE_LABEL[t] || t} ${n}`).join(' · ');
                     return (
                     <Fragment key={b.id}>
                       <tr className="border-b border-gray-100 cursor-pointer hover:bg-gray-50"
@@ -721,6 +731,7 @@ function BrokerReport() {
                         <td className="px-3 py-2.5">
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-violet-50 text-violet-700 ring-1 ring-violet-200">{b.sales_count}</span>
                         </td>
+                        <td className="px-3 py-2.5 text-xs font-medium text-gray-700" title={typeSummary}>{typeSummary}</td>
                         <td className="px-3 py-2.5 text-gray-500 whitespace-nowrap">{brokerPerSqY != null ? `₹ ${fmtN(brokerPerSqY)}` : '—'}</td>
                         <td className="px-3 py-2.5 font-medium text-violet-700">₹ {fmt(b.sales_brokerage)}</td>
                       </tr>
@@ -730,6 +741,7 @@ function BrokerReport() {
                             <td/><td/>
                             <td className="px-3 py-1 text-[10px] font-bold text-violet-500 uppercase tracking-widest">Sale Code · Customer</td>
                             <td className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Project · Plot No · Area</td>
+                            <td className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Type</td>
                             <td className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Per Sq. Y</td>
                             <td className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Brokerage</td>
                           </tr>
@@ -746,6 +758,11 @@ function BrokerReport() {
                                 </td>
                                 <td className="px-3 py-2 text-gray-500">
                                   {s.project?.name || '—'} · {s.plot_no || '—'} · {s.total_area ? `${fmtN(s.total_area)} ${s.area_unit || ''}` : '—'}
+                                </td>
+                                <td className="px-3 py-2">
+                                  {s.type
+                                    ? <span className={`inline-flex px-2 py-0.5 rounded text-[11px] font-semibold ${UNIT_TYPE_BADGE[s.type] || 'bg-gray-50 text-gray-700 ring-1 ring-gray-200'}`}>{UNIT_TYPE_LABEL[s.type] || s.type}</span>
+                                    : <span className="text-gray-400">—</span>}
                                 </td>
                                 <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{perSqY != null ? `₹ ${fmtN(perSqY)}` : '—'}</td>
                                 <td className="px-3 py-2 font-semibold text-violet-700 whitespace-nowrap">₹ {fmt(s.brokerage)}</td>

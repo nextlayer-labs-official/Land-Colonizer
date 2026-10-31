@@ -248,11 +248,11 @@ const brokerReport = async (req, res) => {
     where: salesWhere,
     select: {
       id: true, sale_code: true, actual_price: true, brokerage: true, status: true, created_at: true, sale_date: true,
-      total_area: true, total_area_details: true, broker_id: true, broker_name: true,
+      total_area: true, total_area_details: true, broker_id: true, broker_name: true, type: true,
       customer:  { select: { name: true } },
       inventory: {
         select: {
-          plot_no: true, sl_no: true, front_area: true, back_area: true, area: true, area_unit: true,
+          plot_no: true, sl_no: true, front_area: true, back_area: true, area: true, area_unit: true, type: true,
           project: { select: { id: true, name: true } },
         },
       },
@@ -319,6 +319,7 @@ const brokerReport = async (req, res) => {
         plot_no:    s.inventory?.plot_no || s.inventory?.sl_no || null,
         total_area: s.total_area || s.inventory?.area || null,
         area_unit:  s.inventory?.area_unit || '',
+        type:       s.type || s.inventory?.type || null, // older sales may have no type saved; use the unit's
       })),
       purchases,
     };
