@@ -77,15 +77,8 @@ function DimV({ x, y1, y2, label, side = 'left' }) {
 }
 
 // ── Plot content ──────────────────────────────────────────────────────────────
-function PlotContent({ item, unit, isSel, hideFlags = {}, viewMode = 'status', isHighlighted = false, palette = SC, highlightColor = '#f59e0b' }) {
-  let c;
-  if (viewMode === 'sold') {
-    if (unit?.status === 'AVAILABLE') c = palette.AVAILABLE;
-    else if (unit?.status === 'RESERVED') c = palette.RESERVED;
-    else c = palette.SOLD;
-  } else {
-    c = palette[unit?.status] || DC;
-  }
+function PlotContent({ item, unit, isSel, hideFlags = {}, isHighlighted = false, palette = SC, highlightColor = '#f59e0b' }) {
+  const c = palette[unit?.status] || DC;
   const W   = item.w, H = item.h;
   const gid = `pg-${item.id}`;
   const no  = unit ? (unit.plot_no || unit.sl_no || `#${unit.id}`) : '?';
@@ -447,7 +440,6 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
   // ── New toolbar state ──
   const [hideFlags,        setHideFlags]        = useState({ plotNo: false, totalArea: false, lockSymbol: false, frontBack: false });
   const [searchPlot,       setSearchPlot]       = useState('');
-  const [viewMode,         setViewMode]         = useState('status');
   const [insertType,       setInsertType]       = useState('line');
   const [showFilterPopup,     setShowFilterPopup]     = useState(false);
   // Multi-layout
@@ -1492,14 +1484,13 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
     const counts = {};
     for (const it of visible) {
       if (it.type !== 'plot' || !inArea(it)) continue;
-      const st = unitFor(it.inventory_id)?.status;
-      const key = viewMode === 'sold' ? (st === 'AVAILABLE' || st === 'RESERVED' ? st : 'SOLD') : st;
+      const key = unitFor(it.inventory_id)?.status;
       counts[key] = (counts[key] || 0) + 1;
     }
     const swatch = (bg, bd, label, n) =>
       `<span class="lg"><i style="background:${bg};border-color:${bd}"></i>${escHtml(label)}${n != null ? ` <b>${n}</b>` : ''}</span>`;
     const legend = [
-      ...Object.keys(SC).filter(k => counts[k]).map(k => swatch(effectiveSC[k].bg, effectiveSC[k].bd, viewMode === 'sold' && k === 'SOLD' ? 'Sold (all)' : effectiveSC[k].lb, counts[k])),
+      ...Object.keys(SC).filter(k => counts[k]).map(k => swatch(effectiveSC[k].bg, effectiveSC[k].bd, effectiveSC[k].lb, counts[k])),
       ...(counts.undefined ? [swatch(DC.bg, DC.bd, 'Other', counts.undefined)] : []),
       ...(visible.some(i => i.type === 'road') ? [swatch(ec.road.bg, ec.road.bd, 'Road')] : []),
       ...(visible.some(i => i.type === 'open') ? [swatch(ec.garden.bg, ec.garden.bd, 'Garden')] : []),
@@ -1572,16 +1563,6 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
         </button>}
 
         {(canEdit || canCreateLayout) && <Sep/>}
-
-        {/* Status Wise / Sold Status toggle */}
-        <div style={{ display: 'flex', border: '1px solid #e5e7eb', borderRadius: 6, overflow: 'hidden', flexShrink: 0 }}>
-          {[['status','Status Wise'],['sold','Sold Status']].map(([mode, label]) => (
-            <button key={mode} onClick={() => setViewMode(mode)}
-              style={{ height: 32, padding: '0 10px', fontSize: 11, fontWeight: 600, border: 'none', cursor: 'pointer', background: viewMode === mode ? PRI : '#fff', color: viewMode === mode ? '#fff' : '#6b7280', transition: 'all 0.12s', whiteSpace: 'nowrap' }}>
-              {label}
-            </button>
-          ))}
-        </div>
 
         {/* Search Plot */}
         <div style={{ position: 'relative', flexShrink: 0 }}>
@@ -2105,7 +2086,7 @@ export default function LayoutDesigner({ purchaseId, inventory: inventoryProp = 
                     title={!locked && canEdit && !item.item_locked ? 'Double-click to rotate' : undefined}
                     style={{ ...basePos, touchAction: 'none', cursor: !locked && canEdit && !item.item_locked ? 'move' : 'default', zIndex: isHighlighted && !isSel ? z + Z_HIGHLIGHT : z, opacity: dimmed ? 0.2 : 1, filter: dimmed ? 'grayscale(1)' : 'none', transition: 'opacity 0.2s, filter 0.2s' }}>
                     <svg width={item.w} height={item.h} style={{ overflow: 'visible', display: 'block' }}>
-                      <PlotContent item={item} unit={unit} isSel={isSel} hideFlags={hideFlags} viewMode={viewMode} isHighlighted={isHighlighted} palette={effectiveSC} highlightColor={searchColor}/>
+                      <PlotContent item={item} unit={unit} isSel={isSel} hideFlags={hideFlags} isHighlighted={isHighlighted} palette={effectiveSC} highlightColor={searchColor}/>
                     </svg>
                     {item.id === startPin && <div style={{ position: 'absolute', top: 2, left: 2, background: '#059669', color: 'white', fontSize: 7, fontWeight: 900, padding: '1px 4px', borderRadius: 3, pointerEvents: 'none', lineHeight: 1.4 }}>START</div>}
                     {item.id === endPin   && <div style={{ position: 'absolute', bottom: 2, left: 2, background: '#ea580c', color: 'white', fontSize: 7, fontWeight: 900, padding: '1px 4px', borderRadius: 3, pointerEvents: 'none', lineHeight: 1.4 }}>END</div>}
